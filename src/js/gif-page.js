@@ -761,6 +761,7 @@ export function initGif({ srcView }) {
   });
   selFullBtn.addEventListener('click', () => {
     srcView.setSelect(null);
+    setSelMode(false);
     updateSelInfo();
     rangeChanged();
   });
