@@ -1,0 +1,316 @@
+{
+ "cases": [
+  {
+   "file": "n_flat",
+   "w": 16,
+   "h": 16,
+   "note": "纯平灰 128：期望处处 (128,128,255)",
+   "input": "n_flat.in.bin",
+   "runs": [
+    {
+     "args": {},
+     "expect": "n_flat.run00.bin"
+    },
+    {
+     "args": {
+      "y_up": false
+     },
+     "expect": "n_flat.run01.bin"
+    },
+    {
+     "args": {
+      "invert": true
+     },
+     "expect": "n_flat.run02.bin"
+    },
+    {
+     "args": {
+      "blur": 2
+     },
+     "expect": "n_flat.run03.bin"
+    },
+    {
+     "args": {
+      "strength": 4.0
+     },
+     "expect": "n_flat.run04.bin"
+    },
+    {
+     "args": {
+      "strength": 0.25,
+      "blur": 1
+     },
+     "expect": "n_flat.run05.bin"
+    }
+   ]
+  },
+  {
+   "file": "n_hramp",
+   "w": 41,
+   "h": 9,
+   "note": "水平线性斜坡：R 通道可解析验证",
+   "input": "n_hramp.in.bin",
+   "runs": [
+    {
+     "args": {},
+     "expect": "n_hramp.run00.bin"
+    },
+    {
+     "args": {
+      "y_up": false
+     },
+     "expect": "n_hramp.run01.bin"
+    },
+    {
+     "args": {
+      "invert": true
+     },
+     "expect": "n_hramp.run02.bin"
+    },
+    {
+     "args": {
+      "blur": 2
+     },
+     "expect": "n_hramp.run03.bin"
+    },
+    {
+     "args": {
+      "strength": 4.0
+     },
+     "expect": "n_hramp.run04.bin"
+    },
+    {
+     "args": {
+      "strength": 0.25,
+      "blur": 1
+     },
+     "expect": "n_hramp.run05.bin"
+    }
+   ]
+  },
+  {
+   "file": "n_vramp",
+   "w": 9,
+   "h": 41,
+   "note": "垂直线性斜坡：G 通道区分 DX / OG",
+   "input": "n_vramp.in.bin",
+   "runs": [
+    {
+     "args": {},
+     "expect": "n_vramp.run00.bin"
+    },
+    {
+     "args": {
+      "y_up": false
+     },
+     "expect": "n_vramp.run01.bin"
+    },
+    {
+     "args": {
+      "invert": true
+     },
+     "expect": "n_vramp.run02.bin"
+    },
+    {
+     "args": {
+      "blur": 2
+     },
+     "expect": "n_vramp.run03.bin"
+    },
+    {
+     "args": {
+      "strength": 4.0
+     },
+     "expect": "n_vramp.run04.bin"
+    },
+    {
+     "args": {
+      "strength": 0.25,
+      "blur": 1
+     },
+     "expect": "n_vramp.run05.bin"
+    }
+   ]
+  },
+  {
+   "file": "n_bump",
+   "w": 33,
+   "h": 33,
+   "note": "半球凸起：检查绿通道朝上/朝下",
+   "input": "n_bump.in.bin",
+   "runs": [
+    {
+     "args": {},
+     "expect": "n_bump.run00.bin"
+    },
+    {
+     "args": {
+      "y_up": false
+     },
+     "expect": "n_bump.run01.bin"
+    },
+    {
+     "args": {
+      "invert": true
+     },
+     "expect": "n_bump.run02.bin"
+    },
+    {
+     "args": {
+      "blur": 2
+     },
+     "expect": "n_bump.run03.bin"
+    },
+    {
+     "args": {
+      "strength": 4.0
+     },
+     "expect": "n_bump.run04.bin"
+    },
+    {
+     "args": {
+      "strength": 0.25,
+      "blur": 1
+     },
+     "expect": "n_bump.run05.bin"
+    }
+   ],
+   "images": {
+    "png": "img/n_bump.png",
+    "bmp": "img/n_bump.bmp",
+    "jpg": "img/n_bump.jpg",
+    "webp": "img/n_bump.webp",
+    "tga": "img/n_bump.tga",
+    "dds": "img/n_bump.dds"
+   },
+   "default_run": "n_bump.run00.bin"
+  },
+  {
+   "file": "n_noise",
+   "w": 37,
+   "h": 23,
+   "note": "随机噪声：验证模糊单调压梯度",
+   "input": "n_noise.in.bin",
+   "runs": [
+    {
+     "args": {},
+     "expect": "n_noise.run00.bin"
+    },
+    {
+     "args": {
+      "y_up": false
+     },
+     "expect": "n_noise.run01.bin"
+    },
+    {
+     "args": {
+      "invert": true
+     },
+     "expect": "n_noise.run02.bin"
+    },
+    {
+     "args": {
+      "blur": 2
+     },
+     "expect": "n_noise.run03.bin"
+    },
+    {
+     "args": {
+      "strength": 4.0
+     },
+     "expect": "n_noise.run04.bin"
+    },
+    {
+     "args": {
+      "strength": 0.25,
+      "blur": 1
+     },
+     "expect": "n_noise.run05.bin"
+    },
+    {
+     "args": {
+      "source": "a",
+      "blur": 3,
+      "strength": 2.0,
+      "y_up": false
+     },
+     "expect": "n_noise.run06.bin"
+    }
+   ]
+  },
+  {
+   "file": "n_color",
+   "w": 12,
+   "h": 12,
+   "note": "四通道各不相同：验证 6 种高度来源互不串色",
+   "input": "n_color.in.bin",
+   "runs": [
+    {
+     "args": {},
+     "expect": "n_color.run00.bin"
+    },
+    {
+     "args": {
+      "y_up": false
+     },
+     "expect": "n_color.run01.bin"
+    },
+    {
+     "args": {
+      "invert": true
+     },
+     "expect": "n_color.run02.bin"
+    },
+    {
+     "args": {
+      "blur": 2
+     },
+     "expect": "n_color.run03.bin"
+    },
+    {
+     "args": {
+      "strength": 4.0
+     },
+     "expect": "n_color.run04.bin"
+    },
+    {
+     "args": {
+      "strength": 0.25,
+      "blur": 1
+     },
+     "expect": "n_color.run05.bin"
+    },
+    {
+     "args": {
+      "source": "avg"
+     },
+     "expect": "n_color.run06.bin"
+    },
+    {
+     "args": {
+      "source": "r"
+     },
+     "expect": "n_color.run07.bin"
+    },
+    {
+     "args": {
+      "source": "g"
+     },
+     "expect": "n_color.run08.bin"
+    },
+    {
+     "args": {
+      "source": "b"
+     },
+     "expect": "n_color.run09.bin"
+    },
+    {
+     "args": {
+      "source": "a"
+     },
+     "expect": "n_color.run10.bin"
+    }
+   ]
+  }
+ ]
+}

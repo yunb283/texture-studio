@@ -1,0 +1,3294 @@
+{
+ "cases": [
+  {
+   "file": "s_ramp",
+   "w": 64,
+   "h": 48,
+   "note": "横向斜坡：只有环绕边突变，解析可验证",
+   "input": "s_ramp.in.bin",
+   "runs": [
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 0
+     },
+     "expect": "s_ramp.run00.bin",
+     "metrics": {
+      "lr": 441.6729559300638,
+      "tb": 0.0,
+      "edge": 220.8364779650319,
+      "grad": 3.514638906605281,
+      "ratio": 62.83333333333335
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 0
+     },
+     "expect": "s_ramp.run01.bin",
+     "metrics": {
+      "lr": 441.6729559300638,
+      "tb": 0.0,
+      "edge": 220.8364779650319,
+      "grad": 3.514638906605281,
+      "ratio": 62.83333333333335
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 1
+     },
+     "expect": "s_ramp.run02.bin",
+     "metrics": {
+      "lr": 441.6729559300638,
+      "tb": 0.0,
+      "edge": 220.8364779650319,
+      "grad": 3.514638906605281,
+      "ratio": 62.83333333333335
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 1
+     },
+     "expect": "s_ramp.run03.bin",
+     "metrics": {
+      "lr": 441.6729559300638,
+      "tb": 0.0,
+      "edge": 220.8364779650319,
+      "grad": 3.514638906605281,
+      "ratio": 62.83333333333335
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 2
+     },
+     "expect": "s_ramp.run04.bin",
+     "metrics": {
+      "lr": 441.6729559300638,
+      "tb": 0.0,
+      "edge": 220.8364779650319,
+      "grad": 3.514638906605281,
+      "ratio": 62.83333333333335
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 2
+     },
+     "expect": "s_ramp.run05.bin",
+     "metrics": {
+      "lr": 441.6729559300638,
+      "tb": 0.0,
+      "edge": 220.8364779650319,
+      "grad": 3.514638906605281,
+      "ratio": 62.83333333333335
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 3
+     },
+     "expect": "s_ramp.run06.bin",
+     "metrics": {
+      "lr": 441.6729559300638,
+      "tb": 0.0,
+      "edge": 220.8364779650319,
+      "grad": 3.514638906605281,
+      "ratio": 62.83333333333335
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 3
+     },
+     "expect": "s_ramp.run07.bin",
+     "metrics": {
+      "lr": 441.6729559300638,
+      "tb": 0.0,
+      "edge": 220.8364779650319,
+      "grad": 3.514638906605281,
+      "ratio": 62.83333333333335
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 4
+     },
+     "expect": "s_ramp.run08.bin",
+     "metrics": {
+      "lr": 441.6729559300638,
+      "tb": 0.0,
+      "edge": 220.8364779650319,
+      "grad": 3.514638906605281,
+      "ratio": 62.83333333333335
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 4
+     },
+     "expect": "s_ramp.run09.bin",
+     "metrics": {
+      "lr": 441.6729559300638,
+      "tb": 0.0,
+      "edge": 220.8364779650319,
+      "grad": 3.514638906605281,
+      "ratio": 62.83333333333335
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": true,
+      "levels": 0
+     },
+     "expect": "s_ramp.run10.bin",
+     "metrics": {
+      "lr": 8.660254037844387,
+      "tb": 0.0,
+      "edge": 4.330127018922194,
+      "grad": 6.436613213273202,
+      "ratio": 0.672733761598858
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": false,
+      "levels": 0
+     },
+     "expect": "s_ramp.run11.bin",
+     "metrics": {
+      "lr": 8.660254037844387,
+      "tb": 0.0,
+      "edge": 4.330127018922194,
+      "grad": 6.436613213273202,
+      "ratio": 0.672733761598858
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": true,
+      "levels": 1
+     },
+     "expect": "s_ramp.run12.bin",
+     "metrics": {
+      "lr": 19.05255888325765,
+      "tb": 0.0,
+      "edge": 9.526279441628825,
+      "grad": 5.554507762203641,
+      "ratio": 1.7150537634408602
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": false,
+      "levels": 1
+     },
+     "expect": "s_ramp.run13.bin",
+     "metrics": {
+      "lr": 19.05255888325765,
+      "tb": 0.0,
+      "edge": 9.526279441628825,
+      "grad": 5.554507762203641,
+      "ratio": 1.7150537634408602
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": true,
+      "levels": 2
+     },
+     "expect": "s_ramp.run14.bin",
+     "metrics": {
+      "lr": 15.588457268119896,
+      "tb": 0.0,
+      "edge": 7.794228634059948,
+      "grad": 5.582073557549565,
+      "ratio": 1.3962962962962964
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": false,
+      "levels": 2
+     },
+     "expect": "s_ramp.run15.bin",
+     "metrics": {
+      "lr": 15.588457268119896,
+      "tb": 0.0,
+      "edge": 7.794228634059948,
+      "grad": 5.582073557549565,
+      "ratio": 1.3962962962962964
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": true,
+      "levels": 3
+     },
+     "expect": "s_ramp.run16.bin",
+     "metrics": {
+      "lr": 5.196152422706632,
+      "tb": 0.0,
+      "edge": 2.598076211353316,
+      "grad": 6.050692078430269,
+      "ratio": 0.4293849658314351
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": false,
+      "levels": 3
+     },
+     "expect": "s_ramp.run17.bin",
+     "metrics": {
+      "lr": 5.196152422706632,
+      "tb": 0.0,
+      "edge": 2.598076211353316,
+      "grad": 6.050692078430269,
+      "ratio": 0.4293849658314351
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": true,
+      "levels": 4
+     },
+     "expect": "s_ramp.run18.bin",
+     "metrics": {
+      "lr": 1.732050807568877,
+      "tb": 0.0,
+      "edge": 0.8660254037844385,
+      "grad": 6.188521055159887,
+      "ratio": 0.13994060876020786
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": false,
+      "levels": 4
+     },
+     "expect": "s_ramp.run19.bin",
+     "metrics": {
+      "lr": 1.732050807568877,
+      "tb": 0.0,
+      "edge": 0.8660254037844385,
+      "grad": 6.188521055159887,
+      "ratio": 0.13994060876020786
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 0
+     },
+     "expect": "s_ramp.run20.bin",
+     "metrics": {
+      "lr": 8.660254037844387,
+      "tb": 0.0,
+      "edge": 4.330127018922194,
+      "grad": 4.892928673901471,
+      "ratio": 0.8849765258215962
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 0
+     },
+     "expect": "s_ramp.run21.bin",
+     "metrics": {
+      "lr": 8.660254037844387,
+      "tb": 0.0,
+      "edge": 4.330127018922194,
+      "grad": 4.892928673901471,
+      "ratio": 0.8849765258215962
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 1
+     },
+     "expect": "s_ramp.run22.bin",
+     "metrics": {
+      "lr": 1.732050807568877,
+      "tb": 0.0,
+      "edge": 0.8660254037844385,
+      "grad": 3.3768099298756624,
+      "ratio": 0.2564625850340136
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 1
+     },
+     "expect": "s_ramp.run23.bin",
+     "metrics": {
+      "lr": 1.732050807568877,
+      "tb": 0.0,
+      "edge": 0.8660254037844385,
+      "grad": 3.3768099298756624,
+      "ratio": 0.2564625850340136
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 2
+     },
+     "expect": "s_ramp.run24.bin",
+     "metrics": {
+      "lr": 1.732050807568877,
+      "tb": 0.0,
+      "edge": 0.8660254037844385,
+      "grad": 3.707599474026748,
+      "ratio": 0.23358116480793056
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 2
+     },
+     "expect": "s_ramp.run25.bin",
+     "metrics": {
+      "lr": 1.732050807568877,
+      "tb": 0.0,
+      "edge": 0.8660254037844385,
+      "grad": 3.707599474026748,
+      "ratio": 0.23358116480793056
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 3
+     },
+     "expect": "s_ramp.run26.bin",
+     "metrics": {
+      "lr": 1.732050807568877,
+      "tb": 0.0,
+      "edge": 0.8660254037844385,
+      "grad": 3.707599474026748,
+      "ratio": 0.23358116480793056
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 3
+     },
+     "expect": "s_ramp.run27.bin",
+     "metrics": {
+      "lr": 1.732050807568877,
+      "tb": 0.0,
+      "edge": 0.8660254037844385,
+      "grad": 3.707599474026748,
+      "ratio": 0.23358116480793056
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 4
+     },
+     "expect": "s_ramp.run28.bin",
+     "metrics": {
+      "lr": 1.732050807568877,
+      "tb": 0.0,
+      "edge": 0.8660254037844385,
+      "grad": 3.707599474026748,
+      "ratio": 0.23358116480793056
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 4
+     },
+     "expect": "s_ramp.run29.bin",
+     "metrics": {
+      "lr": 1.732050807568877,
+      "tb": 0.0,
+      "edge": 0.8660254037844385,
+      "grad": 3.707599474026748,
+      "ratio": 0.23358116480793056
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": true,
+      "levels": 0
+     },
+     "expect": "s_ramp.run30.bin",
+     "metrics": {
+      "lr": 8.660254037844387,
+      "tb": 0.0,
+      "edge": 4.330127018922194,
+      "grad": 3.294112543837891,
+      "ratio": 1.3145048814504885
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": false,
+      "levels": 0
+     },
+     "expect": "s_ramp.run31.bin",
+     "metrics": {
+      "lr": 8.660254037844387,
+      "tb": 0.0,
+      "edge": 4.330127018922194,
+      "grad": 3.294112543837891,
+      "ratio": 1.3145048814504885
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": true,
+      "levels": 1
+     },
+     "expect": "s_ramp.run32.bin",
+     "metrics": {
+      "lr": 1.732050807568877,
+      "tb": 0.0,
+      "edge": 0.8660254037844385,
+      "grad": 1.7504280044661598,
+      "ratio": 0.4947506561679789
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": false,
+      "levels": 1
+     },
+     "expect": "s_ramp.run33.bin",
+     "metrics": {
+      "lr": 1.732050807568877,
+      "tb": 0.0,
+      "edge": 0.8660254037844385,
+      "grad": 1.7504280044661598,
+      "ratio": 0.4947506561679789
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": true,
+      "levels": 2
+     },
+     "expect": "s_ramp.run34.bin",
+     "metrics": {
+      "lr": 1.732050807568877,
+      "tb": 0.0,
+      "edge": 0.8660254037844385,
+      "grad": 1.7504280044661598,
+      "ratio": 0.4947506561679789
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": false,
+      "levels": 2
+     },
+     "expect": "s_ramp.run35.bin",
+     "metrics": {
+      "lr": 1.732050807568877,
+      "tb": 0.0,
+      "edge": 0.8660254037844385,
+      "grad": 1.7504280044661598,
+      "ratio": 0.4947506561679789
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": true,
+      "levels": 3
+     },
+     "expect": "s_ramp.run36.bin",
+     "metrics": {
+      "lr": 1.732050807568877,
+      "tb": 0.0,
+      "edge": 0.8660254037844385,
+      "grad": 1.7504280044661598,
+      "ratio": 0.4947506561679789
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": false,
+      "levels": 3
+     },
+     "expect": "s_ramp.run37.bin",
+     "metrics": {
+      "lr": 1.732050807568877,
+      "tb": 0.0,
+      "edge": 0.8660254037844385,
+      "grad": 1.7504280044661598,
+      "ratio": 0.4947506561679789
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": true,
+      "levels": 4
+     },
+     "expect": "s_ramp.run38.bin",
+     "metrics": {
+      "lr": 1.732050807568877,
+      "tb": 0.0,
+      "edge": 0.8660254037844385,
+      "grad": 1.7504280044661598,
+      "ratio": 0.4947506561679789
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": false,
+      "levels": 4
+     },
+     "expect": "s_ramp.run39.bin",
+     "metrics": {
+      "lr": 1.732050807568877,
+      "tb": 0.0,
+      "edge": 0.8660254037844385,
+      "grad": 1.7504280044661598,
+      "ratio": 0.4947506561679789
+     }
+    }
+   ],
+   "metrics": {
+    "lr": 441.6729559300638,
+    "tb": 0.0,
+    "edge": 220.8364779650319,
+    "grad": 3.514638906605281,
+    "ratio": 62.83333333333335
+   }
+  },
+  {
+   "file": "s_crop",
+   "w": 64,
+   "h": 48,
+   "note": "周期场裁块：真实贴图形状（中心连续、四边有缝）",
+   "input": "s_crop.in.bin",
+   "runs": [
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 0
+     },
+     "expect": "s_crop.run00.bin",
+     "metrics": {
+      "lr": 70.75699166166551,
+      "tb": 85.03714568279742,
+      "edge": 77.89706867223146,
+      "grad": 9.272933131934115,
+      "ratio": 8.400477773744495
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 0
+     },
+     "expect": "s_crop.run01.bin",
+     "metrics": {
+      "lr": 70.75699166166551,
+      "tb": 85.03714568279742,
+      "edge": 77.89706867223146,
+      "grad": 9.272933131934115,
+      "ratio": 8.400477773744495
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 1
+     },
+     "expect": "s_crop.run02.bin",
+     "metrics": {
+      "lr": 70.75699166166551,
+      "tb": 85.03714568279742,
+      "edge": 77.89706867223146,
+      "grad": 9.272933131934115,
+      "ratio": 8.400477773744495
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 1
+     },
+     "expect": "s_crop.run03.bin",
+     "metrics": {
+      "lr": 70.75699166166551,
+      "tb": 85.03714568279742,
+      "edge": 77.89706867223146,
+      "grad": 9.272933131934115,
+      "ratio": 8.400477773744495
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 2
+     },
+     "expect": "s_crop.run04.bin",
+     "metrics": {
+      "lr": 70.75699166166551,
+      "tb": 85.03714568279742,
+      "edge": 77.89706867223146,
+      "grad": 9.272933131934115,
+      "ratio": 8.400477773744495
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 2
+     },
+     "expect": "s_crop.run05.bin",
+     "metrics": {
+      "lr": 70.75699166166551,
+      "tb": 85.03714568279742,
+      "edge": 77.89706867223146,
+      "grad": 9.272933131934115,
+      "ratio": 8.400477773744495
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 3
+     },
+     "expect": "s_crop.run06.bin",
+     "metrics": {
+      "lr": 70.75699166166551,
+      "tb": 85.03714568279742,
+      "edge": 77.89706867223146,
+      "grad": 9.272933131934115,
+      "ratio": 8.400477773744495
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 3
+     },
+     "expect": "s_crop.run07.bin",
+     "metrics": {
+      "lr": 70.75699166166551,
+      "tb": 85.03714568279742,
+      "edge": 77.89706867223146,
+      "grad": 9.272933131934115,
+      "ratio": 8.400477773744495
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 4
+     },
+     "expect": "s_crop.run08.bin",
+     "metrics": {
+      "lr": 70.75699166166551,
+      "tb": 85.03714568279742,
+      "edge": 77.89706867223146,
+      "grad": 9.272933131934115,
+      "ratio": 8.400477773744495
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 4
+     },
+     "expect": "s_crop.run09.bin",
+     "metrics": {
+      "lr": 70.75699166166551,
+      "tb": 85.03714568279742,
+      "edge": 77.89706867223146,
+      "grad": 9.272933131934115,
+      "ratio": 8.400477773744495
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": true,
+      "levels": 0
+     },
+     "expect": "s_crop.run10.bin",
+     "metrics": {
+      "lr": 9.077433692260922,
+      "tb": 9.82146130936615,
+      "edge": 9.449447500813536,
+      "grad": 12.734994818138954,
+      "ratio": 0.7420063875765631
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": false,
+      "levels": 0
+     },
+     "expect": "s_crop.run11.bin",
+     "metrics": {
+      "lr": 9.077433692260922,
+      "tb": 9.82146130936615,
+      "edge": 9.449447500813536,
+      "grad": 12.734994818138954,
+      "ratio": 0.7420063875765631
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": true,
+      "levels": 1
+     },
+     "expect": "s_crop.run12.bin",
+     "metrics": {
+      "lr": 6.125504057939793,
+      "tb": 10.492918341860939,
+      "edge": 8.309211199900366,
+      "grad": 10.341610534883644,
+      "ratio": 0.8034736148564363
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": false,
+      "levels": 1
+     },
+     "expect": "s_crop.run13.bin",
+     "metrics": {
+      "lr": 6.125504057939793,
+      "tb": 10.492918341860939,
+      "edge": 8.309211199900366,
+      "grad": 10.341610534883644,
+      "ratio": 0.8034736148564363
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": true,
+      "levels": 2
+     },
+     "expect": "s_crop.run14.bin",
+     "metrics": {
+      "lr": 5.537251357548603,
+      "tb": 9.560672844352169,
+      "edge": 7.548962100950385,
+      "grad": 9.410613846087372,
+      "ratio": 0.8021753123032457
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": false,
+      "levels": 2
+     },
+     "expect": "s_crop.run15.bin",
+     "metrics": {
+      "lr": 5.537251357548603,
+      "tb": 9.560672844352169,
+      "edge": 7.548962100950385,
+      "grad": 9.410613846087372,
+      "ratio": 0.8021753123032457
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": true,
+      "levels": 3
+     },
+     "expect": "s_crop.run16.bin",
+     "metrics": {
+      "lr": 4.548789722523201,
+      "tb": 7.5168221049003305,
+      "edge": 6.0328059137117656,
+      "grad": 9.269527835240343,
+      "ratio": 0.6508212738492031
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": false,
+      "levels": 3
+     },
+     "expect": "s_crop.run17.bin",
+     "metrics": {
+      "lr": 4.548789722523201,
+      "tb": 7.5168221049003305,
+      "edge": 6.0328059137117656,
+      "grad": 9.269527835240343,
+      "ratio": 0.6508212738492031
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": true,
+      "levels": 4
+     },
+     "expect": "s_crop.run18.bin",
+     "metrics": {
+      "lr": 4.541552499842731,
+      "tb": 6.581740680410198,
+      "edge": 5.561646590126465,
+      "grad": 9.693961159534783,
+      "ratio": 0.5737228052183954
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": false,
+      "levels": 4
+     },
+     "expect": "s_crop.run19.bin",
+     "metrics": {
+      "lr": 4.541552499842731,
+      "tb": 6.581740680410198,
+      "edge": 5.561646590126465,
+      "grad": 9.693961159534783,
+      "ratio": 0.5737228052183954
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 0
+     },
+     "expect": "s_crop.run20.bin",
+     "metrics": {
+      "lr": 8.275209149345374,
+      "tb": 9.477862608348621,
+      "edge": 8.876535878846997,
+      "grad": 10.854737748081414,
+      "ratio": 0.8177568251629049
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 0
+     },
+     "expect": "s_crop.run21.bin",
+     "metrics": {
+      "lr": 8.275209149345374,
+      "tb": 9.477862608348621,
+      "edge": 8.876535878846997,
+      "grad": 10.854737748081414,
+      "ratio": 0.8177568251629049
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 1
+     },
+     "expect": "s_crop.run22.bin",
+     "metrics": {
+      "lr": 4.106425941695286,
+      "tb": 5.956623285302119,
+      "edge": 5.031524613498703,
+      "grad": 7.725350597123498,
+      "ratio": 0.6513004879509507
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 1
+     },
+     "expect": "s_crop.run23.bin",
+     "metrics": {
+      "lr": 4.106425941695286,
+      "tb": 5.956623285302119,
+      "edge": 5.031524613498703,
+      "grad": 7.725350597123498,
+      "ratio": 0.6513004879509507
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 2
+     },
+     "expect": "s_crop.run24.bin",
+     "metrics": {
+      "lr": 3.8279605077322727,
+      "tb": 5.397856980408449,
+      "edge": 4.612908744070361,
+      "grad": 7.411167042869575,
+      "ratio": 0.6224267672536848
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 2
+     },
+     "expect": "s_crop.run25.bin",
+     "metrics": {
+      "lr": 3.8279605077322727,
+      "tb": 5.397856980408449,
+      "edge": 4.612908744070361,
+      "grad": 7.411167042869575,
+      "ratio": 0.6224267672536848
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 3
+     },
+     "expect": "s_crop.run26.bin",
+     "metrics": {
+      "lr": 3.8279605077322727,
+      "tb": 5.397856980408449,
+      "edge": 4.612908744070361,
+      "grad": 7.411167042869575,
+      "ratio": 0.6224267672536848
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 3
+     },
+     "expect": "s_crop.run27.bin",
+     "metrics": {
+      "lr": 3.8279605077322727,
+      "tb": 5.397856980408449,
+      "edge": 4.612908744070361,
+      "grad": 7.411167042869575,
+      "ratio": 0.6224267672536848
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 4
+     },
+     "expect": "s_crop.run28.bin",
+     "metrics": {
+      "lr": 3.8279605077322727,
+      "tb": 5.397856980408449,
+      "edge": 4.612908744070361,
+      "grad": 7.411167042869575,
+      "ratio": 0.6224267672536848
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 4
+     },
+     "expect": "s_crop.run29.bin",
+     "metrics": {
+      "lr": 3.8279605077322727,
+      "tb": 5.397856980408449,
+      "edge": 4.612908744070361,
+      "grad": 7.411167042869575,
+      "ratio": 0.6224267672536848
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": true,
+      "levels": 0
+     },
+     "expect": "s_crop.run30.bin",
+     "metrics": {
+      "lr": 7.0246423098746265,
+      "tb": 8.869837583159624,
+      "edge": 7.947239946517126,
+      "grad": 8.97528883426868,
+      "ratio": 0.8854578491305655
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": false,
+      "levels": 0
+     },
+     "expect": "s_crop.run31.bin",
+     "metrics": {
+      "lr": 7.0246423098746265,
+      "tb": 8.869837583159624,
+      "edge": 7.947239946517126,
+      "grad": 8.97528883426868,
+      "ratio": 0.8854578491305655
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": true,
+      "levels": 1
+     },
+     "expect": "s_crop.run32.bin",
+     "metrics": {
+      "lr": 3.7119370327919117,
+      "tb": 5.265043380700348,
+      "edge": 4.48849020674613,
+      "grad": 6.306133501244128,
+      "ratio": 0.7117658079805324
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": false,
+      "levels": 1
+     },
+     "expect": "s_crop.run33.bin",
+     "metrics": {
+      "lr": 3.7119370327919117,
+      "tb": 5.265043380700348,
+      "edge": 4.48849020674613,
+      "grad": 6.306133501244128,
+      "ratio": 0.7117658079805324
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": true,
+      "levels": 2
+     },
+     "expect": "s_crop.run34.bin",
+     "metrics": {
+      "lr": 3.7119370327919117,
+      "tb": 5.265043380700348,
+      "edge": 4.48849020674613,
+      "grad": 6.306133501244128,
+      "ratio": 0.7117658079805324
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": false,
+      "levels": 2
+     },
+     "expect": "s_crop.run35.bin",
+     "metrics": {
+      "lr": 3.7119370327919117,
+      "tb": 5.265043380700348,
+      "edge": 4.48849020674613,
+      "grad": 6.306133501244128,
+      "ratio": 0.7117658079805324
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": true,
+      "levels": 3
+     },
+     "expect": "s_crop.run36.bin",
+     "metrics": {
+      "lr": 3.7119370327919117,
+      "tb": 5.265043380700348,
+      "edge": 4.48849020674613,
+      "grad": 6.306133501244128,
+      "ratio": 0.7117658079805324
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": false,
+      "levels": 3
+     },
+     "expect": "s_crop.run37.bin",
+     "metrics": {
+      "lr": 3.7119370327919117,
+      "tb": 5.265043380700348,
+      "edge": 4.48849020674613,
+      "grad": 6.306133501244128,
+      "ratio": 0.7117658079805324
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": true,
+      "levels": 4
+     },
+     "expect": "s_crop.run38.bin",
+     "metrics": {
+      "lr": 3.7119370327919117,
+      "tb": 5.265043380700348,
+      "edge": 4.48849020674613,
+      "grad": 6.306133501244128,
+      "ratio": 0.7117658079805324
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": false,
+      "levels": 4
+     },
+     "expect": "s_crop.run39.bin",
+     "metrics": {
+      "lr": 3.7119370327919117,
+      "tb": 5.265043380700348,
+      "edge": 4.48849020674613,
+      "grad": 6.306133501244128,
+      "ratio": 0.7117658079805324
+     }
+    }
+   ],
+   "metrics": {
+    "lr": 70.75699166166551,
+    "tb": 85.03714568279742,
+    "edge": 77.89706867223146,
+    "grad": 9.272933131934115,
+    "ratio": 8.400477773744495
+   },
+   "images": {
+    "png": "img/s_crop.png",
+    "bmp": "img/s_crop.bmp",
+    "jpg": "img/s_crop.jpg",
+    "webp": "img/s_crop.webp",
+    "tga": "img/s_crop.tga",
+    "dds": "img/s_crop.dds"
+   },
+   "default_run": "s_crop.run24.bin",
+   "run_single_scale": "s_crop.run20.bin",
+   "run_zero": "s_crop.run06.bin"
+  },
+  {
+   "file": "s_brick",
+   "w": 64,
+   "h": 48,
+   "note": "砖墙：强结构，融合宽度越大越糊",
+   "input": "s_brick.in.bin",
+   "runs": [
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 0
+     },
+     "expect": "s_brick.run00.bin",
+     "metrics": {
+      "lr": 142.89419162443235,
+      "tb": 8.930886976527024,
+      "edge": 75.9125393004797,
+      "grad": 2.1794206945370984,
+      "ratio": 34.83152173913044
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 0
+     },
+     "expect": "s_brick.run01.bin",
+     "metrics": {
+      "lr": 142.89419162443235,
+      "tb": 8.930886976527024,
+      "edge": 75.9125393004797,
+      "grad": 2.1794206945370984,
+      "ratio": 34.83152173913044
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 1
+     },
+     "expect": "s_brick.run02.bin",
+     "metrics": {
+      "lr": 142.89419162443235,
+      "tb": 8.930886976527024,
+      "edge": 75.9125393004797,
+      "grad": 2.1794206945370984,
+      "ratio": 34.83152173913044
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 1
+     },
+     "expect": "s_brick.run03.bin",
+     "metrics": {
+      "lr": 142.89419162443235,
+      "tb": 8.930886976527024,
+      "edge": 75.9125393004797,
+      "grad": 2.1794206945370984,
+      "ratio": 34.83152173913044
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 2
+     },
+     "expect": "s_brick.run04.bin",
+     "metrics": {
+      "lr": 142.89419162443235,
+      "tb": 8.930886976527024,
+      "edge": 75.9125393004797,
+      "grad": 2.1794206945370984,
+      "ratio": 34.83152173913044
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 2
+     },
+     "expect": "s_brick.run05.bin",
+     "metrics": {
+      "lr": 142.89419162443235,
+      "tb": 8.930886976527024,
+      "edge": 75.9125393004797,
+      "grad": 2.1794206945370984,
+      "ratio": 34.83152173913044
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 3
+     },
+     "expect": "s_brick.run06.bin",
+     "metrics": {
+      "lr": 142.89419162443235,
+      "tb": 8.930886976527024,
+      "edge": 75.9125393004797,
+      "grad": 2.1794206945370984,
+      "ratio": 34.83152173913044
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 3
+     },
+     "expect": "s_brick.run07.bin",
+     "metrics": {
+      "lr": 142.89419162443235,
+      "tb": 8.930886976527024,
+      "edge": 75.9125393004797,
+      "grad": 2.1794206945370984,
+      "ratio": 34.83152173913044
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 4
+     },
+     "expect": "s_brick.run08.bin",
+     "metrics": {
+      "lr": 142.89419162443235,
+      "tb": 8.930886976527024,
+      "edge": 75.9125393004797,
+      "grad": 2.1794206945370984,
+      "ratio": 34.83152173913044
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 4
+     },
+     "expect": "s_brick.run09.bin",
+     "metrics": {
+      "lr": 142.89419162443235,
+      "tb": 8.930886976527024,
+      "edge": 75.9125393004797,
+      "grad": 2.1794206945370984,
+      "ratio": 34.83152173913044
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": true,
+      "levels": 0
+     },
+     "expect": "s_brick.run10.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 2.7858681921474218,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": false,
+      "levels": 0
+     },
+     "expect": "s_brick.run11.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 2.11510050539661,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": true,
+      "levels": 1
+     },
+     "expect": "s_brick.run12.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.6224557589700652,
+      "edge": 0.3112278794850326,
+      "grad": 4.929395923994515,
+      "ratio": 0.06313712355099901
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": false,
+      "levels": 1
+     },
+     "expect": "s_brick.run13.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.32475952641916445,
+      "edge": 0.16237976320958222,
+      "grad": 2.445890049547695,
+      "ratio": 0.06638882366752757
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": true,
+      "levels": 2
+     },
+     "expect": "s_brick.run14.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 5.729665420130866,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": false,
+      "levels": 2
+     },
+     "expect": "s_brick.run15.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 2.727290877037334,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": true,
+      "levels": 3
+     },
+     "expect": "s_brick.run16.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 4.122809266424725,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": false,
+      "levels": 3
+     },
+     "expect": "s_brick.run17.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 2.502744502448663,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": true,
+      "levels": 4
+     },
+     "expect": "s_brick.run18.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.3247595264191645,
+      "edge": 0.16237976320958225,
+      "grad": 4.0217346834896714,
+      "ratio": 0.0403755533342853
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": false,
+      "levels": 4
+     },
+     "expect": "s_brick.run19.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.10825317547305482,
+      "edge": 0.05412658773652741,
+      "grad": 2.401095632110569,
+      "ratio": 0.02254245395838316
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 0
+     },
+     "expect": "s_brick.run20.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 0.9332170299401278,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 0
+     },
+     "expect": "s_brick.run21.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 0.2831236896987588,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 1
+     },
+     "expect": "s_brick.run22.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 3.0322374880516154,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 1
+     },
+     "expect": "s_brick.run23.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 0.8126166753017113,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 2
+     },
+     "expect": "s_brick.run24.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.37888611415569184,
+      "edge": 0.18944305707784592,
+      "grad": 3.384849953518224,
+      "ratio": 0.055967933491686446
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 2
+     },
+     "expect": "s_brick.run25.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.13531646934131852,
+      "edge": 0.06765823467065926,
+      "grad": 0.934078461044688,
+      "ratio": 0.07243313864125422
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 3
+     },
+     "expect": "s_brick.run26.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.37888611415569184,
+      "edge": 0.18944305707784592,
+      "grad": 3.384849953518224,
+      "ratio": 0.055967933491686446
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 3
+     },
+     "expect": "s_brick.run27.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.13531646934131852,
+      "edge": 0.06765823467065926,
+      "grad": 0.934078461044688,
+      "ratio": 0.07243313864125422
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 4
+     },
+     "expect": "s_brick.run28.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.37888611415569184,
+      "edge": 0.18944305707784592,
+      "grad": 3.384849953518224,
+      "ratio": 0.055967933491686446
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 4
+     },
+     "expect": "s_brick.run29.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.13531646934131852,
+      "edge": 0.06765823467065926,
+      "grad": 0.934078461044688,
+      "ratio": 0.07243313864125422
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": true,
+      "levels": 0
+     },
+     "expect": "s_brick.run30.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 0.3296409693450052,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": false,
+      "levels": 0
+     },
+     "expect": "s_brick.run31.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 0.0781030868134507,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": true,
+      "levels": 1
+     },
+     "expect": "s_brick.run32.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.13531646934131852,
+      "edge": 0.06765823467065926,
+      "grad": 2.8171668556131055,
+      "ratio": 0.02401641015187035
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": false,
+      "levels": 1
+     },
+     "expect": "s_brick.run33.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 0.6253989819106456,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": true,
+      "levels": 2
+     },
+     "expect": "s_brick.run34.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.13531646934131852,
+      "edge": 0.06765823467065926,
+      "grad": 2.8171668556131055,
+      "ratio": 0.02401641015187035
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": false,
+      "levels": 2
+     },
+     "expect": "s_brick.run35.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 0.6253989819106456,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": true,
+      "levels": 3
+     },
+     "expect": "s_brick.run36.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.13531646934131852,
+      "edge": 0.06765823467065926,
+      "grad": 2.8171668556131055,
+      "ratio": 0.02401641015187035
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": false,
+      "levels": 3
+     },
+     "expect": "s_brick.run37.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 0.6253989819106456,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": true,
+      "levels": 4
+     },
+     "expect": "s_brick.run38.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.13531646934131852,
+      "edge": 0.06765823467065926,
+      "grad": 2.8171668556131055,
+      "ratio": 0.02401641015187035
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": false,
+      "levels": 4
+     },
+     "expect": "s_brick.run39.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 0.6253989819106456,
+      "ratio": 0.0
+     }
+    }
+   ],
+   "metrics": {
+    "lr": 142.89419162443235,
+    "tb": 8.930886976527024,
+    "edge": 75.9125393004797,
+    "grad": 2.1794206945370984,
+    "ratio": 34.83152173913044
+   }
+  },
+  {
+   "file": "s_alpha",
+   "w": 48,
+   "h": 32,
+   "note": "软边圆形：透明像素与预乘混合",
+   "input": "s_alpha.in.bin",
+   "runs": [
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 0
+     },
+     "expect": "s_alpha.run00.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 7.752281754507488,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 0
+     },
+     "expect": "s_alpha.run01.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 7.752281754507488,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 1
+     },
+     "expect": "s_alpha.run02.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 7.752281754507488,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 1
+     },
+     "expect": "s_alpha.run03.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 7.752281754507488,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 2
+     },
+     "expect": "s_alpha.run04.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 7.752281754507488,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 2
+     },
+     "expect": "s_alpha.run05.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 7.752281754507488,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 3
+     },
+     "expect": "s_alpha.run06.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 7.752281754507488,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 3
+     },
+     "expect": "s_alpha.run07.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 7.752281754507488,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 4
+     },
+     "expect": "s_alpha.run08.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 7.752281754507488,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 4
+     },
+     "expect": "s_alpha.run09.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 7.752281754507488,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": true,
+      "levels": 0
+     },
+     "expect": "s_alpha.run10.bin",
+     "metrics": {
+      "lr": 2.7154132369472856,
+      "tb": 1.8102754912981904,
+      "edge": 2.262844364122738,
+      "grad": 20.525194387377734,
+      "ratio": 0.11024715875598756
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": false,
+      "levels": 0
+     },
+     "expect": "s_alpha.run11.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 17.365114901639473,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": true,
+      "levels": 1
+     },
+     "expect": "s_alpha.run12.bin",
+     "metrics": {
+      "lr": 5.155515032737329,
+      "tb": 4.319535904937108,
+      "edge": 4.737525468837218,
+      "grad": 20.63740538307759,
+      "ratio": 0.2295601303021323
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": false,
+      "levels": 1
+     },
+     "expect": "s_alpha.run13.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 13.488590037625013,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": true,
+      "levels": 2
+     },
+     "expect": "s_alpha.run14.bin",
+     "metrics": {
+      "lr": 7.994916752283322,
+      "tb": 9.075831619859585,
+      "edge": 8.535374186071454,
+      "grad": 23.533559125826997,
+      "ratio": 0.36268947422849757
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": false,
+      "levels": 2
+     },
+     "expect": "s_alpha.run15.bin",
+     "metrics": {
+      "lr": 1.3518145582531216,
+      "tb": 2.433312073846566,
+      "edge": 1.8925633160498438,
+      "grad": 11.667752120519872,
+      "ratio": 0.1622046214644401
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": true,
+      "levels": 3
+     },
+     "expect": "s_alpha.run16.bin",
+     "metrics": {
+      "lr": 8.520124655396929,
+      "tb": 11.290224221587712,
+      "edge": 9.90517443849232,
+      "grad": 32.845361011306316,
+      "ratio": 0.30156996706727246
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": false,
+      "levels": 3
+     },
+     "expect": "s_alpha.run17.bin",
+     "metrics": {
+      "lr": 0.7829739584421442,
+      "tb": 1.0520285072531597,
+      "edge": 0.917501232847652,
+      "grad": 12.370246207159383,
+      "ratio": 0.07417000579314585
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": true,
+      "levels": 4
+     },
+     "expect": "s_alpha.run18.bin",
+     "metrics": {
+      "lr": 4.626923696052547,
+      "tb": 13.230075406275569,
+      "edge": 8.928499551164059,
+      "grad": 36.79513978936301,
+      "ratio": 0.24265431799623627
+     }
+    },
+    {
+     "args": {
+      "pct": 0.05,
+      "keep_alpha": false,
+      "levels": 4
+     },
+     "expect": "s_alpha.run19.bin",
+     "metrics": {
+      "lr": 3.558946754836443,
+      "tb": 1.0586155289316013,
+      "edge": 2.308781141884022,
+      "grad": 12.649703905700491,
+      "ratio": 0.1825166153370268
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 0
+     },
+     "expect": "s_alpha.run20.bin",
+     "metrics": {
+      "lr": 2.5106760782969664,
+      "tb": 2.4714758949781976,
+      "edge": 2.491075986637582,
+      "grad": 20.966076003424426,
+      "ratio": 0.11881460251459118
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 0
+     },
+     "expect": "s_alpha.run21.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 16.802432877569434,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 1
+     },
+     "expect": "s_alpha.run22.bin",
+     "metrics": {
+      "lr": 4.363091741706628,
+      "tb": 5.1497984770544365,
+      "edge": 4.756445109380532,
+      "grad": 24.21506539838304,
+      "ratio": 0.1964250366921637
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 1
+     },
+     "expect": "s_alpha.run23.bin",
+     "metrics": {
+      "lr": 0.5858754921257382,
+      "tb": 0.4583333333333333,
+      "edge": 0.5221044127295358,
+      "grad": 13.472149665162574,
+      "ratio": 0.03875435069427989
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 2
+     },
+     "expect": "s_alpha.run24.bin",
+     "metrics": {
+      "lr": 4.368235421207733,
+      "tb": 9.907530134862201,
+      "edge": 7.137882778034967,
+      "grad": 23.40156857936084,
+      "ratio": 0.30501727924042954
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 2
+     },
+     "expect": "s_alpha.run25.bin",
+     "metrics": {
+      "lr": 3.0705288960777937,
+      "tb": 0.8496669892993757,
+      "edge": 1.9600979426885847,
+      "grad": 13.74583344367789,
+      "ratio": 0.14259578735039097
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 3
+     },
+     "expect": "s_alpha.run26.bin",
+     "metrics": {
+      "lr": 4.368235421207733,
+      "tb": 9.907530134862201,
+      "edge": 7.137882778034967,
+      "grad": 23.40156857936084,
+      "ratio": 0.30501727924042954
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 3
+     },
+     "expect": "s_alpha.run27.bin",
+     "metrics": {
+      "lr": 3.0705288960777937,
+      "tb": 0.8496669892993757,
+      "edge": 1.9600979426885847,
+      "grad": 13.74583344367789,
+      "ratio": 0.14259578735039097
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 4
+     },
+     "expect": "s_alpha.run28.bin",
+     "metrics": {
+      "lr": 4.368235421207733,
+      "tb": 9.907530134862201,
+      "edge": 7.137882778034967,
+      "grad": 23.40156857936084,
+      "ratio": 0.30501727924042954
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 4
+     },
+     "expect": "s_alpha.run29.bin",
+     "metrics": {
+      "lr": 3.0705288960777937,
+      "tb": 0.8496669892993757,
+      "edge": 1.9600979426885847,
+      "grad": 13.74583344367789,
+      "ratio": 0.14259578735039097
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": true,
+      "levels": 0
+     },
+     "expect": "s_alpha.run30.bin",
+     "metrics": {
+      "lr": 1.5142744445140548,
+      "tb": 3.3136473984187105,
+      "edge": 2.4139609214663826,
+      "grad": 16.74602512913113,
+      "ratio": 0.14415127786158
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": false,
+      "levels": 0
+     },
+     "expect": "s_alpha.run31.bin",
+     "metrics": {
+      "lr": 0.0,
+      "tb": 0.0,
+      "edge": 0.0,
+      "grad": 14.26556520086183,
+      "ratio": 0.0
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": true,
+      "levels": 1
+     },
+     "expect": "s_alpha.run32.bin",
+     "metrics": {
+      "lr": 2.336127796882238,
+      "tb": 5.19656078845398,
+      "edge": 3.766344292668109,
+      "grad": 17.86474530816787,
+      "ratio": 0.2108255241089899
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": false,
+      "levels": 1
+     },
+     "expect": "s_alpha.run33.bin",
+     "metrics": {
+      "lr": 2.2147771308543813,
+      "tb": 0.6431961365581385,
+      "edge": 1.42898663370626,
+      "grad": 12.673912984910537,
+      "ratio": 0.1127502323400516
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": true,
+      "levels": 2
+     },
+     "expect": "s_alpha.run34.bin",
+     "metrics": {
+      "lr": 2.336127796882238,
+      "tb": 5.19656078845398,
+      "edge": 3.766344292668109,
+      "grad": 17.86474530816787,
+      "ratio": 0.2108255241089899
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": false,
+      "levels": 2
+     },
+     "expect": "s_alpha.run35.bin",
+     "metrics": {
+      "lr": 2.2147771308543813,
+      "tb": 0.6431961365581385,
+      "edge": 1.42898663370626,
+      "grad": 12.673912984910537,
+      "ratio": 0.1127502323400516
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": true,
+      "levels": 3
+     },
+     "expect": "s_alpha.run36.bin",
+     "metrics": {
+      "lr": 2.336127796882238,
+      "tb": 5.19656078845398,
+      "edge": 3.766344292668109,
+      "grad": 17.86474530816787,
+      "ratio": 0.2108255241089899
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": false,
+      "levels": 3
+     },
+     "expect": "s_alpha.run37.bin",
+     "metrics": {
+      "lr": 2.2147771308543813,
+      "tb": 0.6431961365581385,
+      "edge": 1.42898663370626,
+      "grad": 12.673912984910537,
+      "ratio": 0.1127502323400516
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": true,
+      "levels": 4
+     },
+     "expect": "s_alpha.run38.bin",
+     "metrics": {
+      "lr": 2.336127796882238,
+      "tb": 5.19656078845398,
+      "edge": 3.766344292668109,
+      "grad": 17.86474530816787,
+      "ratio": 0.2108255241089899
+     }
+    },
+    {
+     "args": {
+      "pct": 0.3,
+      "keep_alpha": false,
+      "levels": 4
+     },
+     "expect": "s_alpha.run39.bin",
+     "metrics": {
+      "lr": 2.2147771308543813,
+      "tb": 0.6431961365581385,
+      "edge": 1.42898663370626,
+      "grad": 12.673912984910537,
+      "ratio": 0.1127502323400516
+     }
+    }
+   ],
+   "metrics": {
+    "lr": 0.0,
+    "tb": 0.0,
+    "edge": 0.0,
+    "grad": 7.752281754507488,
+    "ratio": 0.0
+   }
+  },
+  {
+   "file": "s_odd",
+   "w": 41,
+   "h": 29,
+   "note": "奇数尺寸 41x29 随机噪声：half=len>>1 的取整，0.5 档必须被拒绝",
+   "input": "s_odd.in.bin",
+   "runs": [
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 0
+     },
+     "expect": "s_odd.run00.bin",
+     "metrics": {
+      "lr": 179.77055767251417,
+      "tb": 169.36930388472376,
+      "edge": 174.56993077861898,
+      "grad": 169.58909260496168,
+      "ratio": 1.0293700384685682
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 0
+     },
+     "expect": "s_odd.run01.bin",
+     "metrics": {
+      "lr": 179.77055767251417,
+      "tb": 169.36930388472376,
+      "edge": 174.56993077861898,
+      "grad": 169.58909260496168,
+      "ratio": 1.0293700384685682
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 1
+     },
+     "expect": "s_odd.run02.bin",
+     "metrics": {
+      "lr": 179.77055767251417,
+      "tb": 169.36930388472376,
+      "edge": 174.56993077861898,
+      "grad": 169.58909260496168,
+      "ratio": 1.0293700384685682
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 1
+     },
+     "expect": "s_odd.run03.bin",
+     "metrics": {
+      "lr": 179.77055767251417,
+      "tb": 169.36930388472376,
+      "edge": 174.56993077861898,
+      "grad": 169.58909260496168,
+      "ratio": 1.0293700384685682
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 2
+     },
+     "expect": "s_odd.run04.bin",
+     "metrics": {
+      "lr": 179.77055767251417,
+      "tb": 169.36930388472376,
+      "edge": 174.56993077861898,
+      "grad": 169.58909260496168,
+      "ratio": 1.0293700384685682
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 2
+     },
+     "expect": "s_odd.run05.bin",
+     "metrics": {
+      "lr": 179.77055767251417,
+      "tb": 169.36930388472376,
+      "edge": 174.56993077861898,
+      "grad": 169.58909260496168,
+      "ratio": 1.0293700384685682
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 3
+     },
+     "expect": "s_odd.run06.bin",
+     "metrics": {
+      "lr": 179.77055767251417,
+      "tb": 169.36930388472376,
+      "edge": 174.56993077861898,
+      "grad": 169.58909260496168,
+      "ratio": 1.0293700384685682
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 3
+     },
+     "expect": "s_odd.run07.bin",
+     "metrics": {
+      "lr": 179.77055767251417,
+      "tb": 169.36930388472376,
+      "edge": 174.56993077861898,
+      "grad": 169.58909260496168,
+      "ratio": 1.0293700384685682
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 4
+     },
+     "expect": "s_odd.run08.bin",
+     "metrics": {
+      "lr": 179.77055767251417,
+      "tb": 169.36930388472376,
+      "edge": 174.56993077861898,
+      "grad": 169.58909260496168,
+      "ratio": 1.0293700384685682
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 4
+     },
+     "expect": "s_odd.run09.bin",
+     "metrics": {
+      "lr": 179.77055767251417,
+      "tb": 169.36930388472376,
+      "edge": 174.56993077861898,
+      "grad": 169.58909260496168,
+      "ratio": 1.0293700384685682
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 0
+     },
+     "expect": "s_odd.run10.bin",
+     "metrics": {
+      "lr": 157.65156011340335,
+      "tb": 186.73406290426976,
+      "edge": 172.19281150883654,
+      "grad": 157.24030380241499,
+      "ratio": 1.0950933529434703
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 0
+     },
+     "expect": "s_odd.run11.bin",
+     "metrics": {
+      "lr": 157.65156011340335,
+      "tb": 186.73406290426976,
+      "edge": 172.19281150883654,
+      "grad": 157.24030380241499,
+      "ratio": 1.0950933529434703
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 1
+     },
+     "expect": "s_odd.run12.bin",
+     "metrics": {
+      "lr": 156.20665723595764,
+      "tb": 185.87288379819998,
+      "edge": 171.0397705170788,
+      "grad": 156.08544627199757,
+      "ratio": 1.095808575381343
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 1
+     },
+     "expect": "s_odd.run13.bin",
+     "metrics": {
+      "lr": 156.20665723595764,
+      "tb": 185.87288379819998,
+      "edge": 171.0397705170788,
+      "grad": 156.08544627199757,
+      "ratio": 1.095808575381343
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 2
+     },
+     "expect": "s_odd.run14.bin",
+     "metrics": {
+      "lr": 152.5927460439639,
+      "tb": 186.02577263723464,
+      "edge": 169.30925934059928,
+      "grad": 155.95463598048406,
+      "ratio": 1.085631461201233
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 2
+     },
+     "expect": "s_odd.run15.bin",
+     "metrics": {
+      "lr": 152.5927460439639,
+      "tb": 186.02577263723464,
+      "edge": 169.30925934059928,
+      "grad": 155.95463598048406,
+      "ratio": 1.085631461201233
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 3
+     },
+     "expect": "s_odd.run16.bin",
+     "metrics": {
+      "lr": 152.5927460439639,
+      "tb": 186.02577263723464,
+      "edge": 169.30925934059928,
+      "grad": 155.95463598048406,
+      "ratio": 1.085631461201233
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 3
+     },
+     "expect": "s_odd.run17.bin",
+     "metrics": {
+      "lr": 152.5927460439639,
+      "tb": 186.02577263723464,
+      "edge": 169.30925934059928,
+      "grad": 155.95463598048406,
+      "ratio": 1.085631461201233
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 4
+     },
+     "expect": "s_odd.run18.bin",
+     "metrics": {
+      "lr": 152.5927460439639,
+      "tb": 186.02577263723464,
+      "edge": 169.30925934059928,
+      "grad": 155.95463598048406,
+      "ratio": 1.085631461201233
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 4
+     },
+     "expect": "s_odd.run19.bin",
+     "metrics": {
+      "lr": 152.5927460439639,
+      "tb": 186.02577263723464,
+      "edge": 169.30925934059928,
+      "grad": 155.95463598048406,
+      "ratio": 1.085631461201233
+     }
+    },
+    {
+     "args": {
+      "pct": 0.49,
+      "keep_alpha": true,
+      "levels": 0
+     },
+     "expect": "s_odd.run20.bin",
+     "metrics": {
+      "lr": 141.7878181805263,
+      "tb": 159.79787457255875,
+      "edge": 150.7928463765425,
+      "grad": 128.23296740669525,
+      "ratio": 1.175928853758003
+     }
+    },
+    {
+     "args": {
+      "pct": 0.49,
+      "keep_alpha": false,
+      "levels": 0
+     },
+     "expect": "s_odd.run21.bin",
+     "metrics": {
+      "lr": 141.7878181805263,
+      "tb": 159.79787457255875,
+      "edge": 150.7928463765425,
+      "grad": 128.23296740669525,
+      "ratio": 1.175928853758003
+     }
+    },
+    {
+     "args": {
+      "pct": 0.49,
+      "keep_alpha": true,
+      "levels": 1
+     },
+     "expect": "s_odd.run22.bin",
+     "metrics": {
+      "lr": 139.00737592806988,
+      "tb": 160.57589926677161,
+      "edge": 149.79163759742073,
+      "grad": 127.67125941624504,
+      "ratio": 1.1732604368619637
+     }
+    },
+    {
+     "args": {
+      "pct": 0.49,
+      "keep_alpha": false,
+      "levels": 1
+     },
+     "expect": "s_odd.run23.bin",
+     "metrics": {
+      "lr": 139.00737592806988,
+      "tb": 160.57589926677161,
+      "edge": 149.79163759742073,
+      "grad": 127.67125941624504,
+      "ratio": 1.1732604368619637
+     }
+    },
+    {
+     "args": {
+      "pct": 0.49,
+      "keep_alpha": true,
+      "levels": 2
+     },
+     "expect": "s_odd.run24.bin",
+     "metrics": {
+      "lr": 139.00737592806988,
+      "tb": 160.57589926677161,
+      "edge": 149.79163759742073,
+      "grad": 127.67125941624504,
+      "ratio": 1.1732604368619637
+     }
+    },
+    {
+     "args": {
+      "pct": 0.49,
+      "keep_alpha": false,
+      "levels": 2
+     },
+     "expect": "s_odd.run25.bin",
+     "metrics": {
+      "lr": 139.00737592806988,
+      "tb": 160.57589926677161,
+      "edge": 149.79163759742073,
+      "grad": 127.67125941624504,
+      "ratio": 1.1732604368619637
+     }
+    },
+    {
+     "args": {
+      "pct": 0.49,
+      "keep_alpha": true,
+      "levels": 3
+     },
+     "expect": "s_odd.run26.bin",
+     "metrics": {
+      "lr": 139.00737592806988,
+      "tb": 160.57589926677161,
+      "edge": 149.79163759742073,
+      "grad": 127.67125941624504,
+      "ratio": 1.1732604368619637
+     }
+    },
+    {
+     "args": {
+      "pct": 0.49,
+      "keep_alpha": false,
+      "levels": 3
+     },
+     "expect": "s_odd.run27.bin",
+     "metrics": {
+      "lr": 139.00737592806988,
+      "tb": 160.57589926677161,
+      "edge": 149.79163759742073,
+      "grad": 127.67125941624504,
+      "ratio": 1.1732604368619637
+     }
+    },
+    {
+     "args": {
+      "pct": 0.49,
+      "keep_alpha": true,
+      "levels": 4
+     },
+     "expect": "s_odd.run28.bin",
+     "metrics": {
+      "lr": 139.00737592806988,
+      "tb": 160.57589926677161,
+      "edge": 149.79163759742073,
+      "grad": 127.67125941624504,
+      "ratio": 1.1732604368619637
+     }
+    },
+    {
+     "args": {
+      "pct": 0.49,
+      "keep_alpha": false,
+      "levels": 4
+     },
+     "expect": "s_odd.run29.bin",
+     "metrics": {
+      "lr": 139.00737592806988,
+      "tb": 160.57589926677161,
+      "edge": 149.79163759742073,
+      "grad": 127.67125941624504,
+      "ratio": 1.1732604368619637
+     }
+    }
+   ],
+   "metrics": {
+    "lr": 179.77055767251417,
+    "tb": 169.36930388472376,
+    "edge": 174.56993077861898,
+    "grad": 169.58909260496168,
+    "ratio": 1.0293700384685682
+   },
+   "rejects": [
+    {
+     "args": {
+      "pct": 0.5,
+      "keep_alpha": true,
+      "levels": 0
+     },
+     "why": "融合宽度太大：横向 21x2>41 或纵向 15x2>29"
+    },
+    {
+     "args": {
+      "pct": 0.5,
+      "keep_alpha": false,
+      "levels": 0
+     },
+     "why": "融合宽度太大：横向 21x2>41 或纵向 15x2>29"
+    },
+    {
+     "args": {
+      "pct": 0.5,
+      "keep_alpha": true,
+      "levels": 1
+     },
+     "why": "融合宽度太大：横向 21x2>41 或纵向 15x2>29"
+    },
+    {
+     "args": {
+      "pct": 0.5,
+      "keep_alpha": false,
+      "levels": 1
+     },
+     "why": "融合宽度太大：横向 21x2>41 或纵向 15x2>29"
+    },
+    {
+     "args": {
+      "pct": 0.5,
+      "keep_alpha": true,
+      "levels": 2
+     },
+     "why": "融合宽度太大：横向 21x2>41 或纵向 15x2>29"
+    },
+    {
+     "args": {
+      "pct": 0.5,
+      "keep_alpha": false,
+      "levels": 2
+     },
+     "why": "融合宽度太大：横向 21x2>41 或纵向 15x2>29"
+    },
+    {
+     "args": {
+      "pct": 0.5,
+      "keep_alpha": true,
+      "levels": 3
+     },
+     "why": "融合宽度太大：横向 21x2>41 或纵向 15x2>29"
+    },
+    {
+     "args": {
+      "pct": 0.5,
+      "keep_alpha": false,
+      "levels": 3
+     },
+     "why": "融合宽度太大：横向 21x2>41 或纵向 15x2>29"
+    },
+    {
+     "args": {
+      "pct": 0.5,
+      "keep_alpha": true,
+      "levels": 4
+     },
+     "why": "融合宽度太大：横向 21x2>41 或纵向 15x2>29"
+    },
+    {
+     "args": {
+      "pct": 0.5,
+      "keep_alpha": false,
+      "levels": 4
+     },
+     "why": "融合宽度太大：横向 21x2>41 或纵向 15x2>29"
+    }
+   ]
+  },
+  {
+   "file": "s_big",
+   "w": 1024,
+   "h": 768,
+   "note": "1024x768 周期场裁块：性能与导出用例",
+   "input": "s_big.in.bin",
+   "runs": [
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 0
+     },
+     "expect": "s_big.run00.bin",
+     "metrics": {
+      "lr": 64.11850680614474,
+      "tb": 89.74960782167405,
+      "edge": 76.93405731390939,
+      "grad": 0.8277561591454982,
+      "ratio": 92.94289926314686
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 0
+     },
+     "expect": "s_big.run01.bin",
+     "metrics": {
+      "lr": 64.11850680614474,
+      "tb": 89.74960782167405,
+      "edge": 76.93405731390939,
+      "grad": 0.8277561591454982,
+      "ratio": 92.94289926314686
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 1
+     },
+     "expect": "s_big.run02.bin",
+     "metrics": {
+      "lr": 64.11850680614474,
+      "tb": 89.74960782167405,
+      "edge": 76.93405731390939,
+      "grad": 0.8277561591454982,
+      "ratio": 92.94289926314686
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 1
+     },
+     "expect": "s_big.run03.bin",
+     "metrics": {
+      "lr": 64.11850680614474,
+      "tb": 89.74960782167405,
+      "edge": 76.93405731390939,
+      "grad": 0.8277561591454982,
+      "ratio": 92.94289926314686
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 2
+     },
+     "expect": "s_big.run04.bin",
+     "metrics": {
+      "lr": 64.11850680614474,
+      "tb": 89.74960782167405,
+      "edge": 76.93405731390939,
+      "grad": 0.8277561591454982,
+      "ratio": 92.94289926314686
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 2
+     },
+     "expect": "s_big.run05.bin",
+     "metrics": {
+      "lr": 64.11850680614474,
+      "tb": 89.74960782167405,
+      "edge": 76.93405731390939,
+      "grad": 0.8277561591454982,
+      "ratio": 92.94289926314686
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": true,
+      "levels": 3
+     },
+     "expect": "s_big.run06.bin",
+     "metrics": {
+      "lr": 64.11850680614474,
+      "tb": 89.74960782167405,
+      "edge": 76.93405731390939,
+      "grad": 0.8277561591454982,
+      "ratio": 92.94289926314686
+     }
+    },
+    {
+     "args": {
+      "pct": 0,
+      "keep_alpha": false,
+      "levels": 3
+     },
+     "expect": "s_big.run07.bin",
+     "metrics": {
+      "lr": 64.11850680614474,
+      "tb": 89.74960782167405,
+      "edge": 76.93405731390939,
+      "grad": 0.8277561591454982,
+      "ratio": 92.94289926314686
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 0
+     },
+     "expect": "s_big.run08.bin",
+     "metrics": {
+      "lr": 0.7895617402245073,
+      "tb": 0.899531663184912,
+      "edge": 0.8445467017047097,
+      "grad": 0.9167375118296843,
+      "ratio": 0.9212524750068408
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 0
+     },
+     "expect": "s_big.run09.bin",
+     "metrics": {
+      "lr": 0.7895617402245073,
+      "tb": 0.899531663184912,
+      "edge": 0.8445467017047097,
+      "grad": 0.9167375118296843,
+      "ratio": 0.9212524750068408
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 1
+     },
+     "expect": "s_big.run10.bin",
+     "metrics": {
+      "lr": 0.8636331712625226,
+      "tb": 0.9647186582617107,
+      "edge": 0.9141759147621167,
+      "grad": 0.9152658281029862,
+      "ratio": 0.9988091838377398
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 1
+     },
+     "expect": "s_big.run11.bin",
+     "metrics": {
+      "lr": 0.8636331712625226,
+      "tb": 0.9647186582617107,
+      "edge": 0.9141759147621167,
+      "grad": 0.9152658281029862,
+      "ratio": 0.9988091838377398
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 2
+     },
+     "expect": "s_big.run12.bin",
+     "metrics": {
+      "lr": 0.8974629471985017,
+      "tb": 0.9858558756919467,
+      "edge": 0.9416594114452241,
+      "grad": 0.914833657058168,
+      "ratio": 1.029323095166087
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 2
+     },
+     "expect": "s_big.run13.bin",
+     "metrics": {
+      "lr": 0.8974629471985017,
+      "tb": 0.9858558756919467,
+      "edge": 0.9416594114452241,
+      "grad": 0.914833657058168,
+      "ratio": 1.029323095166087
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": true,
+      "levels": 3
+     },
+     "expect": "s_big.run14.bin",
+     "metrics": {
+      "lr": 0.8974629471985017,
+      "tb": 0.9858558756919467,
+      "edge": 0.9416594114452241,
+      "grad": 0.914833657058168,
+      "ratio": 1.029323095166087
+     }
+    },
+    {
+     "args": {
+      "pct": 0.15,
+      "keep_alpha": false,
+      "levels": 3
+     },
+     "expect": "s_big.run15.bin",
+     "metrics": {
+      "lr": 0.8974629471985017,
+      "tb": 0.9858558756919467,
+      "edge": 0.9416594114452241,
+      "grad": 0.914833657058168,
+      "ratio": 1.029323095166087
+     }
+    }
+   ],
+   "metrics": {
+    "lr": 64.11850680614474,
+    "tb": 89.74960782167405,
+    "edge": 76.93405731390939,
+    "grad": 0.8277561591454982,
+    "ratio": 92.94289926314686
+   },
+   "images": {
+    "png": "img/s_big.png",
+    "bmp": "img/s_big.bmp",
+    "jpg": "img/s_big.jpg",
+    "webp": "img/s_big.webp",
+    "tga": "img/s_big.tga",
+    "dds": "img/s_big.dds"
+   },
+   "default_run": "s_big.run12.bin",
+   "run_single_scale": "s_big.run08.bin",
+   "run_zero": "s_big.run06.bin"
+  }
+ ]
+}

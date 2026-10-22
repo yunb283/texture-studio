@@ -1,0 +1,102 @@
+{
+ "cases": [
+  {
+   "file": "p4_bitmap.pbm",
+   "expect": "p4_bitmap.pbm.bin",
+   "w": 5,
+   "h": 3,
+   "note": "P4 1=黑"
+  },
+  {
+   "file": "p1_bitmap.pbm",
+   "expect": "p1_bitmap.pbm.bin",
+   "w": 5,
+   "h": 3,
+   "note": "P1 ASCII 位图"
+  },
+  {
+   "file": "p5_gray.pgm",
+   "expect": "p5_gray.pgm.bin",
+   "w": 5,
+   "h": 3,
+   "note": "P5 灰度 maxval=255"
+  },
+  {
+   "file": "p2_gray.pgm",
+   "expect": "p2_gray.pgm.bin",
+   "w": 5,
+   "h": 3,
+   "note": "P2 ASCII 灰度"
+  },
+  {
+   "file": "p6_rgb.ppm",
+   "expect": "p6_rgb.ppm.bin",
+   "w": 5,
+   "h": 3,
+   "note": "P6 RGB maxval=255"
+  },
+  {
+   "file": "p3_rgb.ppm",
+   "expect": "p3_rgb.ppm.bin",
+   "w": 5,
+   "h": 3,
+   "note": "P3 ASCII RGB"
+  },
+  {
+   "file": "p6_rgb_16.ppm",
+   "expect": "p6_rgb_16.ppm.bin",
+   "w": 5,
+   "h": 3,
+   "note": "P6 16 位 maxval=65535"
+  },
+  {
+   "file": "p5_gray_16.pgm",
+   "expect": "p5_gray_16.pgm.bin",
+   "w": 5,
+   "h": 3,
+   "note": "P5 16 位 maxval=1000"
+  },
+  {
+   "file": "p7_rgb.pam",
+   "expect": "p7_rgb.pam.bin",
+   "w": 5,
+   "h": 3,
+   "note": "P7 RGB"
+  },
+  {
+   "file": "p7_rgba.pam",
+   "expect": "p7_rgba.pam.bin",
+   "w": 5,
+   "h": 3,
+   "note": "P7 RGB_ALPHA"
+  },
+  {
+   "file": "p7_gray_a.pam",
+   "expect": "p7_gray_a.pam.bin",
+   "w": 5,
+   "h": 3,
+   "note": "P7 GRAYSCALE_ALPHA"
+  },
+  {
+   "file": "p7_bitmap.pam",
+   "expect": "p7_bitmap.pam.bin",
+   "w": 5,
+   "h": 3,
+   "note": "P7 BITMAP 1=黑"
+  },
+  {
+   "file": "p7_rgba_16.pam",
+   "expect": "p7_rgba_16.pam.bin",
+   "w": 5,
+   "h": 3,
+   "note": "P7 16 位 RGB_ALPHA"
+  },
+  {
+   "file": "p7_imagetype.pam",
+   "expect": "p7_imagetype.pam.bin",
+   "w": 5,
+   "h": 3,
+   "note": "P7 含 IMAGETYPE"
+  }
+ ]
+}

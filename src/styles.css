@@ -1,0 +1,429 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: #202020;
+  color: #d9dae0;
+  font-size: 13px;
+  font-family: "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI", sans-serif;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  user-select: none;
+}
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  padding: 8px 8px 0;
+}
+
+.tab {
+  background: #1a1d29;
+  color: #b9bac1;
+  border: 1px solid #262a38;
+  border-radius: 3px;
+  padding: 7px 24px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.tab:hover {
+  background: #232838;
+  color: #e4e5ea;
+}
+
+.tab.active {
+  background: #4174d6;
+  color: #fff;
+  border-color: #4174d6;
+  font-weight: 600;
+}
+
+.pin-btn {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 9px;
+  background: #1a1d29;
+  color: #b9bac1;
+  border: 1px solid #262a38;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.pin-btn:hover {
+  background: #232838;
+  color: #e4e5ea;
+}
+
+.pin-btn.on {
+  background: #4174d6;
+  border-color: #4174d6;
+  color: #fff;
+}
+
+.page {
+  flex: 1;
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  min-height: 0;
+}
+
+.hidden {
+  display: none;
+}
+
+.panel {
+  background: #20222e;
+  border: 1px solid #2c2f3c;
+  border-radius: 4px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 260px;
+  min-height: 0;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panel-title {
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.canvas-wrap {
+  flex: 1;
+  min-height: 120px;
+  position: relative;
+}
+
+.canvas-wrap canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+}
+
+.dim-label {
+  color: #a6aab4;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.help-label {
+  color: #9a9ba3;
+  font-size: 12px;
+  line-height: 1.6;
+  user-select: text;
+}
+
+.status {
+  color: #6fd3f5;
+  font-size: 12px;
+  padding-top: 3px;
+  min-height: 18px;
+  word-break: break-all;
+  user-select: text;
+}
+
+.btn {
+  background: #34333c;
+  color: #f2f2f5;
+  border: 1px solid #47464f;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  background: #3e3d47;
+  border-color: #585762;
+}
+
+.btn:active {
+  background: #2c2b34;
+}
+
+.btn:disabled {
+  color: #6a6c75;
+  background: #24262e;
+  border-color: #34363e;
+  cursor: default;
+}
+
+.btn.primary {
+  background: #39c7ed;
+  border: none;
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  min-height: 38px;
+  width: 100%;
+}
+
+.btn.primary:hover {
+  background: #4fd0f2;
+}
+
+.btn.primary:disabled {
+  background: #2a2c38;
+  color: #6a6c75;
+}
+
+.btn.small {
+  min-width: 60px;
+}
+
+.btn.mini-btn {
+  padding: 1px 4px;
+  font-size: 11px;
+  border-radius: 3px;
+  min-width: 40px;
+}
+
+.ctrl-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.pos-label {
+  min-width: 56px;
+  color: #d9dae0;
+  white-space: nowrap;
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: #6cbbf7;
+  height: 20px;
+}
+
+input[type="number"],
+input[type="text"],
+select {
+  background: #2d2d35;
+  border: 1px solid #464650;
+  border-radius: 4px;
+  padding: 4px 6px;
+  color: #f6f5f9;
+  font-size: 13px;
+  width: 100%;
+}
+
+input.fps-input {
+  width: 64px;
+  flex: 0 0 64px;
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: #4174d6;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 10px;
+  align-items: center;
+}
+
+.form-grid > label {
+  color: #d9dae0;
+  white-space: nowrap;
+}
+
+.size-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.size-row input {
+  flex: 1;
+}
+
+.size-row select {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+/* 滑块 + 数字框同排：滑块吃满剩余宽度，数字框固定窄列 */
+.dual-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dual-row input[type="range"] {
+  flex: 1;
+}
+
+.dual-row input[type="number"] {
+  flex: 0 0 62px;
+  width: 62px;
+}
+
+/* 贴图处理页两侧预览等大后，内容较少的一侧把说明文字压到面板底部 */
+#page-normal .help-label,
+#page-seamless .help-label {
+  margin-top: auto;
+}
+
+.chk {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+}
+
+.chk.inline {
+  white-space: nowrap;
+}
+
+.chk input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: #39c7ed;
+  cursor: pointer;
+}
+
+.bg-btns {
+  display: flex;
+  gap: 2px;
+}
+
+.bg-btn {
+  width: 26px;
+  height: 20px;
+  border: 1px solid #45454f;
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.bg-btn.checked {
+  border-color: #39c7ed;
+  background: #22333c;
+}
+
+.bg-swatch {
+  display: block;
+  margin: 3px 5px;
+  width: 14px;
+  height: 12px;
+  border-radius: 1px;
+}
+
+.bg-swatch.black {
+  background: #000;
+}
+
+.bg-swatch.light {
+  background: #d9d9d9;
+}
+
+.bg-swatch.dark {
+  background: #1a1a22;
+}
+
+.bg-swatch.checker {
+  background: repeating-conic-gradient(#909098 0% 25%, #515159 0% 50%);
+  background-size: 8px 8px;
+}
+
+.frame-list {
+  flex: 1;
+  min-height: 100px;
+  overflow-y: auto;
+  background: #1a1b24;
+  border: 1px solid #2c2f3c;
+  border-radius: 4px;
+  padding: 2px;
+  outline: none;
+}
+
+.frame-list:focus {
+  border-color: #4174d6;
+}
+
+.frame-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  min-height: 24px;
+}
+
+.frame-row.selected {
+  background: rgba(43, 58, 92, 235);
+}
+
+.frame-row.hidden-frame {
+  background: rgba(38, 38, 46, 160);
+}
+
+.frame-row img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  background: repeating-conic-gradient(#909098 0% 25%, #515159 0% 50%);
+  background-size: 6px 6px;
+  border-radius: 2px;
+}
+
+.frame-row .name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.frame-row.hidden-frame .name {
+  color: #6a6b74;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3a3d48;
+  border-radius: 5px;
+  min-height: 24px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4c505c;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}

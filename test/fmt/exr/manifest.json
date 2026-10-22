@@ -1,0 +1,279 @@
+{
+ "cases": [
+  {
+   "file": "e_none_f_rgb.exr",
+   "w": 33,
+   "h": 17,
+   "channels": 3,
+   "note": "未压缩 float RGB（ffmpeg 编码）",
+   "expect": "e_none_f_rgb.exr.expect.bin",
+   "ilm_channels": [
+    "RGB"
+   ],
+   "ilm_compression": "Compression.NO_COMPRESSION",
+   "vs_ffmpeg": 0.00044251978397369385,
+   "expect8": "e_none_f_rgb.exr.expect8.bin",
+   "expect8_from": "ffmpeg-rgba-png"
+  },
+  {
+   "file": "e_none_f_rgba.exr",
+   "w": 33,
+   "h": 17,
+   "channels": 4,
+   "note": "未压缩 float RGBA（ffmpeg 编码）",
+   "expect": "e_none_f_rgba.exr.expect.bin",
+   "ilm_channels": [
+    "RGBA"
+   ],
+   "ilm_compression": "Compression.NO_COMPRESSION",
+   "vs_ffmpeg": 0.0,
+   "expect8": "e_none_f_rgba.exr.expect8.bin",
+   "expect8_from": "ffmpeg-rgba-png"
+  },
+  {
+   "file": "e_none_h_rgb.exr",
+   "w": 33,
+   "h": 17,
+   "channels": 3,
+   "note": "未压缩 half RGB（ffmpeg 编码）",
+   "expect": "e_none_h_rgb.exr.expect.bin",
+   "ilm_channels": [
+    "RGB"
+   ],
+   "ilm_compression": "Compression.NO_COMPRESSION",
+   "vs_ffmpeg": 0.00047363340854644775,
+   "expect8": "e_none_h_rgb.exr.expect8.bin",
+   "expect8_from": "ffmpeg-rgba-png"
+  },
+  {
+   "file": "e_rle_f_rgb.exr",
+   "w": 33,
+   "h": 17,
+   "channels": 3,
+   "note": "RLE float（ffmpeg 编码）",
+   "expect": "e_rle_f_rgb.exr.expect.bin",
+   "ilm_channels": [
+    "RGB"
+   ],
+   "ilm_compression": "Compression.RLE_COMPRESSION",
+   "vs_ffmpeg": 0.00044251978397369385,
+   "expect8": "e_rle_f_rgb.exr.expect8.bin",
+   "expect8_from": "ffmpeg-rgba-png"
+  },
+  {
+   "file": "e_rle_f_rgba.exr",
+   "w": 33,
+   "h": 17,
+   "channels": 4,
+   "note": "RLE float RGBA（ffmpeg 编码）",
+   "expect": "e_rle_f_rgba.exr.expect.bin",
+   "ilm_channels": [
+    "RGBA"
+   ],
+   "ilm_compression": "Compression.RLE_COMPRESSION",
+   "vs_ffmpeg": 0.0,
+   "expect8": "e_rle_f_rgba.exr.expect8.bin",
+   "expect8_from": "ffmpeg-rgba-png"
+  },
+  {
+   "file": "e_rle_h_rgb.exr",
+   "w": 33,
+   "h": 17,
+   "channels": 3,
+   "note": "RLE half（ffmpeg 编码）",
+   "expect": "e_rle_h_rgb.exr.expect.bin",
+   "ilm_channels": [
+    "RGB"
+   ],
+   "ilm_compression": "Compression.RLE_COMPRESSION",
+   "vs_ffmpeg": 0.00047363340854644775,
+   "expect8": "e_rle_h_rgb.exr.expect8.bin",
+   "expect8_from": "ffmpeg-rgba-png"
+  },
+  {
+   "file": "e_zip1_f_rgb.exr",
+   "w": 33,
+   "h": 17,
+   "channels": 3,
+   "note": "ZIPS（单行块）float（ffmpeg 编码）",
+   "expect": "e_zip1_f_rgb.exr.expect.bin",
+   "ilm_channels": [
+    "RGB"
+   ],
+   "ilm_compression": "Compression.ZIPS_COMPRESSION",
+   "vs_ffmpeg": 0.00044251978397369385,
+   "expect8": "e_zip1_f_rgb.exr.expect8.bin",
+   "expect8_from": "ffmpeg-rgba-png"
+  },
+  {
+   "file": "e_zip1_f_rgba.exr",
+   "w": 33,
+   "h": 17,
+   "channels": 4,
+   "note": "ZIPS float RGBA（ffmpeg 编码）",
+   "expect": "e_zip1_f_rgba.exr.expect.bin",
+   "ilm_channels": [
+    "RGBA"
+   ],
+   "ilm_compression": "Compression.ZIPS_COMPRESSION",
+   "vs_ffmpeg": 0.0,
+   "expect8": "e_zip1_f_rgba.exr.expect8.bin",
+   "expect8_from": "ffmpeg-rgba-png"
+  },
+  {
+   "file": "e_zip1_h_rgb.exr",
+   "w": 33,
+   "h": 17,
+   "channels": 3,
+   "note": "ZIPS half（ffmpeg 编码）",
+   "expect": "e_zip1_h_rgb.exr.expect.bin",
+   "ilm_channels": [
+    "RGB"
+   ],
+   "ilm_compression": "Compression.ZIPS_COMPRESSION",
+   "vs_ffmpeg": 0.00047363340854644775,
+   "expect8": "e_zip1_h_rgb.exr.expect8.bin",
+   "expect8_from": "ffmpeg-rgba-png"
+  },
+  {
+   "file": "e_zip16_f_rgb.exr",
+   "w": 33,
+   "h": 17,
+   "channels": 3,
+   "note": "ZIP（16 行块）float（ffmpeg 编码）",
+   "expect": "e_zip16_f_rgb.exr.expect.bin",
+   "ilm_channels": [
+    "RGB"
+   ],
+   "ilm_compression": "Compression.ZIP_COMPRESSION",
+   "vs_ffmpeg": 0.00044251978397369385,
+   "expect8": "e_zip16_f_rgb.exr.expect8.bin",
+   "expect8_from": "ffmpeg-rgba-png"
+  },
+  {
+   "file": "e_zip16_f_rgba.exr",
+   "w": 33,
+   "h": 17,
+   "channels": 4,
+   "note": "ZIP float RGBA（ffmpeg 编码）",
+   "expect": "e_zip16_f_rgba.exr.expect.bin",
+   "ilm_channels": [
+    "RGBA"
+   ],
+   "ilm_compression": "Compression.ZIP_COMPRESSION",
+   "vs_ffmpeg": 0.0,
+   "expect8": "e_zip16_f_rgba.exr.expect8.bin",
+   "expect8_from": "ffmpeg-rgba-png"
+  },
+  {
+   "file": "e_zip16_f_odd.exr",
+   "w": 33,
+   "h": 17,
+   "channels": 3,
+   "note": "高 17 行：末块不足 16 行（ffmpeg 编码）",
+   "expect": "e_zip16_f_odd.exr.expect.bin",
+   "ilm_channels": [
+    "RGB"
+   ],
+   "ilm_compression": "Compression.ZIP_COMPRESSION",
+   "vs_ffmpeg": 0.00044251978397369385,
+   "expect8": "e_zip16_f_odd.exr.expect8.bin",
+   "expect8_from": "ffmpeg-rgba-png"
+  },
+  {
+   "file": "e_none_f_gray.exr",
+   "w": 33,
+   "h": 17,
+   "channels": 1,
+   "note": "单通道 Y float（ffmpeg 编码）",
+   "expect": "e_none_f_gray.exr.expect.bin",
+   "ilm_channels": [
+    "Y"
+   ],
+   "ilm_compression": "Compression.NO_COMPRESSION",
+   "vs_ffmpeg": 0.9007706046104431
+  },
+  {
+   "file": "e_zip16_f_gray.exr",
+   "w": 33,
+   "h": 17,
+   "channels": 1,
+   "note": "单通道 Y ZIP（ffmpeg 编码）",
+   "expect": "e_zip16_f_gray.exr.expect.bin",
+   "ilm_channels": [
+    "Y"
+   ],
+   "ilm_compression": "Compression.ZIP_COMPRESSION",
+   "vs_ffmpeg": 0.9007706046104431
+  },
+  {
+   "file": "e_rle_h_big.exr",
+   "w": 37,
+   "h": 23,
+   "channels": 4,
+   "note": "RLE half，非 4 倍尺寸 37x23（ffmpeg 编码）",
+   "expect": "e_rle_h_big.exr.expect.bin",
+   "ilm_channels": [
+    "RGBA"
+   ],
+   "ilm_compression": "Compression.RLE_COMPRESSION",
+   "vs_ffmpeg": 0.0,
+   "expect8": "e_rle_h_big.exr.expect8.bin",
+   "expect8_from": "ffmpeg-rgba-png"
+  },
+  {
+   "file": "e_zip16_f_1k.exr",
+   "w": 1024,
+   "h": 768,
+   "channels": 4,
+   "note": "1024x768 float RGBA ZIP，计时用",
+   "expect": "e_zip16_f_1k.exr.expect.bin",
+   "ilm_channels": [
+    "RGBA"
+   ],
+   "ilm_compression": "Compression.ZIP_COMPRESSION",
+   "vs_ffmpeg": 0.0,
+   "expect8": "e_zip16_f_1k.exr.expect8.bin",
+   "expect8_from": "ffmpeg-rgba-png"
+  },
+  {
+   "file": "e_offset_f_rgb.exr",
+   "w": 33,
+   "h": 17,
+   "channels": 3,
+   "note": "dataWindow 起点 (5,3)，未压缩 float",
+   "expect": "e_offset_f_rgb.exr.expect.bin",
+   "ilm_channels": [
+    "RGB"
+   ],
+   "ilm_compression": "Compression.NO_COMPRESSION",
+   "vs_ffmpeg": null
+  },
+  {
+   "file": "e_decr_f_rgb.exr",
+   "w": 33,
+   "h": 17,
+   "channels": 3,
+   "note": "lineOrder=DECREASING_Y，未压缩 float",
+   "expect_from": "e_none_f_rgb.exr",
+   "expect": "e_decr_f_rgb.exr.expect.bin",
+   "reference": "derived:e_none_f_rgb.exr",
+   "vs_ffmpeg": null,
+   "expect8": "e_decr_f_rgb.exr.expect8.bin",
+   "expect8_from": "derived:e_none_f_rgb.exr"
+  },
+  {
+   "file": "e_zip16_decr_f_1k.exr",
+   "w": 1024,
+   "h": 768,
+   "channels": 4,
+   "note": "1024x768 DECREASING_Y + ZIP 多块",
+   "expect_from": "e_zip16_f_1k.exr",
+   "expect": "e_zip16_decr_f_1k.exr.expect.bin",
+   "reference": "derived:e_zip16_f_1k.exr",
+   "vs_ffmpeg": null,
+   "expect8": "e_zip16_decr_f_1k.exr.expect8.bin",
+   "expect8_from": "derived:e_zip16_f_1k.exr"
+  }
+ ]
+}

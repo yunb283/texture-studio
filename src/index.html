@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>序列图工具</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="tabs">
+      <button class="tab active" id="tab-split">序列图分割</button>
+      <button class="tab" id="tab-merge">序列图合并</button>
+      <button class="tab" id="tab-convert">图片格式转换</button>
+      <button class="tab" id="tab-normal">贴图转法线</button>
+      <button class="tab" id="tab-seamless">无缝贴图</button>
+      <button class="pin-btn" id="pin-top" title="总在最前" aria-pressed="false">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 17v5" />
+          <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="page" id="page-split">
+      <div class="panel" style="flex: 42">
+        <div class="panel-head">
+          <span class="panel-title">源图</span>
+          <div class="bg-btns" id="src-bg"></div>
+        </div>
+        <div class="canvas-wrap"><canvas id="src-canvas"></canvas></div>
+        <div class="dim-label" id="split-info">图像尺寸：-  |  总帧数：-</div>
+        <button class="btn" id="split-open">打开图片…（或拖入序列贴图）</button>
+        <button class="btn" id="split-clear" disabled>清空图片</button>
+        <div class="help-label">
+          支持导入：PNG、JPG、BMP、GIF、WEBP、TGA、TIF / TIFF
+        </div>
+      </div>
+      <div class="panel" style="flex: 58">
+        <div class="panel-head">
+          <span class="panel-title">帧预览</span>
+          <div class="bg-btns" id="split-prev-bg"></div>
+        </div>
+        <div class="canvas-wrap"><canvas id="frame-canvas"></canvas></div>
+        <input type="range" id="split-slider" min="0" max="0" value="0" />
+        <div class="ctrl-row">
+          <span class="pos-label" id="split-pos">0/0</span>
+          <span class="spacer"></span>
+          <span class="dim-label">帧率</span>
+          <input type="number" class="fps-input" id="split-fps" min="1" max="240" value="30" />
+          <button class="btn small" id="split-play">播放</button>
+          <button class="btn small" id="split-reset">重置</button>
+        </div>
+        <div class="form-grid">
+          <label>列数</label>
+          <input type="number" id="split-cols" min="1" max="256" value="8" />
+          <label>行数</label>
+          <input type="number" id="split-rows" min="1" max="256" value="8" />
+          <label>文件名</label>
+          <div class="size-row">
+            <input type="text" id="split-name" value="NewSprite" />
+            <select id="split-fmt">
+              <option>PNG</option>
+              <option>TGA</option>
+            </select>
+          </div>
+        </div>
+        <label class="chk">
+          <input type="checkbox" id="split-save-orig" checked />
+          <span>保存到原图所在目录</span>
+        </label>
+        <button class="btn primary" id="split-save" disabled>分割并保存</button>
+        <div class="status" id="split-status"></div>
+      </div>
+    </div>
+
+    <div class="page hidden" id="page-merge">
+      <div class="panel" style="flex: 32">
+        <div class="panel-head">
+          <span class="panel-title" id="merge-count">图片数：0</span>
+        </div>
+        <div class="frame-list" id="merge-list" tabindex="0"></div>
+        <div class="ctrl-row">
+          <button class="btn" id="merge-add">添加图片…</button>
+          <button class="btn" id="merge-clear">清空列表</button>
+        </div>
+        <div class="help-label">支持导入：PNG、JPG、BMP、GIF、WEBP、TGA、TIF / TIFF</div>
+      </div>
+      <div class="panel" style="flex: 68">
+        <div class="panel-head">
+          <span class="panel-title">预览</span>
+          <div class="bg-btns" id="merge-prev-bg"></div>
+        </div>
+        <div class="canvas-wrap"><canvas id="merge-canvas"></canvas></div>
+        <div class="ctrl-row">
+          <button class="btn small" id="merge-play">播放</button>
+          <span class="pos-label" id="merge-pos">0/0</span>
+          <span class="spacer"></span>
+          <label class="chk inline">
+            <input type="checkbox" id="merge-grid" />
+            <span>显示边界</span>
+          </label>
+          <span class="dim-label">帧率</span>
+          <input type="number" class="fps-input" id="merge-fps" min="1" max="240" value="30" />
+        </div>
+        <input type="range" id="merge-slider" min="1" max="1" value="1" />
+        <div class="form-grid">
+          <label>列数</label>
+          <input type="number" id="merge-cols" min="1" max="256" value="8" />
+          <label class="chk">
+            <input type="checkbox" id="merge-rotate" />
+            <span>每帧顺时针旋转90°</span>
+          </label>
+          <span></span>
+          <label>合并后尺寸</label>
+          <span class="dim-label" id="merge-size">0 x 0 px</span>
+          <label>输出尺寸</label>
+          <div class="size-row">
+            <input type="number" id="merge-out-w" min="1" max="16384" value="1024" />
+            <span>×</span>
+            <input type="number" id="merge-out-h" min="1" max="16384" value="1024" />
+          </div>
+          <label>输出格式</label>
+          <select id="merge-fmt">
+            <option>PNG</option>
+            <option>TGA</option>
+            <option>JPG</option>
+          </select>
+        </div>
+        <label class="chk">
+          <input type="checkbox" id="merge-save-orig" checked />
+          <span>保存到第一张图所在目录</span>
+        </label>
+        <button class="btn" id="merge-preview-btn" disabled>预览</button>
+        <button class="btn primary" id="merge-save" disabled>合并并保存</button>
+        <div class="status" id="merge-status"></div>
+      </div>
+    </div>
+
+    <div class="page hidden" id="page-convert">
+      <div class="panel" style="flex: 42">
+        <div class="panel-head">
+          <span class="panel-title">图片预览</span>
+          <div class="bg-btns" id="conv-prev-bg"></div>
+        </div>
+        <div class="canvas-wrap"><canvas id="conv-canvas"></canvas></div>
+        <div class="dim-label" id="conv-info">图像尺寸：-  |  大小：-  |  格式：-</div>
+        <button class="btn" id="conv-open">打开图片…（或拖入图片）</button>
+        <button class="btn" id="conv-clear" disabled>清空图片</button>
+        <div class="help-label">
+          支持导入：PNG、JPEG、BMP、GIF、WEBP、TGA、TIF / TIFF、HDR / RGBE、DDS、OpenEXR、PNM /
+          PPM / PGM / PBM / PAM<br />
+          支持导出：PNG、JPEG、TGA（HDR / EXR 等高位深图会量化为 8 位）
+        </div>
+      </div>
+      <div class="panel" style="flex: 58">
+        <div class="panel-head">
+          <span class="panel-title">导出设置</span>
+        </div>
+        <div class="form-grid">
+          <label>导出格式</label>
+          <select id="conv-fmt">
+            <option>PNG</option>
+            <option>JPEG</option>
+            <option>TGA</option>
+          </select>
+          <label>文件名</label>
+          <input type="text" id="conv-name" placeholder="留空则沿用原文件名" />
+        </div>
+        <label class="chk">
+          <input type="checkbox" id="conv-save-orig" checked />
+          <span>导出到原图所在目录</span>
+        </label>
+        <label class="chk">
+          <input type="checkbox" id="conv-stretch" />
+          <span>高位深图（HDR / EXR）按最大值拉伸</span>
+        </label>
+        <button class="btn primary" id="conv-export" disabled>导出</button>
+        <div class="dim-label">导出路径（可直接粘贴目录）</div>
+        <div class="size-row">
+          <input type="text" id="conv-dir" placeholder="例如 D:\Textures\out" />
+          <button class="btn small" id="conv-browse" disabled>浏览…</button>
+        </div>
+        <button class="btn" id="conv-export-dir" disabled>导出到指定路径</button>
+        <div class="status" id="conv-status"></div>
+      </div>
+    </div>
+
+    <div class="page hidden" id="page-normal">
+      <div class="panel" style="flex: 1 1 0; min-width: 0">
+        <div class="panel-head">
+          <span class="panel-title">原图</span>
+          <div class="bg-btns" id="nrm-src-bg"></div>
+        </div>
+        <div class="canvas-wrap"><canvas id="nrm-src-canvas"></canvas></div>
+        <div class="dim-label" id="nrm-info">图像尺寸：-  |  大小：-  |  格式：-</div>
+        <button class="btn" id="nrm-open">打开图片…（或拖入图片）</button>
+        <button class="btn" id="nrm-clear" disabled>清空图片</button>
+        <div class="form-grid">
+          <label>导出格式</label>
+          <select id="nrm-fmt">
+            <option>PNG</option>
+            <option>TGA</option>
+          </select>
+          <label>文件名</label>
+          <input type="text" id="nrm-name" placeholder="留空则用「原名_Normal」" />
+        </div>
+        <label class="chk">
+          <input type="checkbox" id="nrm-save-orig" checked />
+          <span>导出到原图所在目录</span>
+        </label>
+        <button class="btn primary" id="nrm-export" disabled>导出法线贴图</button>
+        <div class="status" id="nrm-status"></div>
+        <div class="help-label">
+          支持导入：PNG、JPEG、BMP、WEBP、TGA、DDS<br />
+          高度取自灰度（亮度 / 平均 / 单通道），越界边缘按 clamp 处理，法线图尺寸与原图一致、不透明
+        </div>
+      </div>
+      <div class="panel" style="flex: 1 1 0; min-width: 0">
+        <div class="panel-head">
+          <span class="panel-title">法线贴图</span>
+          <div class="bg-btns" id="nrm-out-bg"></div>
+        </div>
+        <div class="canvas-wrap"><canvas id="nrm-out-canvas"></canvas></div>
+        <div class="dim-label" id="nrm-out-info">法线尺寸：-  |  生成耗时：-</div>
+        <div class="form-grid">
+          <label>高度来源</label>
+          <select id="nrm-source">
+            <option value="lum" selected>亮度 0.299R+0.587G+0.114B</option>
+            <option value="avg">平均 (R+G+B)/3</option>
+            <option value="r">R 通道</option>
+            <option value="g">G 通道</option>
+            <option value="b">B 通道</option>
+            <option value="a">A 通道</option>
+          </select>
+          <label>法线约定</label>
+          <select id="nrm-convention">
+            <option value="dx" selected>DirectX（UE，绿通道朝下）</option>
+            <option value="og">OpenGL（Unity，绿通道朝上）</option>
+          </select>
+          <label>模糊半径</label>
+          <div class="dual-row">
+            <input type="range" id="nrm-blur" min="0" max="16" step="1" value="1" />
+            <input type="number" id="nrm-blur-num" min="0" max="16" step="1" value="1" />
+          </div>
+          <label>强度</label>
+          <div class="dual-row">
+            <input type="range" id="nrm-strength" min="0.1" max="8" step="0.1" value="1" />
+            <input type="number" id="nrm-strength-num" min="0.1" max="8" step="0.1" value="1" />
+          </div>
+          <label></label>
+          <label class="chk">
+            <input type="checkbox" id="nrm-invert" />
+            <span>高度反转（凸起↔凹陷）</span>
+          </label>
+        </div>
+        <div class="help-label">
+          两种约定只差绿通道方向：图像里凸起的上边缘偏绿（G&gt;128）是 OpenGL（Unity），偏暗是 DirectX（UE）。
+          参数改动即时重算，导出名默认「原名_Normal」。
+        </div>
+      </div>
+    </div>
+
+    <div class="page hidden" id="page-seamless">
+      <div class="panel" style="flex: 1 1 0; min-width: 0">
+        <div class="panel-head">
+          <span class="panel-title">原图</span>
+          <div class="bg-btns" id="sml-src-bg"></div>
+        </div>
+        <div class="canvas-wrap"><canvas id="sml-src-canvas"></canvas></div>
+        <div class="dim-label" id="sml-info">图像尺寸：-  |  大小：-  |  格式：-</div>
+        <button class="btn" id="sml-open">打开图片…（或拖入图片）</button>
+        <button class="btn" id="sml-clear" disabled>清空图片</button>
+        <div class="form-grid">
+          <label>导出格式</label>
+          <select id="sml-fmt">
+            <option>PNG</option>
+            <option>TGA</option>
+          </select>
+          <label>文件名</label>
+          <input type="text" id="sml-name" placeholder="留空则用「原名_Seamless」" />
+        </div>
+        <label class="chk">
+          <input type="checkbox" id="sml-save-orig" checked />
+          <span>导出到原图所在目录</span>
+        </label>
+        <button class="btn primary" id="sml-export" disabled>导出无缝贴图</button>
+        <div class="status" id="sml-status"></div>
+        <div class="help-label">
+          支持导入：PNG、JPEG、BMP、WEBP、TGA、DDS<br />
+          导出尺寸与原图一致，默认文件名加后缀 _Seamless；取消上面的勾选后点导出会弹目录选择框
+        </div>
+      </div>
+      <div class="panel" style="flex: 1 1 0; min-width: 0">
+        <div class="panel-head">
+          <span class="panel-title">无缝结果</span>
+          <div class="bg-btns" id="sml-out-bg"></div>
+        </div>
+        <div class="canvas-wrap"><canvas id="sml-out-canvas"></canvas></div>
+        <div class="dim-label" id="sml-out-info">结果尺寸：-  |  平铺 2x2  |  融合：-  |  耗时：-</div>
+        <div class="dim-label" id="sml-metric">接缝指标：-</div>
+        <div class="form-grid">
+          <label>融合宽度</label>
+          <div class="dual-row">
+            <input type="range" id="sml-width" min="0" max="50" step="1" value="15" />
+            <input type="number" id="sml-width-num" min="0" max="50" step="1" value="15" />
+          </div>
+          <label>融合尺度</label>
+          <select id="sml-levels">
+            <option value="0">0 单尺度（低频也在窄带里换，容易发虚）</option>
+            <option value="1">1（2 个频段）</option>
+            <option value="2" selected>2（3 个频段，推荐）</option>
+            <option value="3">3（4 个频段，半径常已封顶）</option>
+            <option value="4">4（5 个频段，同上）</option>
+          </select>
+          <label>平铺预览</label>
+          <select id="sml-tile">
+            <option value="1">1x1（单张）</option>
+            <option value="2" selected>2x2（看接缝）</option>
+            <option value="3">3x3（看重复感）</option>
+          </select>
+          <label></label>
+          <label class="chk">
+            <input type="checkbox" id="sml-keep-alpha" checked />
+            <span>在预乘空间混合，保留透明通道</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>

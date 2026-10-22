@@ -1,0 +1,526 @@
+[
+ {
+  "file": "t_big_lzw.tif",
+  "expect": "x\\t_big_lzw.tif.bin",
+  "w": 512,
+  "h": 384,
+  "photo": 2,
+  "spp": 3,
+  "bps": [
+   8,
+   8,
+   8
+  ],
+  "comp": 5,
+  "pred": 1,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_big_lzw_p2.tif",
+  "expect": "x\\t_big_lzw_p2.tif.bin",
+  "w": 512,
+  "h": 384,
+  "photo": 2,
+  "spp": 3,
+  "bps": [
+   8,
+   8,
+   8
+  ],
+  "comp": 5,
+  "pred": 2,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_big_tile_deflate.tif",
+  "expect": "x\\t_big_tile_deflate.tif.bin",
+  "w": 512,
+  "h": 384,
+  "photo": 2,
+  "spp": 3,
+  "bps": [
+   8,
+   8,
+   8
+  ],
+  "comp": 8,
+  "pred": 1,
+  "tile": true,
+  "be": false
+ },
+ {
+  "file": "t_gray_lzw.tif",
+  "expect": "x\\t_gray_lzw.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 1,
+  "spp": 1,
+  "bps": 8,
+  "comp": 5,
+  "pred": 1,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_gray_none.tif",
+  "expect": "x\\t_gray_none.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 1,
+  "spp": 1,
+  "bps": 8,
+  "comp": 1,
+  "pred": 1,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_gray_packbits.tif",
+  "expect": "x\\t_gray_packbits.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 1,
+  "spp": 1,
+  "bps": 8,
+  "comp": 32773,
+  "pred": 1,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_gray_tile.tif",
+  "expect": "x\\t_gray_tile.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 1,
+  "spp": 1,
+  "bps": 8,
+  "comp": 1,
+  "pred": 1,
+  "tile": true,
+  "be": false
+ },
+ {
+  "file": "t_gray_white.tif",
+  "expect": "x\\t_gray_white.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 0,
+  "spp": 1,
+  "bps": 8,
+  "comp": 1,
+  "pred": 1,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_multipage.tif",
+  "expect": "x\\t_multipage.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 2,
+  "spp": 3,
+  "bps": [
+   8,
+   8,
+   8
+  ],
+  "comp": 1,
+  "pred": 1,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_pal_none.tif",
+  "expect": "x\\t_pal_none.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 3,
+  "spp": 1,
+  "bps": 8,
+  "comp": 1,
+  "pred": 1,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_rgb16_none.tif",
+  "expect": "x\\t_rgb16_none.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 2,
+  "spp": 3,
+  "bps": [
+   16,
+   16,
+   16
+  ],
+  "comp": 1,
+  "pred": 1,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_rgb_adobe.tif",
+  "expect": "x\\t_rgb_adobe.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 2,
+  "spp": 3,
+  "bps": [
+   8,
+   8,
+   8
+  ],
+  "comp": 8,
+  "pred": 1,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_rgb_adobe_deflate.tif",
+  "expect": "x\\t_rgb_adobe_deflate.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 2,
+  "spp": 3,
+  "bps": [
+   8,
+   8,
+   8
+  ],
+  "comp": 1,
+  "pred": 1,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_rgb_be.tif",
+  "expect": "x\\t_rgb_be.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 2,
+  "spp": 3,
+  "bps": [
+   8,
+   8,
+   8
+  ],
+  "comp": 1,
+  "pred": 1,
+  "tile": false,
+  "be": true
+ },
+ {
+  "file": "t_rgb_be_lzw_p2.tif",
+  "expect": "x\\t_rgb_be_lzw_p2.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 2,
+  "spp": 3,
+  "bps": [
+   8,
+   8,
+   8
+  ],
+  "comp": 5,
+  "pred": 2,
+  "tile": false,
+  "be": true
+ },
+ {
+  "file": "t_rgb_deflate.tif",
+  "expect": "x\\t_rgb_deflate.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 2,
+  "spp": 3,
+  "bps": [
+   8,
+   8,
+   8
+  ],
+  "comp": 1,
+  "pred": 1,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_rgb_lzw_p2.tif",
+  "expect": "x\\t_rgb_lzw_p2.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 2,
+  "spp": 3,
+  "bps": [
+   8,
+   8,
+   8
+  ],
+  "comp": 5,
+  "pred": 2,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_rgb_lzw_pred.tif",
+  "expect": "x\\t_rgb_lzw_pred.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 2,
+  "spp": 3,
+  "bps": [
+   8,
+   8,
+   8
+  ],
+  "comp": 5,
+  "pred": 1,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_rgb_none.tif",
+  "expect": "x\\t_rgb_none.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 2,
+  "spp": 3,
+  "bps": [
+   8,
+   8,
+   8
+  ],
+  "comp": 1,
+  "pred": 1,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_rgb_packbits.tif",
+  "expect": "x\\t_rgb_packbits.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 2,
+  "spp": 3,
+  "bps": [
+   8,
+   8,
+   8
+  ],
+  "comp": 32773,
+  "pred": 1,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_rgb_raw.tif",
+  "expect": "x\\t_rgb_raw.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 2,
+  "spp": 3,
+  "bps": [
+   8,
+   8,
+   8
+  ],
+  "comp": 1,
+  "pred": 1,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_rgb_tiff_deflate.tif",
+  "expect": "x\\t_rgb_tiff_deflate.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 2,
+  "spp": 3,
+  "bps": [
+   8,
+   8,
+   8
+  ],
+  "comp": 8,
+  "pred": 1,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_rgb_tiff_lzw.tif",
+  "expect": "x\\t_rgb_tiff_lzw.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 2,
+  "spp": 3,
+  "bps": [
+   8,
+   8,
+   8
+  ],
+  "comp": 5,
+  "pred": 1,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_rgb_tiff_packbits.tif",
+  "expect": "x\\t_rgb_tiff_packbits.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 2,
+  "spp": 3,
+  "bps": [
+   8,
+   8,
+   8
+  ],
+  "comp": 1,
+  "pred": 1,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_rgb_tile.tif",
+  "expect": "x\\t_rgb_tile.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 2,
+  "spp": 3,
+  "bps": [
+   8,
+   8,
+   8
+  ],
+  "comp": 1,
+  "pred": 1,
+  "tile": true,
+  "be": false
+ },
+ {
+  "file": "t_rgb_tile16_lzw.tif",
+  "expect": "x\\t_rgb_tile16_lzw.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 2,
+  "spp": 3,
+  "bps": [
+   8,
+   8,
+   8
+  ],
+  "comp": 5,
+  "pred": 1,
+  "tile": true,
+  "be": false
+ },
+ {
+  "file": "t_rgb_zip.tif",
+  "expect": "x\\t_rgb_zip.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 2,
+  "spp": 3,
+  "bps": [
+   8,
+   8,
+   8
+  ],
+  "comp": 32946,
+  "pred": 1,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_rgb_zip_p2.tif",
+  "expect": "x\\t_rgb_zip_p2.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 2,
+  "spp": 3,
+  "bps": [
+   8,
+   8,
+   8
+  ],
+  "comp": 32946,
+  "pred": 2,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_rgba_adobe_deflate.tif",
+  "expect": "x\\t_rgba_adobe_deflate.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 2,
+  "spp": 4,
+  "bps": [
+   8,
+   8,
+   8,
+   8
+  ],
+  "comp": 1,
+  "pred": 1,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_rgba_none.tif",
+  "expect": "x\\t_rgba_none.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 2,
+  "spp": 4,
+  "bps": [
+   8,
+   8,
+   8,
+   8
+  ],
+  "comp": 1,
+  "pred": 1,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_rgba_tiff_lzw.tif",
+  "expect": "x\\t_rgba_tiff_lzw.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 2,
+  "spp": 4,
+  "bps": [
+   8,
+   8,
+   8,
+   8
+  ],
+  "comp": 5,
+  "pred": 1,
+  "tile": false,
+  "be": false
+ },
+ {
+  "file": "t_rgba_zip.tif",
+  "expect": "x\\t_rgba_zip.tif.bin",
+  "w": 33,
+  "h": 17,
+  "photo": 2,
+  "spp": 4,
+  "bps": [
+   8,
+   8,
+   8,
+   8
+  ],
+  "comp": 32946,
+  "pred": 1,
+  "tile": false,
+  "be": false
+ }
+]

@@ -1,0 +1,92 @@
+{
+ "cases": [
+  {
+   "file": "rle_mixed.hdr",
+   "w": 16,
+   "h": 3,
+   "note": "自适应 RLE，含黑与高光",
+   "expect": "rle_mixed.hdr.expect.bin",
+   "expect8": "rle_mixed.hdr.expect8.bin"
+  },
+  {
+   "file": "rle_repeat.hdr",
+   "w": 12,
+   "h": 4,
+   "note": "重复行",
+   "expect": "rle_repeat.hdr.expect.bin",
+   "expect8": "rle_repeat.hdr.expect8.bin"
+  },
+  {
+   "file": "rle_longrun.hdr",
+   "w": 300,
+   "h": 2,
+   "note": "长游程拆分 127",
+   "expect": "rle_longrun.hdr.expect.bin",
+   "expect8": "rle_longrun.hdr.expect8.bin"
+  },
+  {
+   "file": "wide_plain.hdr",
+   "w": 16,
+   "h": 2,
+   "note": "宽行走非压缩",
+   "expect": "wide_plain.hdr.expect.bin",
+   "expect8": "wide_plain.hdr.expect8.bin"
+  },
+  {
+   "file": "rle_then_plain.hdr",
+   "w": 16,
+   "h": 2,
+   "note": "RLE 行 + 非压缩行混排",
+   "expect": "rle_then_plain.hdr.expect.bin",
+   "expect8": "rle_then_plain.hdr.expect8.bin"
+  },
+  {
+   "file": "tiny.hdr",
+   "w": 3,
+   "h": 2,
+   "note": "3x2 非压缩",
+   "expect": "tiny.hdr.expect.bin",
+   "expect8": "tiny.hdr.expect8.bin"
+  },
+  {
+   "file": "odd.hdr",
+   "w": 7,
+   "h": 3,
+   "note": "宽 7 非压缩",
+   "expect": "odd.hdr.expect.bin",
+   "expect8": "odd.hdr.expect8.bin"
+  },
+  {
+   "file": "known.hdr",
+   "w": 8,
+   "h": 1,
+   "note": "1.0 与 255/256 已知向量",
+   "expect": "known.hdr.expect.bin",
+   "expect8": "known.hdr.expect8.bin"
+  },
+  {
+   "file": "from_ref.hdr",
+   "w": 33,
+   "h": 17,
+   "note": "ffmpeg 编码自 ref.png",
+   "expect": "from_ref.hdr.expect.bin",
+   "expect8": "from_ref.hdr.expect8.bin"
+  },
+  {
+   "file": "from_rgba.hdr",
+   "w": 33,
+   "h": 17,
+   "note": "ffmpeg 编码自 ref_rgba.png",
+   "expect": "from_rgba.hdr.expect.bin",
+   "expect8": "from_rgba.hdr.expect8.bin"
+  },
+  {
+   "file": "from_1k.hdr",
+   "w": 1024,
+   "h": 768,
+   "note": "1024x768 计时用",
+   "expect": "from_1k.hdr.expect.bin",
+   "expect8": "from_1k.hdr.expect8.bin"
+  }
+ ]
+}

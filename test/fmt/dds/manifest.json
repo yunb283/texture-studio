@@ -1,0 +1,411 @@
+{
+ "cases": [
+  {
+   "file": "u_a8r8g8b8.dds",
+   "w": 8,
+   "h": 6,
+   "note": "32 位 A8R8G8B8",
+   "expect": "u_a8r8g8b8.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "u_x8r8g8b8.dds",
+   "w": 8,
+   "h": 6,
+   "note": "32 位无 alpha",
+   "expect": "u_x8r8g8b8.dds.expect.bin",
+   "mode": "RGB"
+  },
+  {
+   "file": "u_a8b8g8r8.dds",
+   "w": 8,
+   "h": 6,
+   "note": "掩码反序（BGRA）",
+   "expect": "u_a8b8g8r8.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "u_r8g8b8.dds",
+   "w": 8,
+   "h": 6,
+   "note": "24 位 RGB",
+   "expect": "u_r8g8b8.dds.expect.bin",
+   "mode": "RGB"
+  },
+  {
+   "file": "u_r5g6b5.dds",
+   "w": 8,
+   "h": 6,
+   "note": "16 位 565",
+   "expect": "u_r5g6b5.dds.expect.bin",
+   "mode": "RGB"
+  },
+  {
+   "file": "u_a4r4g4b4.dds",
+   "w": 8,
+   "h": 6,
+   "note": "16 位 4444",
+   "expect": "u_a4r4g4b4.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "u_a1r5g5b5.dds",
+   "w": 8,
+   "h": 6,
+   "note": "16 位 1555",
+   "expect": "u_a1r5g5b5.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "u_r5g5b5x1.dds",
+   "w": 8,
+   "h": 6,
+   "note": "16 位 5551 无 alpha",
+   "expect": "u_r5g5b5x1.dds.expect.bin",
+   "mode": "RGB"
+  },
+  {
+   "file": "u_odd_masks.dds",
+   "w": 8,
+   "h": 6,
+   "note": "非对齐小掩码（2 位通道）",
+   "expect": "u_odd_masks.dds.expect.bin",
+   "mode": "RGB"
+  },
+  {
+   "file": "u_l8.dds",
+   "w": 8,
+   "h": 6,
+   "note": "8 位 LUMINANCE",
+   "expect": "u_l8.dds.expect.bin",
+   "mode": "L"
+  },
+  {
+   "file": "u_a8l8.dds",
+   "w": 8,
+   "h": 6,
+   "note": "16 位 LUMINANCE|ALPHA",
+   "expect": "u_a8l8.dds.expect.bin",
+   "mode": "LA"
+  },
+  {
+   "file": "u_mips.dds",
+   "w": 8,
+   "h": 6,
+   "note": "带 3 级 mip，取 0 级",
+   "expect": "u_mips.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "u_cube.dds",
+   "w": 8,
+   "h": 6,
+   "note": "立方图 6 面，取 +X 面",
+   "expect": "u_cube.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "b_bc1_16x16.dds",
+   "w": 16,
+   "h": 16,
+   "note": "随机块 bc1 16x16",
+   "expect": "b_bc1_16x16.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "b_bc1_6x5.dds",
+   "w": 6,
+   "h": 5,
+   "note": "随机块 bc1 6x5",
+   "expect": "b_bc1_6x5.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "b_bc1_4x4.dds",
+   "w": 4,
+   "h": 4,
+   "note": "随机块 bc1 4x4",
+   "expect": "b_bc1_4x4.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "b_bc1_5x1.dds",
+   "w": 5,
+   "h": 1,
+   "note": "随机块 bc1 5x1",
+   "expect": "b_bc1_5x1.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "b_bc1_8x9.dds",
+   "w": 8,
+   "h": 9,
+   "note": "随机块 bc1 8x9",
+   "expect": "b_bc1_8x9.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "b_bc2_16x16.dds",
+   "w": 16,
+   "h": 16,
+   "note": "随机块 bc2 16x16",
+   "expect": "b_bc2_16x16.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "b_bc2_6x5.dds",
+   "w": 6,
+   "h": 5,
+   "note": "随机块 bc2 6x5",
+   "expect": "b_bc2_6x5.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "b_bc2_4x4.dds",
+   "w": 4,
+   "h": 4,
+   "note": "随机块 bc2 4x4",
+   "expect": "b_bc2_4x4.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "b_bc2_5x1.dds",
+   "w": 5,
+   "h": 1,
+   "note": "随机块 bc2 5x1",
+   "expect": "b_bc2_5x1.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "b_bc2_8x9.dds",
+   "w": 8,
+   "h": 9,
+   "note": "随机块 bc2 8x9",
+   "expect": "b_bc2_8x9.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "b_bc3_16x16.dds",
+   "w": 16,
+   "h": 16,
+   "note": "随机块 bc3 16x16",
+   "expect": "b_bc3_16x16.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "b_bc3_6x5.dds",
+   "w": 6,
+   "h": 5,
+   "note": "随机块 bc3 6x5",
+   "expect": "b_bc3_6x5.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "b_bc3_4x4.dds",
+   "w": 4,
+   "h": 4,
+   "note": "随机块 bc3 4x4",
+   "expect": "b_bc3_4x4.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "b_bc3_5x1.dds",
+   "w": 5,
+   "h": 1,
+   "note": "随机块 bc3 5x1",
+   "expect": "b_bc3_5x1.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "b_bc3_8x9.dds",
+   "w": 8,
+   "h": 9,
+   "note": "随机块 bc3 8x9",
+   "expect": "b_bc3_8x9.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "b_bc4_16x16.dds",
+   "w": 16,
+   "h": 16,
+   "note": "随机块 bc4 16x16",
+   "expect": "b_bc4_16x16.dds.expect.bin",
+   "mode": "L"
+  },
+  {
+   "file": "b_bc4_6x5.dds",
+   "w": 6,
+   "h": 5,
+   "note": "随机块 bc4 6x5",
+   "expect": "b_bc4_6x5.dds.expect.bin",
+   "mode": "L"
+  },
+  {
+   "file": "b_bc4_4x4.dds",
+   "w": 4,
+   "h": 4,
+   "note": "随机块 bc4 4x4",
+   "expect": "b_bc4_4x4.dds.expect.bin",
+   "mode": "L"
+  },
+  {
+   "file": "b_bc4_5x1.dds",
+   "w": 5,
+   "h": 1,
+   "note": "随机块 bc4 5x1",
+   "expect": "b_bc4_5x1.dds.expect.bin",
+   "mode": "L"
+  },
+  {
+   "file": "b_bc4_8x9.dds",
+   "w": 8,
+   "h": 9,
+   "note": "随机块 bc4 8x9",
+   "expect": "b_bc4_8x9.dds.expect.bin",
+   "mode": "L"
+  },
+  {
+   "file": "b_bc5_16x16.dds",
+   "w": 16,
+   "h": 16,
+   "note": "随机块 bc5 16x16",
+   "expect": "b_bc5_16x16.dds.expect.bin",
+   "mode": "RGB"
+  },
+  {
+   "file": "b_bc5_6x5.dds",
+   "w": 6,
+   "h": 5,
+   "note": "随机块 bc5 6x5",
+   "expect": "b_bc5_6x5.dds.expect.bin",
+   "mode": "RGB"
+  },
+  {
+   "file": "b_bc5_4x4.dds",
+   "w": 4,
+   "h": 4,
+   "note": "随机块 bc5 4x4",
+   "expect": "b_bc5_4x4.dds.expect.bin",
+   "mode": "RGB"
+  },
+  {
+   "file": "b_bc5_5x1.dds",
+   "w": 5,
+   "h": 1,
+   "note": "随机块 bc5 5x1",
+   "expect": "b_bc5_5x1.dds.expect.bin",
+   "mode": "RGB"
+  },
+  {
+   "file": "b_bc5_8x9.dds",
+   "w": 8,
+   "h": 9,
+   "note": "随机块 bc5 8x9",
+   "expect": "b_bc5_8x9.dds.expect.bin",
+   "mode": "RGB"
+  },
+  {
+   "file": "b_bc1_structured.dds",
+   "w": 16,
+   "h": 12,
+   "note": "BC1 端点顺序/3 色模式结构化",
+   "expect": "b_bc1_structured.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "b_bc3_structured.dds",
+   "w": 20,
+   "h": 4,
+   "note": "BC3 alpha 表全索引 + 颜色混合",
+   "expect": "b_bc3_structured.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "b_bc2_structured.dds",
+   "w": 16,
+   "h": 16,
+   "note": "BC2 4 位 alpha 全组合",
+   "expect": "b_bc2_structured.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "b_bc4_structured.dds",
+   "w": 4,
+   "h": 20,
+   "note": "BC4 alpha 表全索引",
+   "expect": "b_bc4_structured.dds.expect.bin",
+   "mode": "L"
+  },
+  {
+   "file": "b_bc5_structured.dds",
+   "w": 4,
+   "h": 20,
+   "note": "BC5 双通道（第三通道补 0）",
+   "expect": "b_bc5_structured.dds.expect.bin",
+   "mode": "RGB"
+  },
+  {
+   "file": "dx_bc1.dds",
+   "w": 8,
+   "h": 8,
+   "note": "DX10 头 BC1",
+   "expect": "dx_bc1.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "dx_bc3.dds",
+   "w": 8,
+   "h": 8,
+   "note": "DX10 头 BC3",
+   "expect": "dx_bc3.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "dx_bc5.dds",
+   "w": 8,
+   "h": 8,
+   "note": "DX10 头 BC5",
+   "expect": "dx_bc5.dds.expect.bin",
+   "mode": "RGB"
+  },
+  {
+   "file": "dx_rgba8.dds",
+   "w": 8,
+   "h": 6,
+   "note": "DX10 R8G8B8A8_UNORM",
+   "expect": "dx_rgba8.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "big_bc3.dds",
+   "w": 1024,
+   "h": 768,
+   "note": "1024x768 随机 BC3，计时用",
+   "expect": "big_bc3.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "enc_rgba.dds",
+   "w": 33,
+   "h": 17,
+   "note": "Pillow 编码器写出的 RGBA DDS",
+   "expect": "enc_rgba.dds.expect.bin",
+   "mode": "RGBA"
+  },
+  {
+   "file": "enc_l.dds",
+   "w": 33,
+   "h": 17,
+   "note": "Pillow 编码器写出的 L DDS",
+   "expect": "enc_l.dds.expect.bin",
+   "mode": "L"
+  },
+  {
+   "file": "dx_bgra8.dds",
+   "w": 8,
+   "h": 6,
+   "note": "DX10 B8G8R8A8_UNORM（Pillow 不支持 DX10 B8G8R8A8；与已验证的遗留 BGRA 掩码素材同图，结果应逐字节相同）",
+   "same_as": "u_a8b8g8r8.dds"
+  }
+ ]
+}
