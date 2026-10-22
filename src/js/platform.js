@@ -46,6 +46,15 @@ export const TEXTURE_EXTS = [
   'dds',
 ];
 
+// 制作 GIF 页还能吃视频。能不能真解码取决于 WebView2 的 Media Foundation
+// （H.264/MP4、VP9/WEBM 通常可以，MKV/AVI/WMV 多数不行），失败时页面给中文提示
+export const VIDEO_EXTS = ['mp4', 'm4v', 'mov', 'webm', 'mkv', 'avi', 'wmv'];
+export const GIF_SOURCE_EXTS = [...TEXTURE_EXTS, ...VIDEO_EXTS];
+
+export function isVideoName(name) {
+  return VIDEO_EXTS.includes((name.split('.').pop() || '').toLowerCase());
+}
+
 function naturalKey(s) {
   return s
     .split(/(\d+)/)
@@ -80,11 +89,16 @@ function getPickerInput(multi, accept) {
   return pickerInput;
 }
 
-// 返回 [{name, path|null, file|null}]
-export async function pickImages(multi, exts = SUPPORTED_EXTS) {
+// 返回 [{name, path|null, file|null}]；opts 可传 {title, label} 改对话框标题和过滤器名
+export async function pickImages(multi, exts = SUPPORTED_EXTS, opts = {}) {
   const accept = exts.map((e) => '.' + e).join(',');
   if (isTauri) {
-    const paths = await window.__TAURI__.core.invoke('pick_images', { multi, exts });
+    const paths = await window.__TAURI__.core.invoke('pick_images', {
+      multi,
+      exts,
+      title: opts.title ?? null,
+      label: opts.label ?? null,
+    });
     if (!paths) return [];
     return paths.map((p) => ({ name: baseName(p), path: p, file: null }));
   }
@@ -96,6 +110,18 @@ export async function pickImages(multi, exts = SUPPORTED_EXTS) {
     };
     input.click();
   });
+}
+
+// 视频给 <video> 用的地址：Tauri 走 asset 协议直接从磁盘流式读（不把整段视频拉进内存），
+// 浏览器没有 asset 协议，只能用 File 建 blob URL。返回值配 releaseSrc 释放。
+export function videoSrc(entry) {
+  if (entry.file) return URL.createObjectURL(entry.file);
+  if (isTauri && entry.path) return window.__TAURI__.core.convertFileSrc(entry.path);
+  return null;
+}
+
+export function releaseSrc(url) {
+  if (url && url.startsWith('blob:')) URL.revokeObjectURL(url);
 }
 
 export async function readEntryBytes(entry) {

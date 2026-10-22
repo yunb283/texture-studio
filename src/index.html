@@ -13,6 +13,7 @@
       <button class="tab" id="tab-convert">图片格式转换</button>
       <button class="tab" id="tab-normal">贴图转法线</button>
       <button class="tab" id="tab-seamless">无缝贴图</button>
+      <button class="tab" id="tab-gif">制作GIF</button>
       <button class="pin-btn" id="pin-top" title="总在最前" aria-pressed="false">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -324,6 +325,115 @@
             <input type="checkbox" id="sml-keep-alpha" checked />
             <span>在预乘空间混合，保留透明通道</span>
           </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="page hidden" id="page-gif">
+      <div class="panel" style="flex: 1 1 0; min-width: 0">
+        <div class="panel-head">
+          <span class="panel-title">源文件</span>
+          <div class="bg-btns" id="gif-src-bg"></div>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="gif-src-canvas"></canvas>
+          <video id="gif-video" class="offscreen-video" crossorigin="anonymous" muted playsinline preload="auto"></video>
+        </div>
+        <div class="dim-label" id="gif-info">图像尺寸：-  |  大小：-  |  格式：-  |  帧数：-</div>
+        <div class="vid-row" id="gif-vid-row" hidden>
+          <button class="btn small" id="gif-vid-play" disabled>播放</button>
+          <div class="tl" id="gif-tl">
+            <div class="tl-sel" id="gif-tl-sel"></div>
+            <div class="tl-head" id="gif-tl-head"></div>
+          </div>
+          <span class="dim-label tl-time" id="gif-vid-time">0.00 / 0.00s</span>
+        </div>
+        <div class="form-grid" id="gif-vid-grid" hidden>
+          <label>区间</label>
+          <div class="dual-row">
+            <input type="number" id="gif-t0" min="0" step="0.1" value="0" />
+            <button class="btn small" id="gif-set-t0" disabled>设为起点</button>
+            <input type="number" id="gif-t1" min="0" step="0.1" value="0" />
+            <button class="btn small" id="gif-set-t1" disabled>设为终点</button>
+          </div>
+          <label>区域</label>
+          <div class="dual-row">
+            <button class="btn small" id="gif-sel-full" disabled>全画面</button>
+            <span class="dim-label" id="gif-sel-info">在画面上拖拽即可框选</span>
+          </div>
+        </div>
+        <div class="dual-row btn-row">
+          <button class="btn" id="gif-open">打开文件…（或拖入文件）</button>
+          <button class="btn" id="gif-clear" disabled>清空</button>
+        </div>
+        <div class="form-grid">
+          <label>文件名</label>
+          <input type="text" id="gif-name" placeholder="留空则用源文件名.gif" />
+        </div>
+        <label class="chk">
+          <input type="checkbox" id="gif-save-orig" checked />
+          <span>导出到源文件所在目录</span>
+        </label>
+        <button class="btn primary" id="gif-export" disabled>导出 GIF</button>
+        <div class="status" id="gif-status"></div>
+        <div class="help-label">
+          图片按列/行拆帧，视频按区间和帧率抽帧；改完自动重新生成<br />
+          取消勾选后点导出会弹目录选择框
+        </div>
+      </div>
+      <div class="panel" style="flex: 1 1 0; min-width: 0">
+        <div class="panel-head">
+          <span class="panel-title">GIF 预览</span>
+          <div class="bg-btns" id="gif-prev-bg"></div>
+        </div>
+        <div class="canvas-wrap" id="gif-prev-wrap">
+          <img id="gif-preview" alt="GIF 预览动画" hidden />
+          <canvas id="gif-frame" hidden></canvas>
+        </div>
+        <div class="dim-label" id="gif-out-info">GIF：-  |  尺寸：-  |  体积：-</div>
+        <div class="form-grid">
+          <label>预览</label>
+          <div class="dual-row">
+            <button class="btn" id="gif-play" disabled>播放动画</button>
+          </div>
+          <label>逐帧</label>
+          <div class="dual-row">
+            <input type="range" id="gif-frame-range" min="1" max="1" step="1" value="1" disabled />
+            <span class="dim-label" id="gif-frame-label">-</span>
+          </div>
+          <label>列 / 行</label>
+          <div class="dual-row">
+            <input type="number" id="gif-cols" min="1" max="128" step="1" value="1" />
+            <input type="number" id="gif-rows" min="1" max="128" step="1" value="1" />
+          </div>
+          <label>等比缩放</label>
+          <select id="gif-scale">
+            <option value="100" selected>100%</option>
+            <option value="75">75%</option>
+            <option value="50">50%</option>
+            <option value="25">25%</option>
+          </select>
+          <label>帧率</label>
+          <input type="number" id="gif-fps" min="1" max="50" step="1" value="10" />
+          <label>循环</label>
+          <select id="gif-loop">
+            <option value="0" selected>无限循环</option>
+            <option value="1">播放 1 次</option>
+            <option value="3">播放 3 次</option>
+            <option value="5">播放 5 次</option>
+          </select>
+          <label>颜色数</label>
+          <select id="gif-colors">
+            <option value="256" selected>256</option>
+            <option value="128">128</option>
+            <option value="64">64</option>
+            <option value="32">32</option>
+          </select>
+          <label>质量</label>
+          <select id="gif-quality">
+            <option value="normal" selected>普通（全局调色板，体积小）</option>
+            <option value="high">高质量（每帧调色板，不易串色）</option>
+          </select>
         </div>
       </div>
     </div>

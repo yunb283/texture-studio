@@ -1,0 +1,154 @@
+{
+ "cases": [
+  {
+   "name": "g_flat",
+   "frames": 4,
+   "w": 16,
+   "h": 16,
+   "delay": 10,
+   "loop": 0,
+   "quality": "normal",
+   "transparent": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "g_high",
+   "frames": 4,
+   "w": 16,
+   "h": 16,
+   "delay": 10,
+   "loop": 0,
+   "quality": "high",
+   "transparent": [
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "g_alpha",
+   "frames": 3,
+   "w": 24,
+   "h": 13,
+   "delay": 8,
+   "loop": 0,
+   "quality": "normal",
+   "transparent": [
+    30,
+    12,
+    0
+   ]
+  },
+  {
+   "name": "g_single",
+   "frames": 1,
+   "w": 8,
+   "h": 8,
+   "delay": 20,
+   "loop": 1,
+   "quality": "normal",
+   "transparent": [
+    0
+   ]
+  },
+  {
+   "name": "g_odd",
+   "frames": 5,
+   "w": 17,
+   "h": 9,
+   "delay": 5,
+   "loop": 5,
+   "quality": "high",
+   "transparent": [
+    0,
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "g_256",
+   "frames": 1,
+   "w": 32,
+   "h": 32,
+   "delay": 10,
+   "loop": 0,
+   "quality": "normal",
+   "transparent": [
+    0
+   ]
+  },
+  {
+   "name": "g_over",
+   "frames": 2,
+   "w": 40,
+   "h": 40,
+   "delay": 10,
+   "loop": 0,
+   "quality": "normal",
+   "transparent": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "g_tiny",
+   "frames": 2,
+   "w": 1,
+   "h": 1,
+   "delay": 3,
+   "loop": 0,
+   "quality": "normal",
+   "transparent": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "g_delay1",
+   "frames": 2,
+   "w": 12,
+   "h": 12,
+   "delay": 2,
+   "loop": null,
+   "quality": "normal",
+   "transparent": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "g_ramp",
+   "frames": 2,
+   "w": 20,
+   "h": 20,
+   "delay": 12,
+   "loop": 0,
+   "quality": "high",
+   "transparent": [
+    0,
+    400
+   ]
+  },
+  {
+   "name": "g_fps",
+   "frames": 3,
+   "w": 20,
+   "h": 20,
+   "delay": 4,
+   "loop": 0,
+   "quality": "normal",
+   "transparent": [
+    0,
+    0,
+    0
+   ]
+  }
+ ]
+}

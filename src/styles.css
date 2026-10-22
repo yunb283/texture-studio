@@ -122,10 +122,109 @@ body {
   border-radius: 4px;
 }
 
+/* GIF 预览用真 <img> 播放（canvas 只能画单帧），底色和画布那边的棋盘格一致 */
+.canvas-wrap img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+}
+
+/* GIF 预览：按实际像素显示，只有超出窗口才缩小（object-fit: scale-down）。
+   底色由 .bg-* 决定，img 和 canvas 两条预览路径都要透出底色 */
+#gif-prev-wrap {
+  border-radius: 4px;
+}
+
+#gif-prev-wrap.bg-checker {
+  background-color: #515159;
+  background-image: linear-gradient(45deg, #909098 25%, transparent 25%),
+    linear-gradient(-45deg, #909098 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #909098 75%),
+    linear-gradient(-45deg, transparent 75%, #909098 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+
+#gif-prev-wrap.bg-black {
+  background: #000;
+}
+
+#gif-prev-wrap.bg-light {
+  background: #d9d9d9;
+}
+
+#gif-prev-wrap img,
+#gif-prev-wrap canvas {
+  object-fit: scale-down;
+  object-position: center;
+}
+
+/* 视频源不直接显示，画进 CanvasView；但仍要保持已渲染状态，否则 WebView2 不解帧 */
+.offscreen-video {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  width: 320px;
+  height: 180px;
+}
+
+.vid-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tl-time {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 自绘时间轴：整条可点可拖定位播放头，选区高亮块不吃鼠标事件 */
+.tl {
+  position: relative;
+  flex: 1;
+  min-width: 60px;
+  height: 20px;
+  background: #1a1b24;
+  border: 1px solid #2c2f3c;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.tl-sel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgba(57, 199, 237, 0.26);
+  border-left: 1px solid #39c7ed;
+  border-right: 1px solid #39c7ed;
+  pointer-events: none;
+}
+
+.tl-head {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  margin-left: -1px;
+  background: #ffd926;
+  pointer-events: none;
+}
+
+.status.warn {
+  color: #ffc46b;
+}
+
 .dim-label {
   color: #a6aab4;
   font-size: 12px;
   white-space: nowrap;
+}
+
+.dim-label.warn {
+  color: #ffc46b;
 }
 
 .help-label {
@@ -192,6 +291,18 @@ body {
 
 .btn.small {
   min-width: 60px;
+}
+
+/* 一行放两个动作：左边的撑开，右边按内容宽度。
+   放在 .btn.primary 之后，否则它的 width:100% 会把同排的复选框挤成 0 宽 */
+.btn-row > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.btn-row > :last-child {
+  flex: 0 0 auto;
+  width: auto;
 }
 
 .btn.mini-btn {

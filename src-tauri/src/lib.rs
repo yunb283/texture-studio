@@ -23,16 +23,20 @@ fn pick_images(
     app: tauri::AppHandle,
     multi: bool,
     exts: Option<Vec<String>>,
+    title: Option<String>,
+    label: Option<String>,
 ) -> Option<Vec<String>> {
     // 扩展名由前端按页面白名单传入；不传时用默认的序列图格式
     let list = exts.unwrap_or_else(|| IMAGE_EXTS.iter().map(|s| s.to_string()).collect());
     let refs: Vec<&str> = list.iter().map(|s| s.as_str()).collect();
+    let dlg_title = title.unwrap_or_else(|| "选择序列贴图".to_string());
+    let filter = label.unwrap_or_else(|| "图片文件".to_string());
     let (tx, rx) = mpsc::channel();
     if multi {
         app.dialog()
             .file()
             .set_title("选择序列帧图片")
-            .add_filter("图片文件", &refs)
+            .add_filter(&filter, &refs)
             .pick_files(move |paths| {
                 let _ =
                     tx.send(paths.map(|v| v.into_iter().map(file_path_to_string).collect()));
@@ -40,8 +44,8 @@ fn pick_images(
     } else {
         app.dialog()
             .file()
-            .set_title("选择序列贴图")
-            .add_filter("图片文件", &refs)
+            .set_title(dlg_title)
+            .add_filter(&filter, &refs)
             .pick_file(move |path| {
                 let _ = tx.send(path.map(|p| vec![file_path_to_string(p)]));
             });
