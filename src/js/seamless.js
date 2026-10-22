@@ -8,7 +8,7 @@
 //      这与文档里的「先 roll 半图把缝挪到中心 → 修中心十字缝 → 再 roll 回去」完全等价，少两次搬运。
 //   2. u 用 smoothstep：p = 1 - 到最近边缘的距离 / 带宽，u = p·p·(3-2p)。d=0 处 u=1、
 //      距离 >= 带宽处 u=0 且两端导数为 0，带外侧不会被拖出第二道缝。
-//      带宽 B = round(边长 × 比例)，比例 0..0.5（默认 0.15），要求 2B <= 边长。
+//      带宽 B = round(边长 × 比例)，比例 0..0.5（界面与函数的默认都是 0 = 不处理），要求 2B <= 边长。
 //      比例 0（或小到 round 出 0）就是完全不处理，直接原样返回，等于 2x2 预览里看原图的接缝。
 //   3. 先横向一趟、再纵向一趟，两趟都只用上一趟的结果；四个角被两趟各覆盖一次。
 //      levels=0 时，横竖两条带之外的区域逐字节等于输入；levels>=1 时低频修正会摊到全图，
@@ -29,7 +29,7 @@ export function makeSeamless(img, opts = {}) {
   const h = img.height;
   if (!w || !h) throw new Error('图像为空');
   if (w < 2 || h < 2) throw new Error(`贴图太小（${w}x${h}），至少 2x2 才谈得上接缝`);
-  const pct = Math.min(0.5, Math.max(0, opts.blend ?? 0.15));
+  const pct = Math.min(0.5, Math.max(0, opts.blend ?? 0));
   const keepAlpha = opts.keepAlpha !== false;
   const levels = Math.min(4, Math.max(0, Math.floor(opts.levels ?? 0)));
   const bw = Math.round(w * pct);

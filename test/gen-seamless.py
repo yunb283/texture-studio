@@ -76,7 +76,7 @@ def blend_axis(arr, band, horizontal, levels=0):
     return q8(out)
 
 
-def to_seamless(rgba, pct=0.15, keep_alpha=True, levels=0):
+def to_seamless(rgba, pct=0.0, keep_alpha=True, levels=0):
     a = np.asarray(rgba, dtype=np.uint8)
     h, w = a.shape[:2]
     pct = min(0.5, max(0.0, float(pct)))
