@@ -100,6 +100,15 @@ export function initGif({ srcView }) {
     return SCALE.includes(v) ? v : 100;
   }
 
+  // GIF 单帧长边超过这个值就自动降一档：像素数直接决定抽帧、编码耗时和体积
+  const TARGET_EDGE = 640;
+
+  function suggestScale(w, h) {
+    const long = Math.max(w, h);
+    for (const s of SCALE) if ((long * s) / 100 <= TARGET_EDGE) return s;
+    return SCALE[SCALE.length - 1];
+  }
+
   // 源画面尺寸：图片是画布尺寸，视频是轨道尺寸
   function srcSize() {
     if (mode === 'video') return { w: videoMeta.w, h: videoMeta.h };
@@ -226,7 +235,8 @@ export function initGif({ srcView }) {
       if (id !== runId) return null;
       setStatus(`正在抽帧 ${i + 1}/${total}（${video.currentTime.toFixed(2)}s）…`);
       ctx.drawImage(video, r.x, r.y, r.w, r.h, 0, 0, outW, outH);
-      frames.push({ width: outW, height: outH, data: new Uint8ClampedArray(ctx.getImageData(0, 0, outW, outH).data) });
+      // getImageData 返回的就是新分配的数组，再包一层等于每帧白拷一遍全尺寸
+      frames.push({ width: outW, height: outH, data: ctx.getImageData(0, 0, outW, outH).data });
       await idle();
     }
     // 抽完把播放头放回原位，否则源画面一直停在区间最后一帧
@@ -607,12 +617,15 @@ export function initGif({ srcView }) {
     await seekVideo(0);
     srcView.redraw();
     setRange(0, videoMeta.duration);
+    const s = suggestScale(videoMeta.w, videoMeta.h);
+    scaleSel.value = String(s);
     setVideoUI(true);
     setEnabled(true);
     updateSelInfo();
     updateInfo();
     setStatus(
-      `已载入视频：${entry.name}（${videoMeta.w}x${videoMeta.h}，${videoMeta.duration.toFixed(2)}s）。` +
+      `已载入视频：${entry.name}（${videoMeta.w}x${videoMeta.h}，${videoMeta.duration.toFixed(2)}s）` +
+        (s === 100 ? '。' : `·缩放自动设为 ${s}%，想全尺寸改「等比缩放」。`) +
         '拖时间轴两端的黄色手柄选区间，点「选择区域」再在画面上框选'
     );
     render();
@@ -630,6 +643,8 @@ export function initGif({ srcView }) {
     const g = autoDetectGrid(srcCanvas, entry.name);
     colsIn.value = String(g.cols);
     rowsIn.value = String(g.rows);
+    // 按「一格」的尺寸而不是整张序列图来判缩放
+    scaleSel.value = String(suggestScale(srcCanvas.width / g.cols, srcCanvas.height / g.rows));
     setVideoUI(false);
     setEnabled(true);
     updateInfo();

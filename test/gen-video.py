@@ -3,10 +3,15 @@
 帧内容：左半灰阶随帧号递增（16+8i），右半固定 (200,60,60)。
 这样既能验证「按时间采样对不对」（左半灰度），也能验证「区域裁剪对不对」（只取右半）。
 期望值写进 vid_test.expect.json，浏览器里抓预览画布像素来比对。
+
+用法：
+  python gen-video.py                     # 64x48、16 帧 @8fps 的功能验证素材
+  python gen-video.py vid_perf 1280 720 150 30   # 名字 宽 高 帧数 fps，做性能测试用
 """
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 import imageio_ffmpeg
@@ -14,13 +19,15 @@ import numpy as np
 from PIL import Image
 
 HERE = Path(__file__).parent
-FRAMES = 16
-FPS = 8
-W, H = 64, 48
-LEFT = [16 + 8 * i for i in range(FRAMES)]
+NAME = sys.argv[1] if len(sys.argv) > 1 else "vid_test"
+W = int(sys.argv[2]) if len(sys.argv) > 2 else 64
+H = int(sys.argv[3]) if len(sys.argv) > 3 else 48
+FRAMES = int(sys.argv[4]) if len(sys.argv) > 4 else 16
+FPS = int(sys.argv[5]) if len(sys.argv) > 5 else 8
+LEFT = [16 + 8 * (i % 16) for i in range(FRAMES)]
 RIGHT = (200, 60, 60)
-OUT = HERE / "vid_test.mp4"
-TMP = HERE / "vid_frames"
+OUT = HERE / f"{NAME}.mp4"
+TMP = HERE / f"{NAME}_frames"
 
 
 def main():
@@ -53,7 +60,7 @@ def main():
         "leftSample": [4, 4, W // 2 - 4, H - 4],
         "rightSample": [W // 2 + 4, 4, W - 4, H - 4],
     }
-    (HERE / "vid_test.expect.json").write_text(json.dumps(expect, indent=2), encoding="utf-8")
+    (HERE / f"{NAME}.expect.json").write_text(json.dumps(expect, indent=2), encoding="utf-8")
 
     probe = subprocess.run(
         [ff, "-i", str(OUT)], capture_output=True, text=True
