@@ -56,12 +56,12 @@ export function initGif({ srcView }) {
   const vidPlayBtn = $('gif-vid-play');
   const vidTime = $('gif-vid-time');
   const tl = $('gif-tl');
-  const tlSel = $('gif-tl-sel');
+  const tlBand = $('gif-tl-band');
+  const tlA = $('gif-tl-a');
+  const tlB = $('gif-tl-b');
   const tlHead = $('gif-tl-head');
-  const t0In = $('gif-t0');
-  const t1In = $('gif-t1');
-  const setT0Btn = $('gif-set-t0');
-  const setT1Btn = $('gif-set-t1');
+  const rangeInfo = $('gif-range-info');
+  const selModeBtn = $('gif-sel-mode');
   const selFullBtn = $('gif-sel-full');
   const selInfo = $('gif-sel-info');
 
@@ -83,7 +83,7 @@ export function initGif({ srcView }) {
   let frameIndex = 0;
   let runId = 0;
   let rafId = 0;
-  let tlDragging = false;
+  let tlDrag = null; // 时间轴正在拖：{which:'seek'|'a'|'b'|'band', grab, w}
   let debounceId = 0;
 
   const setStatus = (msg, warn = false) => {
@@ -140,8 +140,7 @@ export function initGif({ srcView }) {
     const est = estimate();
     if (mode === 'video') {
       info.textContent =
-        `视频：${videoMeta.w}x${videoMeta.h} · ${videoMeta.duration.toFixed(2)}s  |  ` +
-        `区间 ${range.t0.toFixed(2)}–${range.t1.toFixed(2)}s  |  ` +
+        `视频 ${videoMeta.w}x${videoMeta.h}·${videoMeta.duration.toFixed(2)}s  |  ` +
         `帧数 ${est.count} · ${est.w}x${est.h} · 内存约 ${est.memMB.toFixed(0)}MB`;
     } else if (mode === 'image') {
       info.textContent =
@@ -174,12 +173,9 @@ export function initGif({ srcView }) {
     vidRow.hidden = !on;
     vidGrid.hidden = !on;
     vidPlayBtn.disabled = !on;
-    setT0Btn.disabled = !on;
-    setT1Btn.disabled = !on;
+    selModeBtn.disabled = !on;
     selFullBtn.disabled = !on;
-    t0In.disabled = !on;
-    t1In.disabled = !on;
-    srcView.selectEnabled = on;
+    setSelMode(false);
     relayout();
   }
 
@@ -425,8 +421,9 @@ export function initGif({ srcView }) {
     const cur = video.currentTime;
     vidTime.textContent = `${cur.toFixed(2)} / ${dur.toFixed(2)}s`;
     tlHead.style.left = `${dur ? (cur / dur) * 100 : 0}%`;
-    tlSel.style.left = `${dur ? (range.t0 / dur) * 100 : 0}%`;
-    tlSel.style.width = `${dur ? Math.max(0, ((range.t1 - range.t0) / dur) * 100) : 0}%`;
+    tlBand.style.left = `${dur ? (range.t0 / dur) * 100 : 0}%`;
+    tlBand.style.width = `${dur ? Math.max(0, ((range.t1 - range.t0) / dur) * 100) : 0}%`;
+    rangeInfo.textContent = `${range.t0.toFixed(2)}–${range.t1.toFixed(2)}s`;
   }
 
   // 只在选定区间里循环预览。rAF 在窗口被遮挡时不触发，所以 timeupdate（约 4 次/秒）
@@ -470,10 +467,6 @@ export function initGif({ srcView }) {
     const min = 1 / curFps();
     range.t0 = Math.min(Math.max(0, t0), Math.max(0, dur - min));
     range.t1 = Math.max(Math.min(dur, t1), range.t0 + min);
-    t0In.max = String(dur);
-    t1In.max = String(dur);
-    t0In.value = range.t0.toFixed(2);
-    t1In.value = range.t1.toFixed(2);
     updateTimeUI();
   }
 
@@ -482,23 +475,68 @@ export function initGif({ srcView }) {
     return r.width ? Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) : 0;
   }
 
-  function tlSeek(e) {
+  // 时间轴：点空白或拖空白 = 定位播放头；拖两端手柄 = 调起点/终点；拖中间带 = 整段平移
+  function tlDown(e) {
     if (!videoMeta) return;
+    const dur = videoMeta.duration;
+    const t = tlFrac(e) * dur;
+    const which =
+      e.target === tlA ? 'a' : e.target === tlB ? 'b' : e.target === tlBand ? 'band' : 'seek';
+    tlDrag = { which, grab: t - range.t0, w: range.t1 - range.t0 };
     pauseVideo();
-    seekVideo(tlFrac(e) * videoMeta.duration).then(() => {
+    if (which === 'seek') tlSeekTo(t);
+    e.preventDefault();
+  }
+
+  function tlMove(e) {
+    if (!tlDrag || !videoMeta) return;
+    const dur = videoMeta.duration;
+    const t = tlFrac(e) * dur;
+    const min = 1 / curFps();
+    if (tlDrag.which === 'a') {
+      setRange(Math.min(t, range.t1 - min), range.t1);
+      rangeChanged();
+    } else if (tlDrag.which === 'b') {
+      setRange(range.t0, Math.max(t, range.t0 + min));
+      rangeChanged();
+    } else if (tlDrag.which === 'band') {
+      const w = tlDrag.w;
+      const start = Math.min(Math.max(0, t - tlDrag.grab), Math.max(0, dur - w));
+      setRange(start, start + w);
+      rangeChanged();
+    } else {
+      tlSeekTo(t);
+    }
+  }
+
+  function tlSeekTo(t) {
+    seekVideo(t).then(() => {
       srcView.redraw();
       updateTimeUI();
     });
   }
 
+  function rangeChanged() {
+    invalidate();
+    scheduleVideo();
+  }
+
+  // 框选模式：只有按下「选择区域」后画布才响应拖拽，避免误触
+  function setSelMode(on) {
+    const active = !!on && mode === 'video';
+    srcView.setSelectEnabled(active);
+    selModeBtn.classList.toggle('on', active);
+    selModeBtn.textContent = active ? '拖拽框选…' : '选择区域';
+  }
+
   function updateSelInfo() {
     if (mode !== 'video') {
-      selInfo.textContent = '在画面上拖拽即可框选';
+      selInfo.textContent = '区域 -';
       return;
     }
     const r = srcPixelRect();
     const full = r.w === videoMeta.w && r.h === videoMeta.h;
-    selInfo.textContent = full ? '全画面' : `区域 ${r.w}x${r.h}（起点 +${r.x},+${r.y}）`;
+    selInfo.textContent = full ? '区域 全画面' : `区域 ${r.w}x${r.h}（+${r.x},+${r.y}）`;
   }
 
   // ---------- 载入 ----------
@@ -575,7 +613,7 @@ export function initGif({ srcView }) {
     updateInfo();
     setStatus(
       `已载入视频：${entry.name}（${videoMeta.w}x${videoMeta.h}，${videoMeta.duration.toFixed(2)}s）。` +
-        '拖时间轴定位，在画面上拖拽框选区域'
+        '拖时间轴两端的黄色手柄选区间，点「选择区域」再在画面上框选'
     );
     render();
   }
@@ -710,47 +748,27 @@ export function initGif({ srcView }) {
   video.addEventListener('ended', () => {
     vidPlayBtn.textContent = '播放';
   });
-  tl.addEventListener('mousedown', (e) => {
-    tlDragging = true;
-    tlSeek(e);
-  });
-  window.addEventListener('mousemove', (e) => {
-    if (tlDragging) tlSeek(e);
-  });
+  tl.addEventListener('mousedown', tlDown);
+  window.addEventListener('mousemove', tlMove);
   window.addEventListener('mouseup', () => {
-    tlDragging = false;
+    tlDrag = null;
   });
 
-  setT0Btn.addEventListener('click', () => {
-    setRange(Math.min(video.currentTime, range.t1 - 1 / curFps()), range.t1);
-    invalidate();
-    scheduleVideo();
+  selModeBtn.addEventListener('click', () => {
+    const on = !srcView.selectEnabled;
+    setSelMode(on);
+    if (on) setStatus('在画面上拖拽框选区域，松手完成；单击取消');
   });
-  setT1Btn.addEventListener('click', () => {
-    setRange(range.t0, Math.max(video.currentTime, range.t0 + 1 / curFps()));
-    invalidate();
-    scheduleVideo();
-  });
-  const rangeInput = () => {
-    setRange(Number(t0In.value) || 0, Number(t1In.value) || 0);
-    invalidate();
-    scheduleVideo();
-  };
-  t0In.addEventListener('change', rangeInput);
-  t1In.addEventListener('change', rangeInput);
   selFullBtn.addEventListener('click', () => {
     srcView.setSelect(null);
     updateSelInfo();
-    invalidate();
-    scheduleVideo();
+    rangeChanged();
   });
   srcView.onSelect = () => {
     updateSelInfo();
-    if (mode === 'video') {
-      invalidate();
-      scheduleVideo();
-    }
+    if (mode === 'video') rangeChanged();
   };
+  srcView.onSelectEnd = () => setSelMode(false);
 
   const gridChanged = () => {
     invalidate();

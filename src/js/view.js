@@ -40,6 +40,7 @@ export class CanvasView {
     // 归一化选区 {x0,y0,x1,y1}，只在 selectable 时由鼠标维护
     this.select = null;
     this.onSelect = null;
+    this.onSelectEnd = null;
     this.selectEnabled = !!opts.selectable;
     this._drag = null;
     this._checker = this._makeChecker();
@@ -98,6 +99,13 @@ export class CanvasView {
   setSelect(sel) {
     this.select = sel ? normSel(sel) : null;
     this.redraw();
+  }
+
+  // 框选模式开关：关掉时鼠标完全不响应选区，光标也还回去
+  setSelectEnabled(on) {
+    this.selectEnabled = on;
+    if (!on) this._drag = null;
+    this.canvas.style.cursor = on ? 'crosshair' : 'default';
   }
 
   targetRect() {
@@ -306,6 +314,7 @@ export class CanvasView {
     }
     this.redraw();
     if (this.onSelect) this.onSelect(this.select);
+    if (this.onSelectEnd) this.onSelectEnd(this.select);
   }
 
   _click(e) {

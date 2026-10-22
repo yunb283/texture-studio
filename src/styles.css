@@ -193,14 +193,54 @@ body {
   cursor: pointer;
 }
 
-.tl-sel {
+/* 选区带：整块可拖着平移，两端手柄分别调起点/终点 */
+.tl-band {
   position: absolute;
   top: 0;
   bottom: 0;
-  background: rgba(57, 199, 237, 0.26);
+  background: rgba(57, 199, 237, 0.22);
   border-left: 1px solid #39c7ed;
   border-right: 1px solid #39c7ed;
-  pointer-events: none;
+  cursor: grab;
+}
+
+.tl-grip {
+  position: absolute;
+  top: -6px;
+  bottom: -2px;
+  width: 12px;
+  margin-left: -6px;
+  cursor: ew-resize;
+}
+
+.tl-grip:first-child {
+  left: 0;
+}
+
+.tl-grip:last-child {
+  left: 100%;
+}
+
+/* 手柄画成参考图那种「吊牌 + 竖线」：上面一个五边形，下面一条细线 */
+.tl-grip::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 10px;
+  bottom: 0;
+  width: 2px;
+  background: #ffd926;
+}
+
+.tl-grip::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 12px;
+  height: 12px;
+  background: #ffd926;
+  clip-path: polygon(0 0, 100% 0, 100% 55%, 50% 100%, 0 55%);
 }
 
 .tl-head {
@@ -225,6 +265,12 @@ body {
 
 .dim-label.warn {
   color: #ffc46b;
+}
+
+/* GIF 页信息行内容长（源尺寸+区间+帧数+内存+警告），允许折行，别被面板裁掉 */
+#gif-info {
+  white-space: normal;
+  line-height: 1.5;
 }
 
 .help-label {
@@ -291,6 +337,13 @@ body {
 
 .btn.small {
   min-width: 60px;
+}
+
+/* 处于按下状态的开关按钮 */
+.btn.on {
+  border-color: #39c7ed;
+  background: #22333c;
+  color: #7fe3fb;
 }
 
 /* 一行放两个动作：左边的撑开，右边按内容宽度。

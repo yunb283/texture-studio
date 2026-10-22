@@ -343,23 +343,21 @@
         <div class="vid-row" id="gif-vid-row" hidden>
           <button class="btn small" id="gif-vid-play" disabled>播放</button>
           <div class="tl" id="gif-tl">
-            <div class="tl-sel" id="gif-tl-sel"></div>
+            <div class="tl-band" id="gif-tl-band">
+              <div class="tl-grip" id="gif-tl-a"></div>
+              <div class="tl-grip" id="gif-tl-b"></div>
+            </div>
             <div class="tl-head" id="gif-tl-head"></div>
           </div>
           <span class="dim-label tl-time" id="gif-vid-time">0.00 / 0.00s</span>
         </div>
         <div class="form-grid" id="gif-vid-grid" hidden>
-          <label>区间</label>
+          <label>区间 / 区域</label>
           <div class="dual-row">
-            <input type="number" id="gif-t0" min="0" step="0.1" value="0" />
-            <button class="btn small" id="gif-set-t0" disabled>设为起点</button>
-            <input type="number" id="gif-t1" min="0" step="0.1" value="0" />
-            <button class="btn small" id="gif-set-t1" disabled>设为终点</button>
-          </div>
-          <label>区域</label>
-          <div class="dual-row">
+            <span class="dim-label" id="gif-range-info">0.00–0.00s</span>
+            <span class="dim-label" id="gif-sel-info">区域 全画面</span>
+            <button class="btn small" id="gif-sel-mode" disabled>选择区域</button>
             <button class="btn small" id="gif-sel-full" disabled>全画面</button>
-            <span class="dim-label" id="gif-sel-info">在画面上拖拽即可框选</span>
           </div>
         </div>
         <div class="dual-row btn-row">
