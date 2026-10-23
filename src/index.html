@@ -339,7 +339,7 @@
           <canvas id="gif-src-canvas"></canvas>
           <video id="gif-video" class="offscreen-video" crossorigin="anonymous" muted playsinline preload="auto"></video>
         </div>
-        <div class="dim-label" id="gif-info">图像尺寸：-  |  大小：-  |  格式：-  |  帧数：-</div>
+        <div class="dim-label" id="gif-info">未载入文件</div>
         <div class="vid-row" id="gif-vid-row" hidden>
           <button class="btn small" id="gif-vid-play" disabled>播放</button>
           <div class="tl" id="gif-tl">
@@ -349,13 +349,12 @@
             </div>
             <div class="tl-head" id="gif-tl-head"></div>
           </div>
-          <span class="dim-label tl-time" id="gif-vid-time">0.00 / 0.00s</span>
+          <span class="dim-label tl-time" id="gif-vid-time">00:00:00 / 00:00:00</span>
         </div>
         <div class="form-grid" id="gif-vid-grid" hidden>
-          <label>区间 / 区域</label>
+          <label>区域</label>
           <div class="dual-row">
-            <span class="dim-label" id="gif-range-info">0.00–0.00s</span>
-            <span class="dim-label" id="gif-sel-info">区域 全画面</span>
+            <span class="dim-label" id="gif-sel-info">全画面</span>
             <button class="btn small" id="gif-sel-mode" disabled>选择区域</button>
             <button class="btn small" id="gif-sel-full" disabled>全画面</button>
           </div>
@@ -374,10 +373,6 @@
         </label>
         <button class="btn primary" id="gif-export" disabled>导出 GIF</button>
         <div class="status" id="gif-status"></div>
-        <div class="help-label">
-          图片按列/行拆帧，视频按区间和帧率抽帧；改完自动重新生成<br />
-          取消勾选后点导出会弹目录选择框
-        </div>
       </div>
       <div class="panel" style="flex: 1 1 0; min-width: 0">
         <div class="panel-head">
@@ -412,7 +407,7 @@
             <option value="25">25%</option>
           </select>
           <label>帧率</label>
-          <input type="number" id="gif-fps" min="1" max="50" step="1" value="10" />
+          <input type="number" id="gif-fps" min="1" max="50" step="1" value="15" />
           <label>循环</label>
           <select id="gif-loop">
             <option value="0" selected>无限循环</option>

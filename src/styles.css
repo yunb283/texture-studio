@@ -267,9 +267,9 @@ body {
   color: #ffc46b;
 }
 
-/* GIF 页信息行内容长（源尺寸+区间+帧数+内存+警告），允许折行，别被面板裁掉 */
+/* GIF 页信息行：第一行源信息、第二行抽帧结果，用 \n 分行；内容长要能折行别被裁掉 */
 #gif-info {
-  white-space: normal;
+  white-space: pre-line;
   line-height: 1.5;
 }
 

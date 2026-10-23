@@ -26,6 +26,8 @@ const SCALE = [100, 75, 50, 25];
 // 超过这两个值就提醒：帧数直接决定内存（帧数×宽×高×4 字节）和编码耗时
 const FRAME_WARN = 600;
 const MEM_WARN_MB = 400;
+// 预计抽帧数超过这个上限就不再自动抽帧，让用户先缩短时间段
+const MAX_AUTO_FRAMES = 1000;
 // 视频改动一次就要重新抽帧，拖框选时不能每帧都抽，用尾随去抖
 const DEBOUNCE_MS = 400;
 
@@ -60,7 +62,6 @@ export function initGif({ srcView }) {
   const tlA = $('gif-tl-a');
   const tlB = $('gif-tl-b');
   const tlHead = $('gif-tl-head');
-  const rangeInfo = $('gif-range-info');
   const selModeBtn = $('gif-sel-mode');
   const selFullBtn = $('gif-sel-full');
   const selInfo = $('gif-sel-info');
@@ -91,7 +92,7 @@ export function initGif({ srcView }) {
     status.classList.toggle('warn', warn);
   };
 
-  const curFps = () => Math.min(50, Math.max(1, Math.round(Number(fpsIn.value)) || 10));
+  const curFps = () => Math.min(50, Math.max(1, Math.round(Number(fpsIn.value)) || 15));
   const clamped = (el, lo, hi) => Math.min(hi, Math.max(lo, Math.round(Number(el.value)) || lo));
   const gridCount = () => (mode === 'image' ? clamped(colsIn, 1, 128) * clamped(rowsIn, 1, 128) : 0);
 
@@ -131,11 +132,23 @@ export function initGif({ srcView }) {
     };
   }
 
+  // 单帧来自哪里：图片是一格，视频是框选区域
+  function frameSourceSize() {
+    if (mode === 'image') {
+      const cols = clamped(colsIn, 1, 128);
+      const rows = clamped(rowsIn, 1, 128);
+      const [l, t, r, b] = cellRect(srcCanvas.width, srcCanvas.height, cols, rows, 0);
+      return { w: r - l, h: b - t };
+    }
+    const s = srcPixelRect();
+    return { w: s.w, h: s.h };
+  }
+
   function estimate() {
-    const r = srcPixelRect();
+    const src = frameSourceSize();
     const pct = scalePct();
-    const w = Math.max(1, Math.round((r.w * pct) / 100));
-    const h = Math.max(1, Math.round((r.h * pct) / 100));
+    const w = Math.max(1, Math.round((src.w * pct) / 100));
+    const h = Math.max(1, Math.round((src.h * pct) / 100));
     const count =
       mode === 'video' ? Math.max(1, Math.floor((range.t1 - range.t0) * curFps()) + 1) : gridCount();
     return { count, w, h, memMB: (count * w * h * 4) / 1048576 };
@@ -145,24 +158,39 @@ export function initGif({ srcView }) {
     return est.count > FRAME_WARN || est.memMB > MEM_WARN_MB;
   }
 
+  // 时长一律显示成 时:分:秒
+  function fmtTime(sec) {
+    const s = Math.max(0, sec || 0);
+    const pad = (n, w) => String(n).padStart(w, '0');
+    return `${pad(Math.floor(s / 3600), 2)}:${pad(Math.floor((s % 3600) / 60), 2)}:${pad(
+      (s % 60).toFixed(2),
+      5
+    )}`;
+  }
+
   function updateInfo() {
     const est = estimate();
+    const pulled = `抽帧 ${est.count} 帧 · ${est.w}x${est.h} · 内存约 ${est.memMB.toFixed(0)}MB`;
     if (mode === 'video') {
+      const total = videoMeta.srcFrames ? ` · 总 ${videoMeta.srcFrames} 帧` : '';
       info.textContent =
-        `视频 ${videoMeta.w}x${videoMeta.h}·${videoMeta.duration.toFixed(2)}s  |  ` +
-        `帧数 ${est.count} · ${est.w}x${est.h} · 内存约 ${est.memMB.toFixed(0)}MB`;
+        `视频 ${videoMeta.w}x${videoMeta.h} · ${fmtTime(videoMeta.duration)}${total} · ` +
+        `选段 ${fmtTime(range.t0)}–${fmtTime(range.t1)}\n` +
+        pulled;
     } else if (mode === 'image') {
       info.textContent =
-        `图像尺寸：${srcCanvas.width}x${srcCanvas.height}  |  ` +
-        `大小：${humanSize(sourceBytes)}  |  ` +
-        `格式：${FORMAT_NAME[extOf(sourceName)] || '未知'}  |  ` +
-        `帧数：${est.count}`;
+        `图像 ${srcCanvas.width}x${srcCanvas.height} · ${humanSize(sourceBytes)} · ` +
+        `${FORMAT_NAME[extOf(sourceName)] || '未知'} · 总 ${gridCount()} 帧\n` +
+        pulled;
     } else {
-      info.textContent = '图像尺寸：-  |  大小：-  |  格式：-  |  帧数：-';
+      info.textContent = '未载入文件';
+      return;
     }
-    const over = mode && overLimit(est);
-    info.classList.toggle('warn', !!over);
-    if (over) info.textContent += '（偏大，抽帧和编码会很慢）';
+    const stopped = est.count > MAX_AUTO_FRAMES;
+    const over = !stopped && overLimit(est);
+    info.classList.toggle('warn', stopped || over);
+    if (stopped) info.textContent += '（超过 1000 帧，已停止自动抽帧）';
+    else if (over) info.textContent += '（偏大，抽帧和编码会很慢）';
   }
 
   function updateOut(text) {
@@ -184,7 +212,8 @@ export function initGif({ srcView }) {
     vidPlayBtn.disabled = !on;
     selModeBtn.disabled = !on;
     selFullBtn.disabled = !on;
-    setSelMode(false);
+    drawing = false;
+    syncSelMode();
     relayout();
   }
 
@@ -303,6 +332,11 @@ export function initGif({ srcView }) {
         if (prevStart !== null) {
           const delta = s - prevStart;
           if (delta > 1e-6 && (!frameDur || delta < frameDur)) frameDur = delta;
+          // 顺手把源帧率记下来，信息行要显示总帧数
+          if (frameDur && !videoMeta.srcFrames) {
+            videoMeta.srcFrames = Math.round(videoMeta.duration / frameDur);
+            updateInfo();
+          }
         }
         prevStart = s;
         if (frameDur) {
@@ -419,6 +453,20 @@ export function initGif({ srcView }) {
 
   async function render() {
     if (!mode) return;
+    const est = estimate();
+    if (est.count > MAX_AUTO_FRAMES) {
+      runId++; // 取消正在跑的抽帧/编码
+      updateInfo();
+      const hint =
+        mode === 'video'
+          ? `请把时间段缩短到 ${fmtTime((MAX_AUTO_FRAMES - 1) / curFps())} 以内，或降低帧率。`
+          : `请减少列 / 行，把总帧数降到 ${MAX_AUTO_FRAMES} 帧以内。`;
+      setStatus(
+        `按现在的设置要抽 ${est.count} 帧，超过 ${MAX_AUTO_FRAMES} 帧上限，已停止自动抽帧。${hint}`,
+        true
+      );
+      return;
+    }
     const id = ++runId;
     updateInfo();
     let frames;
@@ -511,11 +559,10 @@ export function initGif({ srcView }) {
     if (!videoMeta) return;
     const dur = videoMeta.duration;
     const cur = video.currentTime;
-    vidTime.textContent = `${cur.toFixed(2)} / ${dur.toFixed(2)}s`;
+    vidTime.textContent = `${fmtTime(cur)} / ${fmtTime(dur)}`;
     tlHead.style.left = `${dur ? (cur / dur) * 100 : 0}%`;
     tlBand.style.left = `${dur ? (range.t0 / dur) * 100 : 0}%`;
     tlBand.style.width = `${dur ? Math.max(0, ((range.t1 - range.t0) / dur) * 100) : 0}%`;
-    rangeInfo.textContent = `${range.t0.toFixed(2)}–${range.t1.toFixed(2)}s`;
   }
 
   // 只在选定区间里循环预览。rAF 在窗口被遮挡时不触发，所以 timeupdate（约 4 次/秒）
@@ -613,22 +660,24 @@ export function initGif({ srcView }) {
     scheduleVideo();
   }
 
-  // 框选模式：只有按下「选择区域」后画布才响应拖拽，避免误触
-  function setSelMode(on) {
-    const active = !!on && mode === 'video';
+  // 框选：按下按钮进入框选；一旦有了选区就常驻可编辑（拖手柄改大小、框内拖动改位置）
+  let drawing = false;
+
+  function syncSelMode() {
+    const hasSel = mode === 'video' && !!srcView.select;
+    const active = mode === 'video' && (drawing || hasSel);
     srcView.setSelectEnabled(active);
     selModeBtn.classList.toggle('on', active);
-    selModeBtn.textContent = active ? '拖拽框选…' : '选择区域';
   }
 
   function updateSelInfo() {
     if (mode !== 'video') {
-      selInfo.textContent = '区域 -';
+      selInfo.textContent = '-';
       return;
     }
     const r = srcPixelRect();
     const full = r.w === videoMeta.w && r.h === videoMeta.h;
-    selInfo.textContent = full ? '区域 全画面' : `区域 ${r.w}x${r.h}（+${r.x},+${r.y}）`;
+    selInfo.textContent = full ? '全画面' : `${r.w}x${r.h} @+${r.x},+${r.y}`;
   }
 
   // ---------- 载入 ----------
@@ -852,13 +901,14 @@ export function initGif({ srcView }) {
   });
 
   selModeBtn.addEventListener('click', () => {
-    const on = !srcView.selectEnabled;
-    setSelMode(on);
-    if (on) setStatus('在画面上拖拽框选区域，松手完成；单击取消');
+    drawing = !drawing;
+    syncSelMode();
+    if (drawing) setStatus(srcView.select ? '拖拽可重新框选一块区域' : '在画面上拖拽框选区域');
   });
   selFullBtn.addEventListener('click', () => {
     srcView.setSelect(null);
-    setSelMode(false);
+    drawing = false;
+    syncSelMode();
     updateSelInfo();
     rangeChanged();
   });
@@ -866,7 +916,11 @@ export function initGif({ srcView }) {
     updateSelInfo();
     if (mode === 'video') rangeChanged();
   };
-  srcView.onSelectEnd = () => setSelMode(false);
+  // 松手就退出「正在框选」，但选区保留，仍可拖手柄/拖动
+  srcView.onSelectEnd = () => {
+    drawing = false;
+    syncSelMode();
+  };
 
   const gridChanged = () => {
     invalidate();

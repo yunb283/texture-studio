@@ -259,7 +259,7 @@ export class CanvasView {
     } else if (hit.mode === 'move') {
       this._drag = { mode: 'move', ox: fx - this.select.x0, oy: fy - this.select.y0, sel: { ...this.select } };
     } else {
-      this._drag = { mode: 'new', ax: fx, ay: fy };
+      this._drag = { mode: 'new', ax: fx, ay: fy, prev: this.select };
       this.select = { x0: fx, y0: fy, x1: fx, y1: fy };
     }
     e.preventDefault();
@@ -302,15 +302,15 @@ export class CanvasView {
   }
 
   _selUp() {
-    if (!this._drag) return;
-    const wasNew = this._drag.mode === 'new';
+    const d = this._drag;
+    if (!d) return;
     this._drag = null;
-    this.canvas.style.cursor = 'crosshair';
-    // 单击或极小的拖动当作清除选区
-    if (this.select && wasNew) {
+    if (this.selectEnabled) this.canvas.style.cursor = 'crosshair';
+    // 极小的拖动当作误点：退回原来的选区，清空交给「全画面」按钮
+    if (d.mode === 'new') {
       const t = this.targetRect();
       const r = t ? this._selectPx(t) : null;
-      if (!r || r.w < 4 || r.h < 4) this.select = null;
+      if (!r || r.w < 4 || r.h < 4) this.select = d.prev || null;
     }
     this.redraw();
     if (this.onSelect) this.onSelect(this.select);
