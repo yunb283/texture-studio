@@ -93,8 +93,8 @@ export function initGif({ srcView }) {
   // 拆帧/抽帧结果按「源 + 影响像素的参数」缓存；视频抽帧另存「源帧网格」层，
   // 帧率只影响从网格里怎么重采样，不再触发重新抽帧（见 extractFrames / materialize）
   let cache = null;
-  let srcCache = null; // 视频抽帧：{key, gridFps, items:[{t, frame}], ms}
-  let matMemo = null; // materialize 结果按（网格、帧率）记一份，同一批帧只重采样一次
+  let srcCache = null; // 视频抽帧：{key, gridFps, items:[{t, frame}], t0, t1, ms}
+  let matMemo = null; // materialize 结果按（网格、帧率、范围）记一份，同一批帧只重采样一次
   let chunkCache = null; // 帧字节缓存：编码参数没变时改循环次数只需重拼文件头
   let pullMs = null; // 最近一次抽帧耗时；缓存命中时为 null
   let curFrames = [];
@@ -313,26 +313,32 @@ export function initGif({ srcView }) {
   }
 
   // 抽帧分两层：
-  //   captureGrid 按「网格帧率」把 [t0, t1] 抽成一串源帧，缓存 key 不含帧率；
+  //   captureGrid 按「网格帧率」把当前范围抽成一串源帧，缓存 key 不含范围也不含帧率；
   //   materialize 按目标帧率从源帧里取「覆盖该时刻的那一帧」。
   // 改帧率不再重新抽帧：降到网格以下零成本（重复帧共享同一份像素），
   // 升到网格以上才按新网格重抽一次。
+  // 改范围同理：整段抽过一次之后，往窄里挑只需在旧网格里重采样。
   async function extractFrames(id) {
     const fps = curFps();
     const pct = scalePct();
     const r = srcPixelRect();
-    const key =
-      `v:${videoMeta.src}:${range.t0.toFixed(3)}-${range.t1.toFixed(3)}:` +
-      `${r.x},${r.y},${r.w},${r.h}:${pct}`;
-    if (srcCache && srcCache.key === key && fps <= srcCache.gridFps) {
+    const key = `v:${videoMeta.src}:${r.x},${r.y},${r.w},${r.h}:${pct}`;
+    // 网格必须覆盖住新范围才敢复用；端点差一个浮点误差不算越界
+    const covers =
+      srcCache &&
+      srcCache.key === key &&
+      fps <= srcCache.gridFps &&
+      range.t0 >= srcCache.t0 - 1e-3 &&
+      range.t1 <= srcCache.t1 + 1e-3;
+    if (covers) {
       pullMs = null;
-      return materialize(srcCache.items, srcCache.gridFps, fps);
+      return materialize(srcCache.items, fps);
     }
     const grid = await captureGrid(id, fps, key);
     if (id !== runId) return null;
     pullMs = grid.ms;
     srcCache = grid;
-    return materialize(grid.items, grid.gridFps, fps);
+    return materialize(grid.items, fps);
   }
 
   // 一遍 4× 加速播放取帧：seek 每次都要回退到关键帧重解（实测 72ms/帧），
@@ -353,9 +359,12 @@ export function initGif({ srcView }) {
     const ctx = cv.getContext('2d', { willReadFrequently: true });
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'medium';
-    const total = Math.max(1, Math.floor((range.t1 - range.t0) * fps) + 1);
+    // 抽这一轮的端点要一次性定死：抽帧是异步的，期间用户可能已经把范围拖走了
+    const t0g = range.t0;
+    const t1g = range.t1;
+    const total = Math.max(1, Math.floor((t1g - t0g) * fps) + 1);
     const targets = new Array(total);
-    for (let i = 0; i < total; i++) targets[i] = Math.min(range.t1, range.t0 + i / fps);
+    for (let i = 0; i < total; i++) targets[i] = Math.min(t1g, t0g + i / fps);
     const items = new Array(total).fill(null);
     let done = 0;
     const grab = (i) => {
@@ -414,27 +423,33 @@ export function initGif({ srcView }) {
     await seekVideo(wasAt);
     srcView.redraw();
     updateTimeUI();
-    return { key, gridFps: fps, items, ms };
+    return { key, gridFps: fps, items, t0: t0g, t1: t1g, ms };
   }
 
   // 目标帧率 ≤ 网格帧率时，给每个目标时刻取「起始时刻 ≤ 该时刻」的最近源帧；
-  // 重复帧按引用共享，不复制像素。fps === gridFps 时就是原样那批帧。
-  function materialize(items, gridFps, fps) {
-    if (matMemo && matMemo.src === items && matMemo.fps === fps) return matMemo.frames;
-    let out;
-    if (fps >= gridFps) {
-      out = items.map((it) => it.frame);
-    } else {
-      const total = Math.max(1, Math.floor((range.t1 - range.t0) * fps) + 1);
-      out = new Array(total);
-      let j = 0;
-      for (let i = 0; i < total; i++) {
-        const t = Math.min(range.t1, range.t0 + i / fps);
-        while (j + 1 < items.length && items[j + 1].t <= t + 1e-6) j++;
-        out[i] = items[j].frame;
-      }
+  // 重复帧按引用共享，不复制像素。范围是网格的子集时，取的就是网格中间那一段。
+  function materialize(items, fps) {
+    const { t0, t1 } = range;
+    if (
+      matMemo &&
+      matMemo.src === items &&
+      matMemo.fps === fps &&
+      matMemo.t0 === t0 &&
+      matMemo.t1 === t1
+    ) {
+      return matMemo.frames;
     }
-    matMemo = { src: items, fps, frames: out };
+    const total = Math.max(1, Math.floor((t1 - t0) * fps) + 1);
+    const out = new Array(total);
+    // 先落到覆盖 t0 的那一格，别从网格第一帧开始找（范围是子集时前面还有一堆）
+    let j = 0;
+    while (j + 1 < items.length && items[j + 1].t <= t0 + 1e-6) j++;
+    for (let i = 0; i < total; i++) {
+      const t = Math.min(t1, t0 + i / fps);
+      while (j + 1 < items.length && items[j + 1].t <= t + 1e-6) j++;
+      out[i] = items[j].frame;
+    }
+    matMemo = { src: items, fps, t0, t1, frames: out };
     return out;
   }
 
@@ -880,7 +895,7 @@ export function initGif({ srcView }) {
       `GIF：${frames.length} 帧  |  ${tw}x${th}  |  每帧 ${opts.delay * 10}ms（约 ${gifFpsForDelay(opts.delay).toFixed(1)}fps）  |  ` +
         `${humanSize(bytes.length)}  |  时长 ${fmtDur((frames.length * opts.delay) / 100)}`
     );
-    // 抽帧耗时只在真的抽过这一轮时显示；缓存命中（改帧率降档、改循环/颜色等）标明走了缓存
+    // 抽帧耗时只在真的抽过这一轮时显示；缓存命中（改帧率降档、往窄里改范围、改循环/颜色等）标明走了缓存
     const pulled =
       mode === 'video'
         ? pullMs != null
@@ -1056,7 +1071,9 @@ export function initGif({ srcView }) {
   }
 
   function rangeChanged() {
-    invalidate();
+    // 换范围不改像素参数，抽帧网格不该跟着丢：整段抽过一次后往窄里挑只重采样。
+    // 真正要丢的是缩放/框选/换源，那三处改的是缓存 key 或自己调 dropSrcCache。
+    updateInfo();
     scheduleVideo();
   }
 
