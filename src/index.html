@@ -78,8 +78,10 @@
           <span>保存到原图所在目录</span>
         </label>
         <button class="btn primary" id="split-save" disabled>分割并保存</button>
-        <div class="status" id="split-status"></div>
-        <div class="io-row" id="split-io"></div>
+        <div class="io-line">
+          <div class="status" id="split-status"></div>
+          <div class="io-row" id="split-io"></div>
+        </div>
       </div>
     </div>
 
@@ -142,8 +144,10 @@
         </label>
         <button class="btn" id="merge-preview-btn" disabled>预览</button>
         <button class="btn primary" id="merge-save" disabled>合并并保存</button>
-        <div class="status" id="merge-status"></div>
-        <div class="io-row" id="merge-io"></div>
+        <div class="io-line">
+          <div class="status" id="merge-status"></div>
+          <div class="io-row" id="merge-io"></div>
+        </div>
       </div>
     </div>
 
@@ -192,8 +196,10 @@
           <button class="btn small" id="conv-browse" disabled>浏览…</button>
         </div>
         <button class="btn" id="conv-export-dir" disabled>导出到指定路径</button>
-        <div class="status" id="conv-status"></div>
-        <div class="io-row" id="conv-io"></div>
+        <div class="io-line">
+          <div class="status" id="conv-status"></div>
+          <div class="io-row" id="conv-io"></div>
+        </div>
       </div>
     </div>
 
@@ -265,11 +271,7 @@
             <span>高度反转（凸起↔凹陷）</span>
           </label>
         </div>
-        <div class="help-label">
-          两种约定只差绿通道方向：图像里凸起的上边缘偏绿（G&gt;128）是 OpenGL（Unity），偏暗是 DirectX（UE）。
-          参数改动即时重算，导出名默认「原名_Normal」。
-        </div>
-        <div class="io-row" id="nrm-io"></div>
+        <div class="io-row end" id="nrm-io"></div>
       </div>
     </div>
 
@@ -343,7 +345,7 @@
             <span>在预乘空间混合，保留透明通道</span>
           </label>
         </div>
-        <div class="io-row" id="sml-io"></div>
+        <div class="io-row end" id="sml-io"></div>
       </div>
     </div>
 
@@ -432,7 +434,10 @@
             <option value="25">25%</option>
           </select>
           <label>帧率</label>
-          <input type="number" id="gif-fps" min="1" max="50" step="1" value="10" />
+          <div class="dual-row">
+            <input type="range" id="gif-fps" min="1" max="30" step="1" value="15" />
+            <span class="dim-label" id="gif-fps-label">15</span>
+          </div>
           <label>循环</label>
           <select id="gif-loop">
             <option value="0" selected>无限循环</option>
@@ -453,7 +458,7 @@
             <option value="high">高质量（每帧调色板，不易串色）</option>
           </select>
         </div>
-        <div class="io-row" id="gif-io"></div>
+        <div class="io-row end" id="gif-io"></div>
       </div>
     </div>
 

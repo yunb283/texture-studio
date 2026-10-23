@@ -1,21 +1,22 @@
-// 每个页面板底部那三个「打开…」按钮：只负责把最近一次的源文件 / 导出文件路径记下来，
+// 每个页面板的「打开…」入口：只负责把最近一次的源文件 / 导出文件路径记下来，
 // 再按路径决定哪个能点，实际打开走 Rust 的 open_path（explorer）。
 // 六个页共用这一份，页面里只需要 io.setSource(...) / io.setExport(...) 两处调用。
+// 形态是文字链，挂在各页结果信息行（或状态行）的右端，不单独占一行。
 import { isTauri, openPath, dirname } from './platform.js';
 
 export function createIoButtons(container, setStatus) {
   const mk = (label, title) => {
     const b = document.createElement('button');
-    b.className = 'btn small';
+    b.className = 'io-link';
     b.textContent = label;
     b.title = title;
     b.disabled = true;
     container.appendChild(b);
     return b;
   };
-  const fileBtn = mk('打开导出文件', '用系统默认程序打开最近导出的文件');
-  const outDirBtn = mk('打开导出目录', '打开最近导出所在的文件夹');
-  const srcDirBtn = mk('打开源文件目录', '打开源文件所在的文件夹');
+  const fileBtn = mk('打开文件', '用系统默认程序打开最近导出的文件');
+  const outDirBtn = mk('导出目录', '打开最近导出所在的文件夹');
+  const srcDirBtn = mk('源目录', '打开源文件所在的文件夹');
 
   let src = null;
   let out = null;

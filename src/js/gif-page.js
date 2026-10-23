@@ -52,6 +52,7 @@ export function initGif({ srcView }) {
   const rowsIn = $('gif-rows');
   const scaleSel = $('gif-scale');
   const fpsIn = $('gif-fps');
+  const fpsLabel = $('gif-fps-label');
   const loopSel = $('gif-loop');
   const colorSel = $('gif-colors');
   const qualitySel = $('gif-quality');
@@ -132,7 +133,8 @@ export function initGif({ srcView }) {
     updateTimeUI();
   }
 
-  const curFps = () => Math.min(50, Math.max(1, Math.round(Number(fpsIn.value)) || 10));
+  const curFps = () => Math.min(30, Math.max(1, Math.round(Number(fpsIn.value)) || 15));
+  const syncFpsLabel = () => { fpsLabel.textContent = String(curFps()); };
   const clamped = (el, lo, hi) => Math.min(hi, Math.max(lo, Math.round(Number(el.value)) || lo));
   const gridCount = () => (mode === 'image' ? clamped(colsIn, 1, 128) * clamped(rowsIn, 1, 128) : 0);
 
@@ -1408,8 +1410,16 @@ export function initGif({ srcView }) {
     if (mode === 'video') scheduleVideo();
     else schedule();
   });
-  fpsIn.addEventListener('change', () => {
-    fpsIn.value = String(curFps());
+  // 帧率滑条：拖动途中只刷读数，松手（或键盘改值）才重采样/编码
+  // 只靠 change 或防抖不够：防抖会在拖动的停顿里就抽一轮帧
+  let fpsDragging = false;
+  let lastFps = curFps();
+  const commitFps = () => {
+    fpsDragging = false;
+    const fps = curFps();
+    if (fps === lastFps) return;
+    lastFps = fps;
+    fpsIn.value = String(fps);
     if (mode === 'video') {
       // 帧率决定区间最小长度，跟着收一下；抽帧缓存不按帧率失效（见 extractFrames），
       // 降帧率只做重采样，升帧率才重新抽
@@ -1418,7 +1428,15 @@ export function initGif({ srcView }) {
     } else {
       schedule();
     }
+  };
+  fpsIn.addEventListener('pointerdown', () => { fpsDragging = true; });
+  fpsIn.addEventListener('pointerup', commitFps);
+  fpsIn.addEventListener('pointercancel', commitFps);
+  fpsIn.addEventListener('input', () => {
+    syncFpsLabel();
+    if (!fpsDragging) commitFps();
   });
+  fpsIn.addEventListener('change', () => { if (!fpsDragging) commitFps(); });
   loopSel.addEventListener('change', schedule);
   colorSel.addEventListener('change', schedule);
   qualitySel.addEventListener('change', schedule);
@@ -1426,6 +1444,7 @@ export function initGif({ srcView }) {
   setEnabled(false);
   setPlaying(false);
   setVideoUI(false);
+  syncFpsLabel();
   syncAutoBtn();
   preview.hidden = true;
   frameCanvas.hidden = true;

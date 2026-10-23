@@ -198,4 +198,8 @@ onGlobalDrop((entries) => {
   }
 });
 
+// WebView2 自带的那套「后退/重新加载/另存为/检查」菜单对独立工具没意义，整窗屏蔽
+// 文本框里的右键粘贴一起没了，粘贴走 Ctrl+V
+document.addEventListener('contextmenu', (e) => e.preventDefault());
+
 showTab('split');

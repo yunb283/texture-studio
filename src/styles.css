@@ -540,6 +540,12 @@ select:focus {
   width: 62px;
 }
 
+/* 帧率滑条的读数位数会变，定宽否则拖动手柄会跟着跳 */
+#gif-fps-label {
+  min-width: 22px;
+  text-align: right;
+}
+
 /* GIF 页工具行控件多，面板窄时换行而不是把按钮挤扁 */
 .vid-tools {
   flex-wrap: wrap;
@@ -555,9 +561,49 @@ select:focus {
 .io-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   flex-wrap: wrap;
   flex: 0 0 auto;
+}
+
+/* 面板里没有状态行的那几页（法线/无缝/GIF）：链接单独一行，贴右下角，
+   和拆分/合并/转换挂在状态行右端时落在同一个角 */
+.io-row.end {
+  align-self: flex-end;
+}
+
+/* 「打开…」文字链所在的那一行：左边是信息/状态文本，右边是链 */
+.io-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.io-line > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.io-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #7fe3fb;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.io-link:hover {
+  text-decoration: underline;
+}
+
+.io-link:disabled {
+  color: #6a6c75;
+  opacity: 0.6;
+  cursor: default;
+  text-decoration: none;
 }
 
 input:disabled,
