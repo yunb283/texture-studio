@@ -225,26 +225,108 @@ export function initGif({ srcView }) {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'medium';
     const total = Math.max(1, Math.floor((range.t1 - range.t0) * fps) + 1);
-    const frames = [];
+    const targets = new Array(total);
+    for (let i = 0; i < total; i++) targets[i] = Math.min(range.t1, range.t0 + i / fps);
+    const frames = new Array(total).fill(null);
+    let done = 0;
+    const grab = (i) => {
+      ctx.drawImage(video, r.x, r.y, r.w, r.h, 0, 0, outW, outH);
+      // getImageData 返回的就是新分配的数组，再包一层等于每帧白拷一遍全尺寸
+      frames[i] = { width: outW, height: outH, data: ctx.getImageData(0, 0, outW, outH).data };
+      done++;
+      setStatus(`正在抽帧 ${done}/${total}…`);
+    };
     const wasAt = video.currentTime;
     pauseVideo();
     const t0 = performance.now();
+    await playThrough(id, targets, grab);
+    // 只补「单格空洞」——就是掉了一帧的常见情况，沿用左边那帧误差不到一个源帧间隔；
+    // 连续多格空洞说明播放跟不上，交给下面的 seek，免得把一帧冻结成一段
+    let lo = 0;
+    while (lo < total && !frames[lo]) lo++;
+    let hi = total - 1;
+    while (hi >= 0 && !frames[hi]) hi--;
+    for (let i = lo + 1; i < hi; i++) {
+      if (frames[i] || !frames[i - 1]) continue;
+      if (!frames[i + 1]) continue; // 后面还空着就不算单格空洞
+      frames[i] = frames[i - 1];
+      done++;
+    }
     for (let i = 0; i < total; i++) {
       if (id !== runId) return null;
-      await seekVideo(Math.min(range.t1, range.t0 + i / fps));
+      if (frames[i]) continue;
+      await seekVideo(targets[i]);
       if (id !== runId) return null;
-      setStatus(`正在抽帧 ${i + 1}/${total}（${video.currentTime.toFixed(2)}s）…`);
-      ctx.drawImage(video, r.x, r.y, r.w, r.h, 0, 0, outW, outH);
-      // getImageData 返回的就是新分配的数组，再包一层等于每帧白拷一遍全尺寸
-      frames.push({ width: outW, height: outH, data: ctx.getImageData(0, 0, outW, outH).data });
+      grab(i);
       await idle();
     }
+    const ms = performance.now() - t0;
     // 抽完把播放头放回原位，否则源画面一直停在区间最后一帧
     await seekVideo(wasAt);
     srcView.redraw();
     updateTimeUI();
-    cache = { key, frames, ms: performance.now() - t0 };
+    cache = { key, frames, ms };
     return frames;
+  }
+
+  // 一遍 4× 加速播放取帧：seek 每次都要回退到关键帧重解（实测 72ms/帧），
+  // 顺序解码整段只解一遍（实测整段 5s 素材 1.26s）。缺的槽交给上面的 seek 补。
+  const PLAY_RATE = 4;
+  const STALL_MS = 2000;
+
+  function playThrough(id, targets, grab) {
+    return new Promise((resolve) => {
+      // 后台标签/被遮挡窗口里 play() 要拖一秒多才 reject，直接不走这条路
+      if (!video.requestVideoFrameCallback || targets.length < 2 || document.hidden) return resolve();
+      let settled = false;
+      let next = 0;
+      let handle = 0;
+      let prevStart = null;
+      let frameDur = 0;
+      let last = performance.now();
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearInterval(watchdog);
+        video.cancelVideoFrameCallback(handle);
+        video.removeEventListener('ended', finish);
+        video.pause();
+        video.playbackRate = 1;
+        resolve();
+      };
+      const onFrame = (now, meta) => {
+        if (settled) return;
+        if (id !== runId) return finish();
+        last = performance.now();
+        const s = meta.mediaTime;
+        // mediaTime 是这一帧的起始时刻，帧长只能靠相邻两帧的差估；取最小差，掉帧造成的大间隔不会污染它
+        if (prevStart !== null) {
+          const delta = s - prevStart;
+          if (delta > 1e-6 && (!frameDur || delta < frameDur)) frameDur = delta;
+        }
+        prevStart = s;
+        if (frameDur) {
+          // 只认「目标时刻落在 [本帧起始, 起始+帧长)」的帧，和 seek 拿到的帧保持一致；
+          // 落不到的（开头几帧、被丢掉帧的窗口）留给后面的 seek 补
+          while (next < targets.length && targets[next] < s + frameDur - 1e-6) {
+            if (targets[next] >= s - 1e-6) grab(next);
+            next++;
+            if (next >= targets.length) break;
+          }
+        }
+        if (next >= targets.length) return finish();
+        handle = video.requestVideoFrameCallback(onFrame);
+      };
+      // 窗口被最小化时 Chromium 会暂停后台播放，卡住 2 秒就别干等
+      const watchdog = setInterval(() => {
+        if (performance.now() - last > STALL_MS) finish();
+      }, 500);
+      video.addEventListener('ended', finish);
+      handle = video.requestVideoFrameCallback(onFrame);
+      video.currentTime = targets[0];
+      video.playbackRate = PLAY_RATE;
+      video.play().catch(finish);
+    });
   }
 
   function scaleCanvas(src, pct) {

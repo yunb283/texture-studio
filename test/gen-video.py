@@ -7,6 +7,7 @@
 用法：
   python gen-video.py                     # 64x48、16 帧 @8fps 的功能验证素材
   python gen-video.py vid_perf 1280 720 150 30   # 名字 宽 高 帧数 fps，做性能测试用
+  python gen-video.py vid_ramp 1280 720 150 30 ramp   # ramp：灰度全程不重复，可直接反查帧号
 """
 
 import json
@@ -24,7 +25,13 @@ W = int(sys.argv[2]) if len(sys.argv) > 2 else 64
 H = int(sys.argv[3]) if len(sys.argv) > 3 else 48
 FRAMES = int(sys.argv[4]) if len(sys.argv) > 4 else 16
 FPS = int(sys.argv[5]) if len(sys.argv) > 5 else 8
-LEFT = [16 + 8 * (i % 16) for i in range(FRAMES)]
+MODE = sys.argv[6] if len(sys.argv) > 6 else "cycle"
+# cycle：16 帧一循环，便于核对「按时间采样对不对」
+# ramp：灰度从 8 单调升到 247，每帧唯一，可由灰度直接反查帧号（量取帧误差用）
+if MODE == "ramp":
+    LEFT = [round(8 + i * 239 / max(1, FRAMES - 1)) for i in range(FRAMES)]
+else:
+    LEFT = [16 + 8 * (i % 16) for i in range(FRAMES)]
 RIGHT = (200, 60, 60)
 OUT = HERE / f"{NAME}.mp4"
 TMP = HERE / f"{NAME}_frames"
