@@ -306,7 +306,7 @@ export class CanvasView {
     if (!d) return;
     this._drag = null;
     if (this.selectEnabled) this.canvas.style.cursor = 'crosshair';
-    // 极小的拖动当作误点：退回原来的选区，清空交给「全画面」按钮
+    // 极小的拖动当作误点：退回原来的选区，清空交给「选择区域」再点一次（GIF 页的取消）
     if (d.mode === 'new') {
       const t = this.targetRect();
       const r = t ? this._selectPx(t) : null;

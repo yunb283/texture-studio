@@ -79,6 +79,7 @@
         </label>
         <button class="btn primary" id="split-save" disabled>分割并保存</button>
         <div class="status" id="split-status"></div>
+        <div class="io-row" id="split-io"></div>
       </div>
     </div>
 
@@ -142,6 +143,7 @@
         <button class="btn" id="merge-preview-btn" disabled>预览</button>
         <button class="btn primary" id="merge-save" disabled>合并并保存</button>
         <div class="status" id="merge-status"></div>
+        <div class="io-row" id="merge-io"></div>
       </div>
     </div>
 
@@ -191,6 +193,7 @@
         </div>
         <button class="btn" id="conv-export-dir" disabled>导出到指定路径</button>
         <div class="status" id="conv-status"></div>
+        <div class="io-row" id="conv-io"></div>
       </div>
     </div>
 
@@ -266,6 +269,7 @@
           两种约定只差绿通道方向：图像里凸起的上边缘偏绿（G&gt;128）是 OpenGL（Unity），偏暗是 DirectX（UE）。
           参数改动即时重算，导出名默认「原名_Normal」。
         </div>
+        <div class="io-row" id="nrm-io"></div>
       </div>
     </div>
 
@@ -339,6 +343,7 @@
             <span>在预乘空间混合，保留透明通道</span>
           </label>
         </div>
+        <div class="io-row" id="sml-io"></div>
       </div>
     </div>
 
@@ -353,8 +358,7 @@
           <video id="gif-video" class="offscreen-video" crossorigin="anonymous" muted playsinline preload="auto"></video>
         </div>
         <div class="dim-label" id="gif-info">未载入文件</div>
-        <div class="vid-row" id="gif-vid-row">
-          <button class="btn small" id="gif-vid-play" disabled>播放</button>
+        <div class="tl-row">
           <div class="tl" id="gif-tl">
             <div class="tl-band" id="gif-tl-band" hidden>
               <div class="tl-grip" id="gif-tl-a"></div>
@@ -362,20 +366,22 @@
             </div>
             <div class="tl-head" id="gif-tl-head" hidden></div>
           </div>
+        </div>
+        <div class="vid-row" id="gif-vid-row">
+          <button class="btn small" id="gif-vid-play" disabled>播放</button>
+          <button class="btn small" id="gif-vid-reset" title="回到选区起点重新播放" disabled>重置</button>
           <span class="dim-label tl-time" id="gif-vid-time">00:00:00 / 00:00:00</span>
+          <span class="spacer"></span>
+          <span class="dim-label">区域</span>
+          <span class="dim-label" id="gif-sel-info">全画面</span>
+          <button class="btn small" id="gif-sel-mode" disabled>选择区域</button>
         </div>
         <div class="form-grid" id="gif-vid-grid">
-          <label>区域</label>
-          <div class="dual-row">
-            <span class="dim-label" id="gif-sel-info">全画面</span>
-            <button class="btn small" id="gif-sel-mode" disabled>选择区域</button>
-            <button class="btn small" id="gif-sel-full" disabled>全画面</button>
-          </div>
           <label>GIF 范围</label>
           <div class="dual-row vid-tools">
             <input type="text" class="time-in" id="gif-t-in" title="开始时间：可输入秒，或 分:秒 / 时:分:秒.厘秒" disabled />
             <input type="text" class="time-in" id="gif-t-out" title="结束时间：可输入秒，或 分:秒 / 时:分:秒.厘秒" disabled />
-            <button class="btn small on" id="gif-auto" title="关闭后改参数不会自动重新抽帧生成">自动抽帧</button>
+            <button class="btn small on" id="gif-auto" title="关闭后改参数不会自动重新生成 GIF">自动生成GIF</button>
           </div>
         </div>
         <div class="dual-row btn-row">
@@ -447,6 +453,7 @@
             <option value="high">高质量（每帧调色板，不易串色）</option>
           </select>
         </div>
+        <div class="io-row" id="gif-io"></div>
       </div>
     </div>
 

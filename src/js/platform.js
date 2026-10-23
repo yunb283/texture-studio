@@ -139,7 +139,7 @@ export async function readEntryBytes(entry) {
 }
 
 export async function readImageBitmap(entry) {
-  const bytes = await entryBytes(entry);
+  const bytes = await readEntryBytes(entry);
   if (!bytes.length) throw new Error('文件内容为空');
   const lower = entry.name.toLowerCase();
   if (lower.endsWith('.tga') || lower.endsWith('.targa')) {
@@ -154,6 +154,18 @@ export async function readImageBitmap(entry) {
     return createImageBitmap(new ImageData(new Uint8ClampedArray(img.data), img.width, img.height));
   }
   return createImageBitmap(new Blob([bytes]));
+}
+
+// 用系统默认程序打开文件或文件夹（浏览器环境做不到）。成功返回 null，失败返回一句中文原因。
+export async function openPath(path) {
+  if (!isTauri) return '浏览器环境里打不开资源管理器';
+  if (!path) return '还没有可打开的路径';
+  try {
+    await window.__TAURI__.core.invoke('open_path', { path });
+    return null;
+  } catch (ex) {
+    return String(ex?.message ?? ex);
+  }
 }
 
 async function listDir(dir) {

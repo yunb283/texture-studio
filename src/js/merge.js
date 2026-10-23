@@ -16,6 +16,7 @@ import {
   rotate90CW,
   encodeCanvas,
 } from './image-util.js';
+import { createIoButtons } from './io-buttons.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -54,6 +55,7 @@ export function initMerge({ mergeView }) {
   const previewBtn = $('merge-preview-btn');
   const saveBtn = $('merge-save');
   const status = $('merge-status');
+  const io = createIoButtons($('merge-io'), setStatus);
 
   const frames = [];
   let current = 0;
@@ -158,11 +160,14 @@ export function initMerge({ mergeView }) {
     syncOutputSize();
     refreshView();
     setStatus(`已载入 ${frames.length} 张图`);
+    io.setSource(frames[0]?.path || null);
+    io.setExport(null);
   }
 
   function clear() {
     stop();
     frames.length = 0;
+    io.clear();
     current = 0;
     showMerged = false;
     merged = null;
@@ -436,6 +441,7 @@ export function initMerge({ mergeView }) {
       const bytes = await encodeCanvas(merged, ext);
       const saved = await saveBlob(fname, bytes, dir);
       if (saved) setStatus('已保存：' + saved);
+      io.setExport(dir ? saved : null);
     } catch (ex) {
       setStatus('合并失败：' + (ex?.message ?? ex));
     }

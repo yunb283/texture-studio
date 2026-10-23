@@ -10,6 +10,7 @@ import {
   CONVERT_EXTS,
 } from './platform.js';
 import { encodeCanvas } from './image-util.js';
+import { createIoButtons } from './io-buttons.js';
 import { FORMAT_NAME, extOf, humanSize, decodeToCanvas } from './decode.js';
 
 const $ = (id) => document.getElementById(id);
@@ -29,6 +30,7 @@ export function initConvert({ view }) {
   const browseBtn = $('conv-browse');
   const exportDirBtn = $('conv-export-dir');
   const status = $('conv-status');
+  const io = createIoButtons($('conv-io'), setStatus);
 
   let canvas = null;
   let sourcePath = null;
@@ -82,6 +84,8 @@ export function initConvert({ view }) {
       sourceBytes = bytes.length;
       nameIn.value = '';
       show(await decodeToCanvas(entry.name, bytes, stretchChk.checked));
+      io.setSource(entry.path);
+      io.setExport(null);
       setStatus('已载入：' + entry.name);
     } catch (ex) {
       lastBytes = null;
@@ -106,6 +110,7 @@ export function initConvert({ view }) {
     sourcePath = null;
     sourceName = '';
     sourceBytes = 0;
+    io.clear();
     view.setImage(null);
     setEnabled(false);
     updateInfo();
@@ -141,6 +146,7 @@ export function initConvert({ view }) {
         return;
       }
       setStatus('已导出：' + saved);
+      io.setExport(target ? saved : null);
     } catch (ex) {
       setStatus('导出失败：' + (ex?.message ?? ex));
     }

@@ -15,6 +15,7 @@ import { canvasToImageData, encodeCanvas } from './image-util.js';
 import { decodeToCanvas, rgbaCanvas, FORMAT_NAME, extOf, humanSize } from './decode.js';
 import { makeSeamless, seamMetrics } from './seamless.js';
 import { equalizeCanvases } from './layout.js';
+import { createIoButtons } from './io-buttons.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -48,6 +49,7 @@ export function initSeamless({ srcView, outView }) {
   const saveOrigChk = $('sml-save-orig');
   const exportBtn = $('sml-export');
   const status = $('sml-status');
+  const io = createIoButtons($('sml-io'), setStatus);
 
   equalizeCanvases($('page-seamless'));
 
@@ -168,6 +170,8 @@ export function initSeamless({ srcView, outView }) {
       setEnabled(true);
       updateInfo();
       render();
+      io.setSource(entry.path);
+      io.setExport(null);
       setStatus('已载入：' + entry.name);
     } catch (ex) {
       imgData = null;
@@ -191,6 +195,7 @@ export function initSeamless({ srcView, outView }) {
     sourcePath = null;
     sourceName = '';
     sourceBytes = 0;
+    io.clear();
     nameIn.value = '';
     srcView.setImage(null);
     outView.setImage(null);
@@ -225,6 +230,7 @@ export function initSeamless({ srcView, outView }) {
         return;
       }
       setStatus(`已导出：${saved}（${humanSize(bytes.length)}）`);
+      io.setExport(dir ? saved : null);
     } catch (ex) {
       setStatus('导出失败：' + (ex?.message ?? ex));
     }

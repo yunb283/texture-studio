@@ -182,6 +182,12 @@ body {
   gap: 8px;
 }
 
+/* 时间轴独占一行：白色倒三角悬在轨道上方要留 12px，黄色旗帜下探 8px 所以要给下面一行多点间距 */
+.tl-row {
+  padding-top: 12px;
+  margin-bottom: 4px;
+}
+
 .tl-time {
   flex: 0 0 auto;
   font-variant-numeric: tabular-nums;
@@ -324,12 +330,6 @@ body {
   color: #ffc46b;
 }
 
-/* GIF 页信息行：第一行源信息、第二行抽帧结果，用 \n 分行；内容长要能折行别被裁掉 */
-#gif-info {
-  white-space: pre-line;
-  line-height: 1.5;
-}
-
 .help-label {
   color: #9a9ba3;
   font-size: 12px;
@@ -337,20 +337,33 @@ body {
   user-select: text;
 }
 
-/* 状态行固定两行高（不随文字撑高面板），超出用省略号，全文挂在 title 上悬停看。
+/* 状态行 / GIF 页信息行：固定两行高（不随文字撑高面板），超出用省略号，
+   全文挂在 title 上悬停看。
    flex: 0 0 auto 是必需的：overflow:hidden 让 flex 自动最小尺寸变成 0，
    面板（flex 列）挤不下时会把这一行压成只剩 padding */
-.status {
-  color: #6fd3f5;
+.status,
+#gif-info {
   font-size: 12px;
-  padding-top: 3px;
-  flex: 0 0 auto;
-  height: 35px;
   line-height: 16px;
+  flex: 0 0 auto;
   overflow: hidden;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.status {
+  color: #6fd3f5;
+  padding-top: 3px;
+  height: 35px;
+  word-break: break-all;
+  user-select: text;
+}
+
+/* GIF 页信息行：第一行源信息、第二行抽帧结果，用 \n 分行；两行装不下就截断 + 悬停看全文 */
+#gif-info {
+  height: 32px;
+  white-space: pre-line;
   word-break: break-all;
   user-select: text;
 }
@@ -536,6 +549,15 @@ select:focus {
   flex: 0 0 auto;
   width: 96px;
   font-variant-numeric: tabular-nums;
+}
+
+/* 面板底部的「打开导出文件 / 打开导出目录 / 打开源文件目录」 */
+.io-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex: 0 0 auto;
 }
 
 input:disabled,

@@ -15,6 +15,7 @@ import { canvasToImageData, encodeCanvas } from './image-util.js';
 import { decodeToCanvas, rgbaCanvas, FORMAT_NAME, extOf, humanSize } from './decode.js';
 import { heightToNormal } from './normal.js';
 import { equalizeCanvases } from './layout.js';
+import { createIoButtons } from './io-buttons.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -35,6 +36,7 @@ export function initNormal({ srcView, outView }) {
   const saveOrigChk = $('nrm-save-orig');
   const exportBtn = $('nrm-export');
   const status = $('nrm-status');
+  const io = createIoButtons($('nrm-io'), setStatus);
 
   // 两个预览窗口保持等大（实现见 layout.js）
   equalizeCanvases($('page-normal'));
@@ -125,6 +127,8 @@ export function initNormal({ srcView, outView }) {
       setEnabled(true);
       updateInfo();
       render();
+      io.setSource(entry.path);
+      io.setExport(null);
       setStatus('已载入：' + entry.name);
     } catch (ex) {
       imgData = null;
@@ -144,6 +148,7 @@ export function initNormal({ srcView, outView }) {
     sourcePath = null;
     sourceName = '';
     sourceBytes = 0;
+    io.clear();
     nameIn.value = '';
     srcView.setImage(null);
     outView.setImage(null);
@@ -182,6 +187,7 @@ export function initNormal({ srcView, outView }) {
         return;
       }
       setStatus(`已导出：${saved}（${humanSize(bytes.length)}）`);
+      io.setExport(dir ? saved : null);
     } catch (ex) {
       setStatus('导出失败：' + (ex?.message ?? ex));
     }

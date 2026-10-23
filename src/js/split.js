@@ -14,6 +14,7 @@ import {
   cropCanvas,
   encodeCanvas,
 } from './image-util.js';
+import { createIoButtons } from './io-buttons.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -33,6 +34,7 @@ export function initSplit({ srcView, frameView }) {
   const saveOrigChk = $('split-save-orig');
   const saveBtn = $('split-save');
   const status = $('split-status');
+  const io = createIoButtons($('split-io'), setStatus);
 
   let sourceCanvas = null;
   let sourcePath = null;
@@ -66,6 +68,8 @@ export function initSplit({ srcView, frameView }) {
     sourcePath = entry.path;
     sourceName = entry.name;
     current = 0;
+    io.setSource(entry.path);
+    io.setExport(null);
     srcView.setImage(sourceCanvas, sourceCanvas.width, sourceCanvas.height);
     saveBtn.disabled = false;
     clearBtn.disabled = false;
@@ -119,6 +123,7 @@ export function initSplit({ srcView, frameView }) {
     sourcePath = null;
     sourceName = '';
     current = 0;
+    io.clear();
     srcView.clearOverlay();
     srcView.setImage(null);
     frameView.clearOverlay();
@@ -211,6 +216,8 @@ export function initSplit({ srcView, frameView }) {
           setStatus('已取消');
           return;
         }
+        // 浏览器下载拿不到落盘路径，只有写进目录时才能「打开导出文件」
+        io.setExport(outDir ? saved : null);
         if (f % 8 === 7) {
           setStatus(`正在保存… ${f + 1}/${n}`);
           await new Promise((y) => setTimeout(y, 0));

@@ -21,6 +21,7 @@ import { cellRect, cropCanvas, canvasToImageData } from './image-util.js';
 import { autoDetectGrid } from './detect.js';
 import { gifStart, gifEncodeNext, gifFinish, gifDelayForFps, gifFpsForDelay } from './gif.js';
 import { equalizeCanvases } from './layout.js';
+import { createIoButtons } from './io-buttons.js';
 
 const $ = (id) => document.getElementById(id);
 const SCALE = [100, 75, 50, 25];
@@ -55,6 +56,7 @@ export function initGif({ srcView }) {
   const frameLabel = $('gif-frame-label');
   const video = $('gif-video');
   const vidPlayBtn = $('gif-vid-play');
+  const vidResetBtn = $('gif-vid-reset');
   const vidTime = $('gif-vid-time');
   const tl = $('gif-tl');
   const tlBand = $('gif-tl-band');
@@ -62,7 +64,6 @@ export function initGif({ srcView }) {
   const tlB = $('gif-tl-b');
   const tlHead = $('gif-tl-head');
   const selModeBtn = $('gif-sel-mode');
-  const selFullBtn = $('gif-sel-full');
   const selInfo = $('gif-sel-info');
   const tIn = $('gif-t-in');
   const tOut = $('gif-t-out');
@@ -94,6 +95,8 @@ export function initGif({ srcView }) {
     status.textContent = msg;
     status.classList.toggle('warn', warn);
   };
+
+  const io = createIoButtons($('gif-io'), setStatus);
 
   // 导出按钮兼作进度条：抽帧、编码各从左边填到满，满了再换下一阶段
   let busy = false;
@@ -228,9 +231,9 @@ export function initGif({ srcView }) {
     const stopped = est.count > MAX_AUTO_FRAMES;
     const over = !stopped && overLimit(est);
     info.classList.toggle('warn', stopped || over);
-    if (stopped) info.textContent += '（超过 1000 帧，已停止自动抽帧）';
+    if (stopped) info.textContent += '（超过 1000 帧，已停止自动生成）';
     else if (over) info.textContent += '（偏大，抽帧和编码会很慢）';
-    if (!autoExtract) info.textContent += '（自动抽帧已关闭）';
+    if (!autoExtract) info.textContent += '（自动生成GIF已关闭）';
   }
 
   function updateOut(text) {
@@ -254,12 +257,12 @@ export function initGif({ srcView }) {
     // 载入视频后整条时间轴变蓝（表示整段时长），清空/换图片时回到深色底
     tl.classList.toggle('loaded', !!on);
     vidPlayBtn.disabled = !on;
+    vidResetBtn.disabled = !on;
     selModeBtn.disabled = !on;
-    selFullBtn.disabled = !on;
     tIn.disabled = !on;
     tOut.disabled = !on;
     if (on) syncTimeInputs();
-    drawing = false;
+    selOn = false;
     syncSelMode();
     relayout();
   }
@@ -553,7 +556,7 @@ export function initGif({ srcView }) {
           ? `请把时间段缩短到 ${fmtTime((MAX_AUTO_FRAMES - 1) / curFps())} 以内，或降低帧率。`
           : `请减少列 / 行，把总帧数降到 ${MAX_AUTO_FRAMES} 帧以内。`;
       setStatus(
-        `按现在的设置要抽 ${est.count} 帧，超过 ${MAX_AUTO_FRAMES} 帧上限，已停止自动抽帧。${hint}`,
+        `按现在的设置要抽 ${est.count} 帧，超过 ${MAX_AUTO_FRAMES} 帧上限，已停止自动生成。${hint}`,
         true
       );
       setProgress(null);
@@ -672,7 +675,7 @@ export function initGif({ srcView }) {
     const dur = videoMeta.duration;
     tlBand.style.left = `${dur ? (range.t0 / dur) * 100 : 0}%`;
     tlBand.style.width = `${dur ? Math.max(0, ((range.t1 - range.t0) / dur) * 100) : 0}%`;
-    // 区间超出 1000 帧上限就把中间的黄底藏掉（和「停止自动抽帧」用同一个判据）
+    // 区间超出 1000 帧上限就把中间的黄底藏掉（和「停止自动生成」用同一个判据）
     tlBand.classList.toggle('over', estimate().count > MAX_AUTO_FRAMES);
     // 抽帧 / 编码时时间轴上不做任何指示：那时播放头被反复 seek 拖着走，看着像乱跳
     if (busy) {
@@ -706,9 +709,11 @@ export function initGif({ srcView }) {
     rafId = requestAnimationFrame(tickVideo);
   }
 
-  function playVideo() {
+  // at 给了就直接从那个时刻播（重置按钮用）；不给就接着当前位置播，跑出区间才回起点
+  function playVideo(at) {
     if (!videoMeta) return;
-    if (video.currentTime < range.t0 || video.currentTime >= range.t1 - 1e-3) {
+    if (at !== undefined) video.currentTime = at;
+    else if (video.currentTime < range.t0 || video.currentTime >= range.t1 - 1e-3) {
       seekVideo(range.t0);
     }
     video.play().catch(() => setStatus('播放失败：' + (video.error?.message || '未知原因'), true));
@@ -813,12 +818,12 @@ export function initGif({ srcView }) {
     scheduleVideo();
   }
 
-  // 框选：按下按钮进入框选；一旦有了选区就常驻可编辑（拖手柄改大小、框内拖动改位置）
-  let drawing = false;
+  // 框选开关：默认关（全画面）。点开才能框选，选完仍可拖手柄/框内移动；
+  // 再点一次就是取消 —— 清掉选区回到全画面。没有单独的「全画面」按钮了。
+  let selOn = false;
 
   function syncSelMode() {
-    const hasSel = mode === 'video' && !!srcView.select;
-    const active = mode === 'video' && (drawing || hasSel);
+    const active = mode === 'video' && selOn;
     srcView.setSelectEnabled(active);
     selModeBtn.classList.toggle('on', active);
   }
@@ -927,6 +932,7 @@ export function initGif({ srcView }) {
     scaleSel.value = String(suggestScale(srcCanvas.width / g.cols, srcCanvas.height / g.rows));
     setVideoUI(false);
     setEnabled(true);
+    updateSelInfo();
     updateInfo();
     render();
   }
@@ -945,6 +951,8 @@ export function initGif({ srcView }) {
     sourceName = entry.name;
     nameIn.value = '';
     cache = null;
+    io.setSource(entry.path);
+    io.setExport(null);
     frameIndex = 0;
     playing = true;
     try {
@@ -986,6 +994,7 @@ export function initGif({ srcView }) {
     sourcePath = null;
     sourceName = '';
     sourceBytes = 0;
+    io.clear();
     if (result) {
       URL.revokeObjectURL(result.blobUrl);
       result = null;
@@ -1029,6 +1038,7 @@ export function initGif({ srcView }) {
         ? '已取消'
         : `已导出：${saved}（${humanSize(result.bytes.length)}）` + (name !== outName() ? `·原名已占用` : '')
     );
+    io.setExport(dir && saved ? saved : null);
   }
 
   // ---------- 事件 ----------
@@ -1055,6 +1065,7 @@ export function initGif({ srcView }) {
   });
 
   vidPlayBtn.addEventListener('click', () => (video.paused ? playVideo() : pauseVideo()));
+  vidResetBtn.addEventListener('click', () => playVideo(range.t0));
   video.addEventListener('timeupdate', () => {
     if (!videoMeta) return;
     updateTimeUI();
@@ -1070,15 +1081,19 @@ export function initGif({ srcView }) {
   });
 
   selModeBtn.addEventListener('click', () => {
-    drawing = !drawing;
+    selOn = !selOn;
     syncSelMode();
-    if (drawing) setStatus(srcView.select ? '拖拽可重新框选一块区域' : '在画面上拖拽框选区域');
-  });
-  selFullBtn.addEventListener('click', () => {
+    if (selOn) {
+      setStatus(srcView.select ? '拖手柄改大小、框内拖动改位置，再点一次取消' : '在画面上拖拽框选区域');
+      return;
+    }
+    if (!srcView.select) {
+      setStatus('已退出框选：全画面');
+      return;
+    }
     srcView.setSelect(null);
-    drawing = false;
-    syncSelMode();
     updateSelInfo();
+    setStatus('已取消选区：全画面');
     rangeChanged();
   });
 
@@ -1124,23 +1139,18 @@ export function initGif({ srcView }) {
     clearTimeout(debounceId);
     runId++; // 顺带打断正在跑的抽帧/编码
     setProgress(null);
+    updateInfo(); // 信息行末尾那个「自动生成GIF已关闭」要立刻跟着变
     if (autoExtract) {
-      setStatus('已开启自动抽帧');
+      setStatus('已开启自动生成GIF');
       if (mode === 'video') scheduleVideo();
       else if (mode) schedule();
     } else {
-      updateInfo();
-      setStatus('已关闭自动抽帧：改参数不会重新生成，需要时再点开', true);
+      setStatus('已关闭自动生成GIF：改参数不会重新生成，需要时再点开', true);
     }
   });
   srcView.onSelect = () => {
     updateSelInfo();
     if (mode === 'video') rangeChanged();
-  };
-  // 松手就退出「正在框选」，但选区保留，仍可拖手柄/拖动
-  srcView.onSelectEnd = () => {
-    drawing = false;
-    syncSelMode();
   };
 
   const gridChanged = () => {
