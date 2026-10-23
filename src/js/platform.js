@@ -214,6 +214,23 @@ export async function collectFramePaths(entries) {
   return files.sort((a, b) => naturalCompare(stemOf(a.name), stemOf(b.name)));
 }
 
+// 目标目录里已有同名文件时，在后缀前依次加 _1、_2…，避免覆盖原来的。
+// 拿不到目录清单（浏览器环境或列目录失败）就按原名返回。
+export async function uniqueFilename(dir, name) {
+  if (!dir) return name;
+  const files = await listDir(dir);
+  if (!files) return name;
+  const taken = new Set(files.map((p) => baseName(p).toLowerCase()));
+  if (!taken.has(name.toLowerCase())) return name;
+  const dot = name.lastIndexOf('.');
+  const stem = dot > 0 ? name.slice(0, dot) : name;
+  const ext = dot > 0 ? name.slice(dot) : '';
+  for (let i = 1; ; i++) {
+    const cand = `${stem}_${i}${ext}`;
+    if (!taken.has(cand.toLowerCase())) return cand;
+  }
+}
+
 // Tauri：sourceDir 为空时弹目录选择；浏览器：返回 null（走下载）
 export async function resolveSaveDir(sourceDir) {
   if (sourceDir) return sourceDir;

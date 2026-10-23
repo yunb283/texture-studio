@@ -84,6 +84,12 @@ body {
   display: none;
 }
 
+/* 作者写的 .vid-row{display:flex} / .form-grid{display:grid} 优先级高于 UA 的
+   [hidden]{display:none}，导致加 hidden 属性也不生效，这里补回来 */
+[hidden] {
+  display: none !important;
+}
+
 .panel {
   background: #20222e;
   border: 1px solid #2c2f3c;
@@ -181,7 +187,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* 自绘时间轴：整条可点可拖定位播放头，选区高亮块不吃鼠标事件 */
+/* 自绘时间轴：保持原来的深色填充轨道，只有两种滑块是特殊造型 */
 .tl {
   position: relative;
   flex: 1;
@@ -193,23 +199,48 @@ body {
   cursor: pointer;
 }
 
-/* 选区带：整块可拖着平移，两端手柄分别调起点/终点 */
+/* 自绘时间轴：没载入视频是深色底，载入后整条变蓝。蓝色表示「整段视频」，
+   长度固定，不随手柄变；选区由下面那条半透明黄带表示 */
+.tl {
+  position: relative;
+  flex: 1;
+  min-width: 60px;
+  height: 20px;
+  background: #1a1b24;
+  border: 1px solid #2c2f3c;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.tl.loaded {
+  background: #214150;
+  border-color: #2f5566;
+}
+
+/* 选区：两个黄色滑块中间填满半透明黄，整块可拖着平移；
+   区间超出 1000 帧上限时底色藏掉（.over），但带子本身还在，仍可点可拖。
+   层级最低：半透明黄底压在白色竖线下面，只有黄色滑块盖住竖线 */
 .tl-band {
   position: absolute;
   top: 0;
   bottom: 0;
-  background: rgba(57, 199, 237, 0.22);
-  border-left: 1px solid #39c7ed;
-  border-right: 1px solid #39c7ed;
+  z-index: 1;
+  background: rgba(255, 217, 38, 0.22);
   cursor: grab;
 }
 
+.tl-band.over {
+  background: transparent;
+}
+
+/* 端点标记：竖线一直顶到轨道上沿，底部挂小旗帜；不透明，压在白色播放头竖线之上 */
 .tl-grip {
   position: absolute;
-  top: -6px;
-  bottom: -2px;
-  width: 12px;
-  margin-left: -6px;
+  top: -2px;
+  bottom: -8px;
+  width: 14px;
+  margin-left: -7px;
+  z-index: 3;
   cursor: ew-resize;
 }
 
@@ -221,36 +252,62 @@ body {
   left: 100%;
 }
 
-/* 手柄画成参考图那种「吊牌 + 竖线」：上面一个五边形，下面一条细线 */
 .tl-grip::before {
   content: "";
   position: absolute;
-  left: 5px;
-  top: 10px;
-  bottom: 0;
+  left: 50%;
+  top: 2px;
+  bottom: 12px;
   width: 2px;
+  margin-left: -1px;
   background: #ffd926;
 }
 
 .tl-grip::after {
   content: "";
   position: absolute;
-  left: 0;
-  top: 0;
-  width: 12px;
+  left: 50%;
+  bottom: 0;
+  width: 10px;
   height: 12px;
+  margin-left: -5px;
   background: #ffd926;
-  clip-path: polygon(0 0, 100% 0, 100% 55%, 50% 100%, 0 55%);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
 }
 
+/* 播放头：白色倒三角悬在轨道上方，尖头正好对着当前位置，轨道内留一根细线便于读准 */
 .tl-head {
   position: absolute;
-  top: -2px;
-  bottom: -2px;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  margin-left: -7px;
+  z-index: 2;
+  cursor: pointer;
+}
+
+.tl-head::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
   width: 2px;
   margin-left: -1px;
-  background: #ffd926;
-  pointer-events: none;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.tl-head::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -10px;
+  margin-left: -6px;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 9px solid #fff;
 }
 
 .status.warn {
@@ -280,11 +337,20 @@ body {
   user-select: text;
 }
 
+/* 状态行固定两行高（不随文字撑高面板），超出用省略号，全文挂在 title 上悬停看。
+   flex: 0 0 auto 是必需的：overflow:hidden 让 flex 自动最小尺寸变成 0，
+   面板（flex 列）挤不下时会把这一行压成只剩 padding */
 .status {
   color: #6fd3f5;
   font-size: 12px;
   padding-top: 3px;
-  min-height: 18px;
+  flex: 0 0 auto;
+  height: 35px;
+  line-height: 16px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   word-break: break-all;
   user-select: text;
 }
@@ -333,6 +399,14 @@ body {
 .btn.primary:disabled {
   background: #2a2c38;
   color: #6a6c75;
+}
+
+/* 导出按钮兼作进度条：--p 控制蓝色填充到哪，抽帧和编码各从 0 填到满。
+   放在 .btn.primary:disabled 之后才能盖掉它的底色 */
+.btn.primary.busy {
+  background: linear-gradient(90deg, #39c7ed 0 var(--p, 0%), #2a2c38 var(--p, 0%) 100%);
+  color: #eaf6fb;
+  cursor: default;
 }
 
 .btn.small {
@@ -451,6 +525,24 @@ select:focus {
 .dual-row input[type="number"] {
   flex: 0 0 62px;
   width: 62px;
+}
+
+/* GIF 页工具行控件多，面板窄时换行而不是把按钮挤扁 */
+.vid-tools {
+  flex-wrap: wrap;
+}
+
+.vid-tools input.time-in {
+  flex: 0 0 auto;
+  width: 96px;
+  font-variant-numeric: tabular-nums;
+}
+
+input:disabled,
+select:disabled {
+  color: #6a6c75;
+  opacity: 0.6;
+  cursor: default;
 }
 
 /* 贴图处理页两侧预览等大后，内容较少的一侧把说明文字压到面板底部 */

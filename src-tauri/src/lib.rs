@@ -129,6 +129,24 @@ fn list_files(dir: String) -> Result<Vec<String>, String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        // 窗口配置成 visible:false，启动时就不会露出还没渲染的白底；前端 main.js 在
+        // HTML 和样式表到位后自己 show()。这里兜一层底：万一脚本没跑起来，2 秒后强制
+        // 显示，不至于留下一个永远看不见的窗口。
+        .setup(|app| {
+            use tauri::Manager;
+            let handle = app.handle().clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(2000));
+                if let Some(w) = handle.get_webview_window("main") {
+                    if w.is_visible().unwrap_or(false) {
+                        return;
+                    }
+                    let _ = w.show();
+                    let _ = w.set_focus();
+                }
+            });
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             pick_images,
             pick_dir,

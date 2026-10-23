@@ -14,6 +14,16 @@ import {
   GIF_SOURCE_EXTS,
 } from './platform.js';
 
+// 窗口在配置里是 visible:false，为的是别让用户看见启动时的白屏。
+// 模块脚本要等 HTML 解析完、样式表到位才执行，这时显示就是「一打开就有界面」。
+if (isTauri) {
+  const win = window.__TAURI__.window.getCurrentWindow();
+  win
+    .show()
+    .then(() => win.setFocus())
+    .catch(() => {});
+}
+
 function makeBgButtons(container, view, modes, current) {
   const names = ['黑', '亮', '棋盘格', '暗'];
   container.innerHTML = '';
@@ -119,6 +129,15 @@ const convApi = initConvert({ view: convView });
 const nrmApi = initNormal({ srcView: nrmSrcView, outView: nrmOutView });
 const smlApi = initSeamless({ srcView: smlSrcView, outView: smlOutView });
 const gifApi = initGif({ srcView: gifSrcView });
+
+// 状态行只显示两行（超出省略号），完整文字挂到 title 上，鼠标悬停看全文
+for (const el of document.querySelectorAll('.status')) {
+  const sync = () => {
+    el.title = el.textContent || '';
+  };
+  new MutationObserver(sync).observe(el, { childList: true, characterData: true, subtree: true });
+  sync();
+}
 
 const tabs = [
   ['split', tabSplit, pageSplit, [srcView, frameView]],

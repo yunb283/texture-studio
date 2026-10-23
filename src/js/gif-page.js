@@ -6,6 +6,7 @@ import {
   readEntryBytes,
   saveBlob,
   resolveSaveDir,
+  uniqueFilename,
   isSupportedName,
   isVideoName,
   videoSrc,
@@ -53,8 +54,6 @@ export function initGif({ srcView }) {
   const frameRange = $('gif-frame-range');
   const frameLabel = $('gif-frame-label');
   const video = $('gif-video');
-  const vidRow = $('gif-vid-row');
-  const vidGrid = $('gif-vid-grid');
   const vidPlayBtn = $('gif-vid-play');
   const vidTime = $('gif-vid-time');
   const tl = $('gif-tl');
@@ -65,6 +64,9 @@ export function initGif({ srcView }) {
   const selModeBtn = $('gif-sel-mode');
   const selFullBtn = $('gif-sel-full');
   const selInfo = $('gif-sel-info');
+  const tIn = $('gif-t-in');
+  const tOut = $('gif-t-out');
+  const autoBtn = $('gif-auto');
 
   const relayout = equalizeCanvases($('page-gif'));
 
@@ -86,13 +88,33 @@ export function initGif({ srcView }) {
   let rafId = 0;
   let tlDrag = null; // 时间轴正在拖：{which:'seek'|'a'|'b'|'band', grab, w}
   let debounceId = 0;
+  let autoExtract = true; // 关掉后改参数只更新预估，不再自动抽帧编码
 
   const setStatus = (msg, warn = false) => {
     status.textContent = msg;
     status.classList.toggle('warn', warn);
   };
 
-  const curFps = () => Math.min(50, Math.max(1, Math.round(Number(fpsIn.value)) || 15));
+  // 导出按钮兼作进度条：抽帧、编码各从左边填到满，满了再换下一阶段
+  let busy = false;
+
+  function setProgress(phase, ratio = 0) {
+    busy = phase === 'pull' || phase === 'encode';
+    exportBtn.classList.toggle('busy', busy);
+    exportBtn.disabled = !result || busy;
+    exportBtn.textContent =
+      phase === 'pull' ? '正在抽帧' : phase === 'encode' ? '正在编码' : '导出 GIF';
+    if (busy) {
+      const pct = Math.round(Math.min(1, Math.max(0, ratio)) * 100);
+      exportBtn.style.setProperty('--p', `${pct}%`);
+    } else {
+      exportBtn.style.removeProperty('--p');
+    }
+    // 进入和退出都要立刻刷一次：否则暂停时没有 timeupdate，播放头会留在原地
+    updateTimeUI();
+  }
+
+  const curFps = () => Math.min(50, Math.max(1, Math.round(Number(fpsIn.value)) || 10));
   const clamped = (el, lo, hi) => Math.min(hi, Math.max(lo, Math.round(Number(el.value)) || lo));
   const gridCount = () => (mode === 'image' ? clamped(colsIn, 1, 128) * clamped(rowsIn, 1, 128) : 0);
 
@@ -168,6 +190,23 @@ export function initGif({ srcView }) {
     )}`;
   }
 
+  // 手动输入的时间：接受纯秒数，也接受 分:秒 和 时:分:秒.厘秒；解不出来给 null
+  function parseTime(str) {
+    const s = String(str).trim();
+    if (!s) return null;
+    if (/^\d+(\.\d+)?$/.test(s)) return Number(s);
+    if (!/^(\d{1,2}:)?\d{1,2}:\d{1,2}(\.\d+)?$/.test(s)) return null;
+    const p = s.split(':').map(Number);
+    return p.length === 2 ? p[0] * 60 + p[1] : p[0] * 3600 + p[1] * 60 + p[2];
+  }
+
+  // 正在输入的那一格不回写，否则拖手柄/换源会把光标里的字盖掉
+  function syncTimeInputs() {
+    if (!videoMeta) return;
+    if (document.activeElement !== tIn) tIn.value = fmtTime(range.t0);
+    if (document.activeElement !== tOut) tOut.value = fmtTime(range.t1);
+  }
+
   function updateInfo() {
     const est = estimate();
     const pulled = `抽帧 ${est.count} 帧 · ${est.w}x${est.h} · 内存约 ${est.memMB.toFixed(0)}MB`;
@@ -191,6 +230,7 @@ export function initGif({ srcView }) {
     info.classList.toggle('warn', stopped || over);
     if (stopped) info.textContent += '（超过 1000 帧，已停止自动抽帧）';
     else if (over) info.textContent += '（偏大，抽帧和编码会很慢）';
+    if (!autoExtract) info.textContent += '（自动抽帧已关闭）';
   }
 
   function updateOut(text) {
@@ -199,7 +239,7 @@ export function initGif({ srcView }) {
 
   function setEnabled(on) {
     clearBtn.disabled = !on;
-    exportBtn.disabled = !on;
+    exportBtn.disabled = !on || busy;
     for (const el of [scaleSel, fpsIn, loopSel, colorSel, qualitySel]) el.disabled = !on;
     // 列/行只对图片有意义
     colsIn.disabled = !on || mode !== 'image';
@@ -207,11 +247,18 @@ export function initGif({ srcView }) {
   }
 
   function setVideoUI(on) {
-    vidRow.hidden = !on;
-    vidGrid.hidden = !on;
+    // 工具行（播放、时间轴、区域/范围）常驻显示，没载入视频时只是禁掉；
+    // 三种滑块（白色播放头 + 黄色手柄和黄色选区底）只在有视频时出现
+    tlBand.hidden = !on;
+    tlHead.hidden = !on;
+    // 载入视频后整条时间轴变蓝（表示整段时长），清空/换图片时回到深色底
+    tl.classList.toggle('loaded', !!on);
     vidPlayBtn.disabled = !on;
     selModeBtn.disabled = !on;
     selFullBtn.disabled = !on;
+    tIn.disabled = !on;
+    tOut.disabled = !on;
+    if (on) syncTimeInputs();
     drawing = false;
     syncSelMode();
     relayout();
@@ -264,6 +311,7 @@ export function initGif({ srcView }) {
       frames[i] = { width: outW, height: outH, data: ctx.getImageData(0, 0, outW, outH).data };
       done++;
       setStatus(`正在抽帧 ${done}/${total}…`);
+      setProgress('pull', done / total);
     };
     const wasAt = video.currentTime;
     pauseVideo();
@@ -389,14 +437,47 @@ export function initGif({ srcView }) {
     frameLabel.textContent = `第 ${frameIndex + 1}/${curFrames.length} 帧`;
   }
 
+  // 播放时让「逐帧」滑块跟着动画走：<img> 不暴露当前帧号，但我们的 GIF 每帧延迟固定，
+  // 所以按「距离开始播放的时间 / 帧延迟」推算。用绝对时刻算，中途被冻结（后台、卡顿）也会自动追平。
+  // 用 setInterval 而不是 rAF：rAF 在窗口不可见时完全不触发，50ms 刷新对 70ms 一帧足够。
+  let playStart = 0;
+  let playTimer = 0;
+
+  function tickFrameSync() {
+    if (!playing || !result) {
+      stopFrameSync();
+      return;
+    }
+    const i = Math.floor((performance.now() - playStart) / (result.delay * 10));
+    const n = result.loops ? Math.min(i + 1, result.count * result.loops) : i + 1;
+    showFrameIndex((n - 1) % result.count);
+  }
+
+  function startFrameSync() {
+    clearInterval(playTimer);
+    playTimer = setInterval(tickFrameSync, 50);
+    tickFrameSync();
+  }
+
+  function stopFrameSync() {
+    clearInterval(playTimer);
+    playTimer = 0;
+  }
+
+  // 只同步滑块和文字，不画 canvas（画了会和 <img> 打架）
+  function showFrameIndex(i) {
+    if (i === frameIndex && frameRange.value === String(i + 1)) return;
+    frameIndex = i;
+    frameRange.value = String(i + 1);
+    frameLabel.textContent = `第 ${i + 1}/${result.count} 帧`;
+  }
+
   function setPlaying(on) {
     playing = !!on && !!result;
-    preview.hidden = !playing;
-    frameCanvas.hidden = playing || !result;
     playBtn.disabled = !result;
     frameRange.disabled = !result;
     playBtn.textContent = playing ? '暂停动画' : '播放动画';
-    if (!playing && result) showFrame(frameIndex);
+    refreshPreview();
   }
 
   function refreshPreview() {
@@ -404,12 +485,16 @@ export function initGif({ srcView }) {
     playBtn.disabled = false;
     frameRange.disabled = false;
     frameRange.max = String(result.count);
+    playBtn.textContent = playing ? '暂停动画' : '播放动画';
     if (playing) {
       // 换 #片段 让 <img> 重新解码，动画才会从头播（同一个 blob URL 直接重设不会重启）
       preview.src = `${result.blobUrl}#${Date.now()}`;
       preview.hidden = false;
       frameCanvas.hidden = true;
+      playStart = performance.now();
+      startFrameSync();
     } else {
+      stopFrameSync();
       preview.hidden = true;
       frameCanvas.hidden = false;
       showFrame(Math.min(frameIndex, result.count - 1));
@@ -453,6 +538,12 @@ export function initGif({ srcView }) {
 
   async function render() {
     if (!mode) return;
+    // 手动模式：参数改动只反映到预估，不碰抽帧和编码
+    if (!autoExtract) {
+      updateInfo();
+      setProgress(null);
+      return;
+    }
     const est = estimate();
     if (est.count > MAX_AUTO_FRAMES) {
       runId++; // 取消正在跑的抽帧/编码
@@ -465,20 +556,26 @@ export function initGif({ srcView }) {
         `按现在的设置要抽 ${est.count} 帧，超过 ${MAX_AUTO_FRAMES} 帧上限，已停止自动抽帧。${hint}`,
         true
       );
+      setProgress(null);
       return;
     }
     const id = ++runId;
     updateInfo();
+    setProgress('pull', 0);
     let frames;
     try {
       frames = mode === 'video' ? await extractFrames(id) : buildFrames();
     } catch (ex) {
-      if (id === runId) setStatus('抽帧失败：' + (ex?.message ?? ex), true);
+      if (id === runId) {
+        setStatus('抽帧失败：' + (ex?.message ?? ex), true);
+        setProgress(null);
+      }
       return;
     }
     if (id !== runId) return;
     if (!frames || !frames.length) {
       setStatus('这一段抽不到帧，检查区间和帧率', true);
+      setProgress(null);
       return;
     }
     await encode(id, frames);
@@ -502,6 +599,7 @@ export function initGif({ srcView }) {
     } else {
       setStatus(`正在编码 0/${frames.length} 帧…`);
     }
+    setProgress('encode', 0);
     await idle();
     const t0 = performance.now();
     let bytes;
@@ -512,19 +610,33 @@ export function initGif({ srcView }) {
         done++;
         if (id !== runId) return; // 参数又变了，丢掉这一轮
         setStatus(`正在编码 ${done}/${frames.length} 帧…`);
+        setProgress('encode', done / frames.length);
         await idle();
       }
       bytes = gifFinish(st);
     } catch (ex) {
-      if (id === runId) setStatus('编码失败：' + (ex?.message ?? ex), true);
+      if (id === runId) {
+        setStatus('编码失败：' + (ex?.message ?? ex), true);
+        setProgress(null);
+      }
       return;
     }
     if (id !== runId) return;
     const ms = performance.now() - t0;
     if (result) URL.revokeObjectURL(result.blobUrl);
     const blob = new Blob([bytes], { type: 'image/gif' });
-    result = { bytes, blobUrl: URL.createObjectURL(blob), count: frames.length, w: tw, h: th, ms };
+    result = {
+      bytes,
+      blobUrl: URL.createObjectURL(blob),
+      count: frames.length,
+      w: tw,
+      h: th,
+      ms,
+      delay: opts.delay,
+      loops: Number(loopSel.value) || 0,
+    };
     refreshPreview();
+    setProgress(null);
     updateOut(
       `GIF：${frames.length} 帧  |  ${tw}x${th}  |  每帧 ${opts.delay * 10}ms（约 ${gifFpsForDelay(opts.delay).toFixed(1)}fps）  |  ` +
         `${humanSize(bytes.length)}  |  编码 ${ms < 10 ? ms.toFixed(1) : Math.round(ms)}ms`
@@ -558,11 +670,21 @@ export function initGif({ srcView }) {
   function updateTimeUI() {
     if (!videoMeta) return;
     const dur = videoMeta.duration;
-    const cur = video.currentTime;
-    vidTime.textContent = `${fmtTime(cur)} / ${fmtTime(dur)}`;
-    tlHead.style.left = `${dur ? (cur / dur) * 100 : 0}%`;
     tlBand.style.left = `${dur ? (range.t0 / dur) * 100 : 0}%`;
     tlBand.style.width = `${dur ? Math.max(0, ((range.t1 - range.t0) / dur) * 100) : 0}%`;
+    // 区间超出 1000 帧上限就把中间的黄底藏掉（和「停止自动抽帧」用同一个判据）
+    tlBand.classList.toggle('over', estimate().count > MAX_AUTO_FRAMES);
+    // 抽帧 / 编码时时间轴上不做任何指示：那时播放头被反复 seek 拖着走，看着像乱跳
+    if (busy) {
+      tlHead.hidden = true;
+      return;
+    }
+    tlHead.hidden = false;
+    const cur = video.currentTime;
+    vidTime.textContent = `${fmtTime(cur)} / ${fmtTime(dur)}`;
+    // 拖动中滑块跟着手走，数字跟着真正解出来的那一帧走
+    const shown = scrubBusy ? scrubWant : cur;
+    tlHead.style.left = `${dur ? (shown / dur) * 100 : 0}%`;
   }
 
   // 只在选定区间里循环预览。rAF 在窗口被遮挡时不触发，所以 timeupdate（约 4 次/秒）
@@ -606,6 +728,7 @@ export function initGif({ srcView }) {
     const min = 1 / curFps();
     range.t0 = Math.min(Math.max(0, t0), Math.max(0, dur - min));
     range.t1 = Math.max(Math.min(dur, t1), range.t0 + min);
+    syncTimeInputs();
     updateTimeUI();
   }
 
@@ -621,10 +744,20 @@ export function initGif({ srcView }) {
     const t = tlFrac(e) * dur;
     const which =
       e.target === tlA ? 'a' : e.target === tlB ? 'b' : e.target === tlBand ? 'band' : 'seek';
-    tlDrag = { which, grab: t - range.t0, w: range.t1 - range.t0 };
+    tlDrag = { which, grab: t - range.t0, w: range.t1 - range.t0, was: { ...range } };
     pauseVideo();
     if (which === 'seek') tlSeekTo(t);
     e.preventDefault();
+  }
+
+  // 拖手柄期间只更新区间和预估，松手才真的重新抽帧（不然一边拖一边抽，全是被中途作废的活）
+  function tlUp() {
+    if (!tlDrag) return;
+    const d = tlDrag;
+    tlDrag = null;
+    if (d.which === 'seek') return;
+    if (range.t0 === d.was.t0 && range.t1 === d.was.t1) return; // 只点了一下没挪动
+    rangeChanged();
   }
 
   function tlMove(e) {
@@ -634,24 +767,44 @@ export function initGif({ srcView }) {
     const min = 1 / curFps();
     if (tlDrag.which === 'a') {
       setRange(Math.min(t, range.t1 - min), range.t1);
-      rangeChanged();
+      updateInfo();
     } else if (tlDrag.which === 'b') {
       setRange(range.t0, Math.max(t, range.t0 + min));
-      rangeChanged();
+      updateInfo();
     } else if (tlDrag.which === 'band') {
       const w = tlDrag.w;
       const start = Math.min(Math.max(0, t - tlDrag.grab), Math.max(0, dur - w));
       setRange(start, start + w);
-      rangeChanged();
+      updateInfo();
     } else {
       tlSeekTo(t);
     }
   }
 
+  // 拖动浏览：一次只让一个 seek 在飞，期间只记最新目标，落地后再追一次。
+  // 不这么做的话 mousemove 一秒上百次会把 seek 排成长队（实测单次 seek 平均 53ms、最慢 111ms），
+  // 松手后画面还在自己乱跳。Chromium 没有 fastSeek，只能靠合并。
+  let scrubWant = 0;
+  let scrubBusy = false;
+
   function tlSeekTo(t) {
+    if (!videoMeta) return;
+    scrubWant = t;
+    const dur = videoMeta.duration || 1;
+    tlHead.style.left = `${Math.min(100, Math.max(0, (t / dur) * 100))}%`; // 滑块先跟手，画面随后补上
+    pumpScrub();
+  }
+
+  function pumpScrub() {
+    if (scrubBusy || !videoMeta) return;
+    const t = scrubWant;
+    scrubBusy = true;
     seekVideo(t).then(() => {
+      scrubBusy = false;
       srcView.redraw();
       updateTimeUI();
+      // 拖动过程中目标又变了就立刻追上去
+      if (Math.abs(scrubWant - t) > 1e-3) pumpScrub();
     });
   }
 
@@ -677,7 +830,7 @@ export function initGif({ srcView }) {
     }
     const r = srcPixelRect();
     const full = r.w === videoMeta.w && r.h === videoMeta.h;
-    selInfo.textContent = full ? '全画面' : `${r.w}x${r.h} @+${r.x},+${r.y}`;
+    selInfo.textContent = full ? '全画面' : `${r.w}x${r.h}`;
   }
 
   // ---------- 载入 ----------
@@ -685,7 +838,7 @@ export function initGif({ srcView }) {
   function videoErrMsg() {
     const code = video.error?.code;
     if (code === 4 || code === 3) {
-      return '解码失败：这个容器或编码 WebView2 不支持（MKV / AVI / WMV 常见），请先转成 MP4（H.264）或 WEBM';
+      return '解码失败：这个容器或编码放不了（AVI / WMV / MPG 常见；HEVC/H.265 要看本机解码器），请转成 MP4（H.264）或 WEBM（VP8/VP9）再试';
     }
     if (code === 2) return '读取失败：文件被占用或路径不可访问';
     if (code === 1) return '加载被中止';
@@ -754,11 +907,7 @@ export function initGif({ srcView }) {
     setEnabled(true);
     updateSelInfo();
     updateInfo();
-    setStatus(
-      `已载入视频：${entry.name}（${videoMeta.w}x${videoMeta.h}，${videoMeta.duration.toFixed(2)}s）` +
-        (s === 100 ? '。' : `·缩放自动设为 ${s}%，想全尺寸改「等比缩放」。`) +
-        '拖时间轴两端的黄色手柄选区间，点「选择区域」再在画面上框选'
-    );
+    setStatus(`已载入视频：${entry.name}（${videoMeta.w}x${videoMeta.h}，${videoMeta.duration.toFixed(2)}s）`);
     render();
   }
 
@@ -801,7 +950,6 @@ export function initGif({ srcView }) {
     try {
       if (isVideoName(entry.name)) await loadVideo(entry);
       else await loadImage(entry);
-      playBtn.textContent = '播放动画';
     } catch (ex) {
       mode = null;
       srcCanvas = null;
@@ -812,6 +960,7 @@ export function initGif({ srcView }) {
       setPlaying(false);
       updateInfo();
       setStatus('载入失败：' + (ex?.message ?? ex), true);
+      setProgress(null);
     }
   }
 
@@ -819,7 +968,17 @@ export function initGif({ srcView }) {
     if (!mode) return;
     runId++;
     clearTimeout(debounceId);
+    setProgress(null);
     detachVideo();
+    // 时间轴回到没载入过东西的样子，别留着上一个视频的选区和播放头
+    range = { t0: 0, t1: 0 };
+    tlBand.style.left = '0%';
+    tlBand.style.width = '100%';
+    tlHead.style.left = '0%';
+    tlHead.hidden = true;
+    vidTime.textContent = '00:00:00 / 00:00:00';
+    tIn.value = '';
+    tOut.value = '';
     mode = null;
     srcCanvas = null;
     cache = null;
@@ -862,8 +1021,14 @@ export function initGif({ srcView }) {
     let dir = saveOrigChk.checked && sourcePath ? dirname(sourcePath) : null;
     dir = await resolveSaveDir(dir);
     if (isTauri && !dir) return;
-    const saved = await saveBlob(outName(), result.bytes, dir);
-    setStatus(saved === null ? '已取消' : `已导出：${saved}（${humanSize(result.bytes.length)}）`);
+    // 目录里已有同名 GIF 就自动加 _1、_2，别把原来的覆盖掉
+    const name = await uniqueFilename(dir, outName());
+    const saved = await saveBlob(name, result.bytes, dir);
+    setStatus(
+      saved === null
+        ? '已取消'
+        : `已导出：${saved}（${humanSize(result.bytes.length)}）` + (name !== outName() ? `·原名已占用` : '')
+    );
   }
 
   // ---------- 事件 ----------
@@ -878,6 +1043,10 @@ export function initGif({ srcView }) {
   clearBtn.addEventListener('click', clearImage);
   exportBtn.addEventListener('click', exportTo);
   playBtn.addEventListener('click', () => setPlaying(!playing));
+  // <img> 解码完成才是动画真正的起点，用它校正一次推算的基准
+  preview.addEventListener('load', () => {
+    if (playing) playStart = performance.now();
+  });
   frameRange.addEventListener('input', () => {
     // 先取值：setPlaying(false) 会走 showFrame，把滑块写回当前帧号
     const i = Number(frameRange.value) - 1;
@@ -897,7 +1066,7 @@ export function initGif({ srcView }) {
   tl.addEventListener('mousedown', tlDown);
   window.addEventListener('mousemove', tlMove);
   window.addEventListener('mouseup', () => {
-    tlDrag = null;
+    tlUp();
   });
 
   selModeBtn.addEventListener('click', () => {
@@ -911,6 +1080,58 @@ export function initGif({ srcView }) {
     syncSelMode();
     updateSelInfo();
     rangeChanged();
+  });
+
+  // GIF 范围：手动输入起止时间，回车或失焦生效；解不出来 / 结束不晚于开始就退回当前区间
+  function commitTime() {
+    if (mode !== 'video' || !videoMeta) return;
+    const a = parseTime(tIn.value);
+    const b = parseTime(tOut.value);
+    if (a === null || b === null || b <= a) {
+      syncTimeInputs();
+      setStatus(
+        b !== null && a !== null && b <= a
+          ? '结束时间要晚于开始时间，已退回当前区间'
+          : '时间格式不对（可用秒，或 分:秒 / 时:分:秒.厘秒），已退回当前区间',
+        true
+      );
+      return;
+    }
+    const was = { ...range };
+    setRange(a, b);
+    if (range.t0 === was.t0 && range.t1 === was.t1) return;
+    rangeChanged();
+  }
+  for (const el of [tIn, tOut]) {
+    el.addEventListener('change', commitTime);
+    // 回车等于失焦：change 会由 blur 触发，这里只管别让它提交表单默认行为
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        el.blur();
+      }
+    });
+  }
+
+  function syncAutoBtn() {
+    autoBtn.classList.toggle('on', autoExtract);
+    autoBtn.setAttribute('aria-pressed', String(autoExtract));
+  }
+
+  autoBtn.addEventListener('click', () => {
+    autoExtract = !autoExtract;
+    syncAutoBtn();
+    clearTimeout(debounceId);
+    runId++; // 顺带打断正在跑的抽帧/编码
+    setProgress(null);
+    if (autoExtract) {
+      setStatus('已开启自动抽帧');
+      if (mode === 'video') scheduleVideo();
+      else if (mode) schedule();
+    } else {
+      updateInfo();
+      setStatus('已关闭自动抽帧：改参数不会重新生成，需要时再点开', true);
+    }
   });
   srcView.onSelect = () => {
     updateSelInfo();
@@ -951,6 +1172,7 @@ export function initGif({ srcView }) {
   setEnabled(false);
   setPlaying(false);
   setVideoUI(false);
+  syncAutoBtn();
   preview.hidden = true;
   frameCanvas.hidden = true;
   updateOut('GIF：-  |  尺寸：-  |  体积：-');

@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>序列图工具</title>
+    <!-- 先给一层底色：外链样式表还没到位的那几帧不至于白屏 -->
+    <style>
+      html,
+      body {
+        background: #202020;
+      }
+    </style>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -340,27 +347,33 @@
           <video id="gif-video" class="offscreen-video" crossorigin="anonymous" muted playsinline preload="auto"></video>
         </div>
         <div class="dim-label" id="gif-info">未载入文件</div>
-        <div class="vid-row" id="gif-vid-row" hidden>
+        <div class="vid-row" id="gif-vid-row">
           <button class="btn small" id="gif-vid-play" disabled>播放</button>
           <div class="tl" id="gif-tl">
-            <div class="tl-band" id="gif-tl-band">
+            <div class="tl-band" id="gif-tl-band" hidden>
               <div class="tl-grip" id="gif-tl-a"></div>
               <div class="tl-grip" id="gif-tl-b"></div>
             </div>
-            <div class="tl-head" id="gif-tl-head"></div>
+            <div class="tl-head" id="gif-tl-head" hidden></div>
           </div>
           <span class="dim-label tl-time" id="gif-vid-time">00:00:00 / 00:00:00</span>
         </div>
-        <div class="form-grid" id="gif-vid-grid" hidden>
+        <div class="form-grid" id="gif-vid-grid">
           <label>区域</label>
           <div class="dual-row">
             <span class="dim-label" id="gif-sel-info">全画面</span>
             <button class="btn small" id="gif-sel-mode" disabled>选择区域</button>
             <button class="btn small" id="gif-sel-full" disabled>全画面</button>
           </div>
+          <label>GIF 范围</label>
+          <div class="dual-row vid-tools">
+            <input type="text" class="time-in" id="gif-t-in" title="开始时间：可输入秒，或 分:秒 / 时:分:秒.厘秒" disabled />
+            <input type="text" class="time-in" id="gif-t-out" title="结束时间：可输入秒，或 分:秒 / 时:分:秒.厘秒" disabled />
+            <button class="btn small on" id="gif-auto" title="关闭后改参数不会自动重新抽帧生成">自动抽帧</button>
+          </div>
         </div>
         <div class="dual-row btn-row">
-          <button class="btn" id="gif-open">打开文件…（或拖入文件）</button>
+          <button class="btn" id="gif-open" title="支持：PNG、JPG、BMP、WEBP、TGA&#10;视频：MP4、WEBM">打开文件…（或拖入文件）</button>
           <button class="btn" id="gif-clear" disabled>清空</button>
         </div>
         <div class="form-grid">
@@ -407,7 +420,7 @@
             <option value="25">25%</option>
           </select>
           <label>帧率</label>
-          <input type="number" id="gif-fps" min="1" max="50" step="1" value="15" />
+          <input type="number" id="gif-fps" min="1" max="50" step="1" value="10" />
           <label>循环</label>
           <select id="gif-loop">
             <option value="0" selected>无限循环</option>
