@@ -90,6 +90,115 @@ for (const c of manifest.cases) {
 }
 
 {
+  // 融合方向：'h' 只走横向一趟、'v' 只走纵向一趟、默认 'both' 与不传 dir 完全一致。
+  // 判据是「改动只能落在融合轴的两条带里」：levels=0 带外整列/整行必须逐字节不动；
+  // levels>=1 时低频修正本来就会沿融合轴摊开（设计如此），所以上限放宽到 带宽 + 低通半径 r。
+  // 只要多跑了另一轴那一趟，带外的列/行必然被改动，这条就能抓到
+  //（素材本身沿另一轴恒定时例外，所以每个素材都单独报出 lr/tb）。
+  for (const name of ['s_ramp', 's_crop', 's_brick']) {
+    const c = manifest.cases.find((x) => x.file === name);
+    const data = await load(c.input);
+    const img = { width: c.w, height: c.h, data };
+    const bm = seamMetrics(img);
+    for (const [dir, pct, levels] of [['h', 0.15, 0], ['v', 0.15, 0], ['h', 0.15, 2], ['v', 0.15, 2]]) {
+      const out = makeSeamless(img, { blend: pct, dir, levels });
+      const len = dir === 'h' ? c.w : c.h;
+      const b = Math.round(len * pct);
+      const r = levels > 0 ? Math.min(len >> 2, b * (1 << (levels - 1))) : 0;
+      const changed = (x, y) => {
+        const p = (y * c.w + x) * 4;
+        return data[p] !== out[p] || data[p + 1] !== out[p + 1] || data[p + 2] !== out[p + 2] || data[p + 3] !== out[p + 3];
+      };
+      const problems = [];
+      let keep = 0;
+      for (let y = 0; y < c.h && !problems.length; y++) {
+        for (let x = 0; x < c.w; x++) {
+          const along = dir === 'h' ? x : y;
+          const edge = Math.min(along, len - 1 - along);
+          if (levels === 0 && edge >= b) {
+            keep++;
+            if (changed(x, y)) problems.push(`带外 (${x},${y}) 被改了`);
+          } else if (levels > 0 && edge >= b + r + 1 && changed(x, y)) problems.push(`摊开超出半径 (${x},${y})`);
+        }
+      }
+      if (levels > 0) {
+        // 反向确认用例不是空的：这条缝本来存在的话，带内必须有改动
+        //（s_ramp 沿 y 恒定，仅纵向本来就无事可做，不能算失效）
+        let any = false;
+        for (let y = 0; y < c.h && !any; y++) for (let x = 0; x < c.w; x++) if (changed(x, y)) { any = true; break; }
+        const seam = dir === 'h' ? bm.lr : bm.tb;
+        if (!any && seam > 0.5) problems.push(`该轴本来有色差 ${seam.toFixed(1)} 却毫无改动，用例失效`);
+      }
+      problems.length
+        ? bad(`${name} ${dir} L${levels}：${problems.slice(0, 2).join('；')}`)
+        : good(
+            `${name} ${dir} L${levels}：改动只落在融合轴那两条带里（${levels ? `带宽 ${b} + 低频摊开 r=${r}，带外整${dir === 'h' ? '列' : '行'}不动` : `带外 ${keep} 像素逐字节不动`}）`,
+          );
+    }
+    // 单轴必须真的把自己那条缝修平：横向管左右边、纵向管上下边
+    const before = seamMetrics(img);
+    const outH = makeSeamless(img, { blend: 0.15, dir: 'h' });
+    const outV = makeSeamless(img, { blend: 0.15, dir: 'v' });
+    const def = makeSeamless(img, { blend: 0.15 });
+    const mh = seamMetrics({ ...img, data: outH });
+    const mv = seamMetrics({ ...img, data: outV });
+    const both = seamMetrics({ ...img, data: def });
+    const same = (a, b2) => a.length === b2.length && a.every((v, i) => v === b2[i]);
+    const problems = [];
+    if (mh.lr / mh.grad >= 2) problems.push(`仅横向没修好左右缝 lr/grad=${(mh.lr / mh.grad).toFixed(2)}`);
+    if (mv.tb / mv.grad >= 2) problems.push(`仅纵向没修好上下缝 tb/grad=${(mv.tb / mv.grad).toFixed(2)}`);
+    // 只修一条缝的那趟不该把另一条缝修得更平（s_ramp 沿 y 恒定，两边都是 0，所以用 >=）
+    if (mh.tb < mv.tb - 1e-9) problems.push(`仅横向把上下缝修得比仅纵向还好：${mh.tb.toFixed(1)} < ${mv.tb.toFixed(1)}`);
+    if (mv.lr < mh.lr - 1e-9) problems.push(`仅纵向把左右缝修得比仅横向还好：${mv.lr.toFixed(1)} < ${mv.lr.toFixed(1)}`);
+    if (!same(makeSeamless(img, { blend: 0.15, dir: 'both' }), def)) problems.push('dir=both 与不传 dir 不一致（默认值变了）');
+    // 另一轴本来就没缝（色差 0）时跳过那一趟看不出差别，不能算 dir 没生效
+    if (before.tb > 0.5 && same(outH, def)) problems.push('有上下缝但仅横向==双向，dir 没生效');
+    if (before.lr > 0.5 && same(outV, def)) problems.push('有左右缝但仅纵向==双向，dir 没生效');
+    problems.length
+      ? bad(`${name} 方向：${problems.join('；')}`)
+      : good(
+          `${name} 方向：左右色差 ${before.lr.toFixed(1)} → 仅横 ${mh.lr.toFixed(1)} / 仅纵 ${mv.lr.toFixed(1)} / 双向 ${both.lr.toFixed(1)}；` +
+            `上下色差 ${before.tb.toFixed(1)} → 仅纵 ${mv.tb.toFixed(1)} / 仅横 ${mh.tb.toFixed(1)} / 双向 ${both.tb.toFixed(1)}`,
+        );
+  }
+}
+
+{
+  // 宽度上限只管被启用的那一轴：16x9 用 0.5 时横带 8+8=16 合法、纵带 5×2>9 非法
+  const mk = (v) => {
+    const d = new Uint8ClampedArray(16 * 9 * 4);
+    for (let i = 0; i < 16 * 9; i++) {
+      d[i * 4] = (i * 11) % 256;
+      d[i * 4 + 3] = v;
+    }
+    return { width: 16, height: 9, data: d };
+  };
+  const img = mk(255);
+  const runs = [];
+  try {
+    makeSeamless(img, { blend: 0.5, dir: 'h' });
+    runs.push('仅横向通过');
+  } catch (e) {
+    bad(`仅横向不该被纵向的宽度上限拦住：${e.message}`);
+  }
+  for (const dir of ['v', 'both']) {
+    try {
+      makeSeamless(img, { blend: 0.5, dir });
+      bad(`本应拒绝：${dir} 的纵带 5x2 超过图高 9`);
+    } catch (e) {
+      runs.push(`${dir} 已拒绝`);
+    }
+  }
+  // 宽度 0 时任何方向都等于原图
+  let zeroOk = true;
+  for (const dir of ['h', 'v', 'both']) {
+    const out = makeSeamless(img, { blend: 0, dir });
+    for (let i = 0; i < out.length; i++) if (out[i] !== img.data[i]) zeroOk = false;
+  }
+  zeroOk ? good(`宽度上限只算启用的那一轴：${runs.join('，')}；宽度 0 三种方向都等于原图`) : bad('宽度 0 + dir 不等于原图');
+}
+
+{
   // 强接缝输入的「边缘差 / 内部梯度」比值必须明显下降
   for (const name of ['s_ramp', 's_crop', 's_brick']) {
     const c = manifest.cases.find((x) => x.file === name);

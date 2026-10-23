@@ -11,6 +11,8 @@
 //      带宽 B = round(边长 × 比例)，比例 0..0.5（界面与函数的默认都是 0 = 不处理），要求 2B <= 边长。
 //      比例 0（或小到 round 出 0）就是完全不处理，直接原样返回，等于 2x2 预览里看原图的接缝。
 //   3. 先横向一趟、再纵向一趟，两趟都只用上一趟的结果；四个角被两趟各覆盖一次。
+//      dir 可以只做其中一趟：'h' 只横、'v' 只纵、默认 'both'。不做的那一趟带宽记 0，
+//      而 blendAxis 在 band=0 时是恒等拷贝（levels>0 时 wide=u=0 也恒等），所以不用另写分支。
 //      levels=0 时，横竖两条带之外的区域逐字节等于输入；levels>=1 时低频修正会摊到全图，
 //      带外像素也会跟着微变（这是多尺度的本意，不是 bug）。
 //   4. 取整：每趟写出前按 floor(v + 0.5) 量化回 8 位（Uint8Clamped 再把越界的钳到 0..255）。
@@ -32,8 +34,10 @@ export function makeSeamless(img, opts = {}) {
   const pct = Math.min(0.5, Math.max(0, opts.blend ?? 0));
   const keepAlpha = opts.keepAlpha !== false;
   const levels = Math.min(4, Math.max(0, Math.floor(opts.levels ?? 0)));
-  const bw = Math.round(w * pct);
-  const bh = Math.round(h * pct);
+  // 融合方向：'both'（默认，横一趟再纵一趟）/ 'h' 只做横向 / 'v' 只做纵向
+  const dir = opts.dir === 'h' || opts.dir === 'v' ? opts.dir : 'both';
+  const bw = dir === 'v' ? 0 : Math.round(w * pct);
+  const bh = dir === 'h' ? 0 : Math.round(h * pct);
   if (bw * 2 > w) throw new Error(`融合宽度太大：横向带 ${bw}x2 超过图宽 ${w}`);
   if (bh * 2 > h) throw new Error(`融合宽度太大：纵向带 ${bh}x2 超过图高 ${h}`);
 

@@ -39,6 +39,7 @@ export function initSeamless({ srcView, outView }) {
   const clearBtn = $('sml-clear');
   const widthRange = $('sml-width');
   const widthNum = $('sml-width-num');
+  const dirSel = $('sml-dir');
   const levelSel = $('sml-levels');
   const alphaChk = $('sml-keep-alpha');
   const tileSel = $('sml-tile');
@@ -82,8 +83,10 @@ export function initSeamless({ srcView, outView }) {
 
   function opts() {
     const pct = Math.min(0.5, Math.max(0, (Number(widthNum.value) || 0) / 100));
+    const dir = dirSel.value === 'h' || dirSel.value === 'v' ? dirSel.value : 'both';
     return {
       blend: pct,
+      dir,
       keepAlpha: alphaChk.checked,
       levels: Math.min(4, Math.max(0, Number(levelSel.value) || 0)),
       pct,
@@ -118,21 +121,22 @@ export function initSeamless({ srcView, outView }) {
     const n = Number(tileSel.value) || 1;
     outView.setImage(tileCanvas(resultCanvas, n), resultCanvas.width * n, resultCanvas.height * n);
     const after = seamMetrics({ width: imgData.width, height: imgData.height, data });
-    const bw = Math.round(imgData.width * o.pct);
-    const bh = Math.round(imgData.height * o.pct);
+    const dirTxt = { both: '双向', h: '仅横向', v: '仅纵向' }[o.dir];
+    const axes = [];
+    if (o.dir !== 'v') axes.push({ n: '横', b: Math.round(imgData.width * o.pct), len: imgData.width });
+    if (o.dir !== 'h') axes.push({ n: '纵', b: Math.round(imgData.height * o.pct), len: imgData.height });
+    const listB = (f) => axes.map((a) => `${a.n}${f(a)}px`).join(' ');
     let bandTxt;
     if (o.pct === 0) bandTxt = '不处理（等于原图）';
-    else if (o.levels <= 0) bandTxt = `单尺度 横${bw} 纵${bh}px`;
+    else if (o.levels <= 0) bandTxt = `${dirTxt} 单尺度 ${listB((a) => a.b)}`;
     else {
       const spread = 1 << (o.levels - 1);
-      const cap = (len, b) => {
-        const want = b * spread;
-        const max = len >> 2;
+      const cap = (a) => {
+        const want = a.b * spread;
+        const max = a.len >> 2;
         return want > max ? `${max}(已封顶)` : `${want}`;
       };
-      bandTxt =
-        `带 横${bw} 纵${bh}px · 低频半径 横${cap(imgData.width, bw)}/` +
-        `纵${cap(imgData.height, bh)}px ×${o.levels + 1} 频段`;
+      bandTxt = `${dirTxt} 带 ${listB((a) => a.b)} · 低频半径 ${listB(cap)} ×${o.levels + 1} 频段`;
     }
     outInfo.textContent =
       `结果尺寸：${imgData.width}x${imgData.height}  |  平铺 ${n}x${n}  |  融合 ${bandTxt}  |  ` +
@@ -244,6 +248,7 @@ export function initSeamless({ srcView, outView }) {
   });
   widthNum.addEventListener('change', schedule);
   alphaChk.addEventListener('change', schedule);
+  dirSel.addEventListener('change', schedule);
   levelSel.addEventListener('change', schedule);
   tileSel.addEventListener('change', schedule);
 

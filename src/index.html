@@ -308,6 +308,12 @@
         <div class="dim-label" id="sml-out-info">结果尺寸：-  |  平铺 2x2  |  融合：-  |  耗时：-</div>
         <div class="dim-label" id="sml-metric">接缝指标：-</div>
         <div class="form-grid">
+          <label>融合方向</label>
+          <select id="sml-dir">
+            <option value="both" selected>双向（左右边 + 上下边）</option>
+            <option value="h">仅横向（只接左右边）</option>
+            <option value="v">仅纵向（只接上下边）</option>
+          </select>
           <label>融合宽度</label>
           <div class="dual-row">
             <input type="range" id="sml-width" min="0" max="50" step="1" value="0" />
