@@ -156,4 +156,35 @@ for (const [label, frames, opts] of [
     : bad(`colors 钳位不成立：1≠2 ${!eq(one, two)}，9999≠默认 ${!eq(big, norm)}`);
 }
 
+{
+  // 并行拼装必须和单线程逐帧编码逐字节一致：worker 池做的事就是
+  // 「gifParams 一次 + 每帧 gifFrameBytes + 按帧号拼回头尾」，帧序打乱或参数漏带都会在这里暴露
+  const { gifParams, gifHeader, gifFrameBytes, gifTrailer, gifConcat } = await import('../src/js/gif.js');
+  const eq = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+  const sets = [
+    ['普通 3 帧', [mk(12, 9, 1), mk(12, 9, 2), mk(12, 9, 3)], { delay: 10, loop: 0 }],
+    ['高质量 3 帧', [mk(12, 9, 1), mk(12, 9, 2), mk(12, 9, 3)], { delay: 10, loop: 0, quality: 'high' }],
+    ['带透明 4 帧', [mk(16, 16, 4, 20), mk(16, 16, 5, 0), mk(16, 16, 6, 200), mk(16, 16, 7)], { delay: 8, loop: 2, colors: 32 }],
+    ['不等延时 3 帧', [mk(8, 8, 8), mk(8, 8, 9), mk(8, 8, 10)], { delay: [10, 20, 30], loop: null }],
+  ];
+  for (const [label, frames, opts] of sets) {
+    const seq = encodeGif(frames, opts);
+    const p = gifParams(frames, opts);
+    const header = gifHeader(p);
+    // 故意乱序算、按序拼，模拟多个 worker 先完成后面的帧
+    const order = frames.map((_, i) => i).reverse();
+    const chunks = new Array(frames.length);
+    for (const i of order) chunks[i] = gifFrameBytes(p, frames[i], i);
+    const par = gifConcat([header, ...chunks, gifTrailer()]);
+    eq(seq, par)
+      ? good(`并行拼装 == 单线程：${label}（${seq.length} 字节，透明=${p.transparent}，全局表=${p.global}）`)
+      : bad(`并行拼装与单线程不一致：${label}，长度 ${par.length} vs ${seq.length}`);
+  }
+  // 参数对象必须能安全 postMessage：不能带 frames，否则每个 worker 都会拷一份像素
+  const p2 = gifParams([mk(8, 8, 1)], { delay: 10 });
+  'frames' in p2
+    ? bad(`gifParams 返回值里不该有 frames（会被 structured-clone 进每个 worker）：keys=${Object.keys(p2)}`)
+    : good(`gifParams 只返回编码参数（keys=${Object.keys(p2).join(',')}），可以安全 postMessage`);
+}
+
 console.log(fail ? `\n${fail} 个用例失败` : `\n全部通过（${cases.length} 个 GIF 已写入 fmt/gif，请再跑 python gif-verify.py 做 PIL 解码闭环）`);

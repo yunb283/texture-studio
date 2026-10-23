@@ -19,7 +19,17 @@ import {
 import { decodeToCanvas, FORMAT_NAME, extOf, humanSize } from './decode.js';
 import { cellRect, cropCanvas, canvasToImageData } from './image-util.js';
 import { autoDetectGrid } from './detect.js';
-import { gifStart, gifEncodeNext, gifFinish, gifDelayForFps, gifFpsForDelay } from './gif.js';
+import {
+  gifStart,
+  gifEncodeNext,
+  gifFinish,
+  gifParams,
+  gifHeader,
+  gifTrailer,
+  gifConcat,
+  gifDelayForFps,
+  gifFpsForDelay,
+} from './gif.js';
 import { equalizeCanvases } from './layout.js';
 import { createIoButtons } from './io-buttons.js';
 
@@ -82,7 +92,7 @@ export function initGif({ srcView }) {
   // 拆帧/抽帧结果按「源 + 影响像素的参数」缓存，只改帧率以外的项时不必重做
   let cache = null;
   let curFrames = [];
-  let result = null; // {bytes, blobUrl, count, w, h, ms}
+  let result = null; // {bytes, blobUrl, count, w, h, delay, loops}
   let playing = true;
   let frameIndex = 0;
   let runId = 0;
@@ -193,6 +203,13 @@ export function initGif({ srcView }) {
     )}`;
   }
 
+  // GIF 总时长：只说「几分几秒」，四舍五入到整秒就够看（帧延时是整数 1/100 秒，乘完再取整）
+  function fmtDur(sec) {
+    const t = Math.round(sec);
+    if (t < 1) return '不到 1 秒';
+    return t >= 60 ? `${Math.floor(t / 60)}分${t % 60}秒` : `${t}秒`;
+  }
+
   // 手动输入的时间：接受纯秒数，也接受 分:秒 和 时:分:秒.厘秒；解不出来给 null
   function parseTime(str) {
     const s = String(str).trim();
@@ -214,7 +231,10 @@ export function initGif({ srcView }) {
     const est = estimate();
     const pulled = `抽帧 ${est.count} 帧 · ${est.w}x${est.h} · 内存约 ${est.memMB.toFixed(0)}MB`;
     if (mode === 'video') {
-      const total = videoMeta.srcFrames ? ` · 总 ${videoMeta.srcFrames} 帧` : '';
+      // 源帧率是播放采样估出来的（见 playThrough），和总帧数一起出现、一起缺席
+      const total = videoMeta.srcFrames
+        ? ` · ${videoMeta.srcFps || Math.max(1, Math.round(videoMeta.srcFrames / videoMeta.duration))}fps · 总 ${videoMeta.srcFrames} 帧`
+        : '';
       info.textContent =
         `视频 ${videoMeta.w}x${videoMeta.h} · ${fmtTime(videoMeta.duration)}${total} · ` +
         `选段 ${fmtTime(range.t0)}–${fmtTime(range.t1)}\n` +
@@ -384,8 +404,10 @@ export function initGif({ srcView }) {
           const delta = s - prevStart;
           if (delta > 1e-6 && (!frameDur || delta < frameDur)) frameDur = delta;
           // 顺手把源帧率记下来，信息行要显示总帧数
+          // 顺手把源帧率记下来，信息行要显示帧率和总帧数
           if (frameDur && !videoMeta.srcFrames) {
             videoMeta.srcFrames = Math.round(videoMeta.duration / frameDur);
+            videoMeta.srcFps = Math.round(1 / frameDur);
             updateInfo();
           }
         }
@@ -584,6 +606,97 @@ export function initGif({ srcView }) {
     await encode(id, frames);
   }
 
+  // ---------- 编码 worker 池 ----------
+  // 每帧的字节只依赖「编码参数 + 那一帧」，所以可以几个线程分头算、主线程按帧号拼回来，
+  // 拼出的字节和主线程逐帧编码完全一致（test/gif-test.mjs 的逐字节比对守着）。
+  // 全局调色板和「整段是否用到透明」都必须看全部帧，所以编码仍然只能在抽完之后开始。
+  const POOL_MIN_FRAMES = 24; // 帧太少不值得建线程
+  const POOL_MAX = 6;
+  // 每个 worker 至少摊到这么多帧才划算：21 帧的活儿开池实测 98ms，串行只要 52ms
+  // （建线程 + 传参的固定开销约 40ms，得让它在总时间里占比很小才值得）
+  const POOL_FRAMES_PER_WORKER = 24;
+  const WORKER_URL = new URL('gif-worker.js', import.meta.url);
+  let poolBroken = false; // 建不起来或跑挂过一次就不再试，直接用主线程路径
+
+  // 同一批帧的透明标记只扫一次（改颜色 / 循环 / 帧率时会重复编码同一批帧）
+  let transMemo = { frames: null, value: false };
+  function transparentOf(frames) {
+    if (transMemo.frames === frames) return transMemo.value;
+    let v = false;
+    outer: for (const f of frames) {
+      const d = f.data;
+      for (let i = 3; i < d.length; i += 4) if (d[i] < 128) { v = true; break outer; }
+    }
+    transMemo = { frames, value: v };
+    return v;
+  }
+
+  // 返回 Uint8Array（成功）/ 'cancelled'（参数又变了，这一轮作废）/ 'broken'（worker 用不了）
+  function encodePool(id, frames, p) {
+    const total = frames.length;
+    const cores = navigator.hardwareConcurrency || 2;
+    const size = Math.max(1, Math.min(POOL_MAX, cores - 1, Math.ceil(total / POOL_FRAMES_PER_WORKER)));
+    if (total < POOL_MIN_FRAMES || size < 2) return Promise.resolve('too-small');
+    const slots = [];
+    for (let i = 0; i < size; i++) {
+      try {
+        slots.push({ w: new Worker(WORKER_URL, { type: 'module' }), busy: false });
+      } catch {
+        for (const s of slots) s.w.terminate();
+        return Promise.resolve('broken');
+      }
+    }
+    return new Promise((resolve) => {
+      const header = gifHeader(p);
+      const chunks = new Array(total);
+      const queue = [];
+      for (let i = 0; i < total; i++) queue.push(i);
+      let done = 0;
+      let settled = false;
+      const stop = (v) => {
+        if (settled) return;
+        settled = true;
+        for (const s of slots) s.w.terminate();
+        resolve(v);
+      };
+      const pump = () => {
+        if (settled) return;
+        if (id !== runId) return stop('cancelled');
+        while (queue.length) {
+          const s = slots.find((x) => !x.busy);
+          if (!s) return;
+          const i = queue.shift();
+          const f = frames[i];
+          s.busy = true;
+          // 必须复制一份再 transfer，否则主线程缓存里的那帧像素就被搬空了
+          const copy = new Uint8ClampedArray(f.data);
+          s.w.postMessage({ type: 'frame', index: i, width: f.width, height: f.height, data: copy }, [copy.buffer]);
+        }
+        if (!slots.some((x) => x.busy)) stop(gifConcat([header, ...chunks, gifTrailer()]));
+      };
+      for (const s of slots) {
+        s.w.onmessage = (e) => {
+          const m = e.data;
+          s.busy = false;
+          if (m.type === 'ready') return pump();
+          if (m.type === 'error') {
+            // 帧本身编不动（数据问题），交回主线程走一遍，让原来的报错文案照常显示；
+            // 这不代表 worker 坏了，下次照旧用它
+            return stop('error');
+          }
+          chunks[m.index] = m.bytes;
+          done++;
+          setStatus(`正在编码 ${done}/${total} 帧…`);
+          setProgress('encode', done / total);
+          pump();
+        };
+        s.w.onerror = () => stop('broken');
+        s.w.postMessage({ type: 'init', params: p });
+      }
+      pump();
+    });
+  }
+
   async function encode(id, frames) {
     curFrames = frames;
     // GIF 的尺寸就是单帧尺寸（已按等比缩放），不是整张序列图
@@ -595,6 +708,7 @@ export function initGif({ srcView }) {
       loop: Number(loopSel.value),
       colors: Number(colorSel.value),
       quality: qualitySel.value,
+      transparent: transparentOf(frames), // 同一批帧只扫一次 alpha，改颜色/循环时不必重扫
     };
     const est = estimate();
     if (overLimit(est)) {
@@ -604,28 +718,49 @@ export function initGif({ srcView }) {
     }
     setProgress('encode', 0);
     await idle();
-    const t0 = performance.now();
-    let bytes;
-    try {
-      const st = gifStart(frames, opts);
-      let done = 0;
-      while (gifEncodeNext(st)) {
-        done++;
-        if (id !== runId) return; // 参数又变了，丢掉这一轮
-        setStatus(`正在编码 ${done}/${frames.length} 帧…`);
-        setProgress('encode', done / frames.length);
-        await idle();
+    let bytes = null;
+    let err = null;
+    // 优先走 worker 池：每帧字节互相独立，几个线程分头算完再按帧号拼起来，字节和单线程一致。
+    // 帧太少不值得建线程，或者 worker 建不起来 / 报错，就退回下面的主线程路径。
+    if (!poolBroken && frames.length >= POOL_MIN_FRAMES) {
+      let p = null;
+      try {
+        p = gifParams(frames, opts);
+      } catch (ex) {
+        err = ex;
       }
-      bytes = gifFinish(st);
-    } catch (ex) {
+      if (p) {
+        const r = await encodePool(id, frames, p);
+        if (r === 'cancelled') return;
+        if (r === 'broken') poolBroken = true;
+        else if (typeof r !== 'string') bytes = r;
+        if (poolBroken) setStatus('编码 worker 不可用，已改用主线程…');
+      }
+    }
+    if (bytes === null && !err) {
+      try {
+        const st = gifStart(frames, opts);
+        let done = 0;
+        while (gifEncodeNext(st)) {
+          done++;
+          if (id !== runId) return; // 参数又变了，丢掉这一轮
+          setStatus(`正在编码 ${done}/${frames.length} 帧…`);
+          setProgress('encode', done / frames.length);
+          await idle();
+        }
+        bytes = gifFinish(st);
+      } catch (ex) {
+        err = ex;
+      }
+    }
+    if (err) {
       if (id === runId) {
-        setStatus('编码失败：' + (ex?.message ?? ex), true);
+        setStatus('编码失败：' + (err?.message ?? err), true);
         setProgress(null);
       }
       return;
     }
     if (id !== runId) return;
-    const ms = performance.now() - t0;
     if (result) URL.revokeObjectURL(result.blobUrl);
     const blob = new Blob([bytes], { type: 'image/gif' });
     result = {
@@ -634,7 +769,6 @@ export function initGif({ srcView }) {
       count: frames.length,
       w: tw,
       h: th,
-      ms,
       delay: opts.delay,
       loops: Number(loopSel.value) || 0,
     };
@@ -642,7 +776,7 @@ export function initGif({ srcView }) {
     setProgress(null);
     updateOut(
       `GIF：${frames.length} 帧  |  ${tw}x${th}  |  每帧 ${opts.delay * 10}ms（约 ${gifFpsForDelay(opts.delay).toFixed(1)}fps）  |  ` +
-        `${humanSize(bytes.length)}  |  编码 ${ms < 10 ? ms.toFixed(1) : Math.round(ms)}ms`
+        `${humanSize(bytes.length)}  |  时长 ${fmtDur((frames.length * opts.delay) / 100)}`
     );
     const pulled = cache?.ms ? `  |  抽帧 ${Math.round(cache.ms)}ms` : '';
     setStatus(`已生成：${outName()}${pulled}`, overLimit(est));

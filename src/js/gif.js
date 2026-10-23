@@ -19,9 +19,13 @@
 
 export const GIF_QUALITY = ['normal', 'high'];
 
-// 编码流程拆成可恢复的三步：gifStart 写文件头、gifEncodeNext 编一帧、gifFinish 收尾。
-// 页面可以逐帧调用并在帧之间让出主线程，否则几十帧的动画会把 UI 冻住几秒。
-export function gifStart(frames, opts = {}) {
+// 编码流程拆成「算参数 → 文件头 → 每帧字节 → 收尾」。「每帧字节」只依赖参数 + 那一帧，
+// 帧与帧之间互不依赖，所以可以丢给 worker 池并行算、再按序号拼回来 —— 拼出的字节和
+// 单线程逐帧编码完全一致（全局调色板在 gifParams 里就算好了）。
+// gifStart / gifEncodeNext / gifFinish 是同一套东西的有状态薄封装，页面逐帧让出主线程时用。
+
+// 一次算好整段动画的编码参数：尺寸、每帧延时、是否用到透明、全局调色板（普通质量时）。
+export function gifParams(frames, opts = {}) {
   if (!frames.length) throw new Error('没有可编码的帧');
   const w = frames[0].width;
   const h = frames[0].height;
@@ -37,16 +41,24 @@ export function gifStart(frames, opts = {}) {
   const quality = opts.quality === 'high' ? 'high' : 'normal';
   const maxColors = Math.min(256, Math.max(2, opts.colors ?? 256));
   const delays = normalizeDelays(opts.delay, frames.length);
-  const transparent = frames.some((f) => hasTransparency(f.data, w * h));
+  // transparent 允许页面提前算好传进来（抽帧时顺手扫一遍就行）：整段动画的透明判定是全局的，
+  // 默认这里要为它把每帧的 alpha 全扫一遍，1082 帧 × 13 万像素是白捡的一遍开销。
+  const transparent = opts.transparent === undefined ? frames.some((f) => hasTransparency(f.data, w * h)) : !!opts.transparent;
   // 索引 0 留给透明，可用颜色少一个
   const colorCount = transparent ? maxColors - 1 : maxColors;
   const global = quality === 'normal';
+  const gPalette = global ? buildGlobalPalette(frames, colorCount, transparent) : null;
+  // 注意不返回 frames：这份参数要能直接 postMessage 给 worker（带帧就等于把像素拷进每个线程）
+  return { w, h, delays, transparent, colorCount, global, gPalette, opts };
+}
 
+// 文件头：GIF89a + 逻辑屏幕描述符（+ 全局调色板）+ NETSCAPE 循环块
+export function gifHeader(p) {
+  const { w, h, transparent, colorCount, global, gPalette, opts } = p;
   const out = new ByteSink();
   out.bytes(0x47, 0x49, 0x46, 0x38, 0x39, 0x61); // GIF89a
   out.u16(w);
   out.u16(h);
-  const gPalette = global ? buildGlobalPalette(frames, colorCount, transparent) : null;
   const gBits = bitsFor(gPalette ? gPalette.length / 3 : 2);
   out.byte(global ? 0x80 | (gBits - 1) << 4 | (gBits - 1) : 0);
   out.byte(0); // 背景色索引（透明启用时 0 就是透明色）
@@ -59,14 +71,15 @@ export function gifStart(frames, opts = {}) {
     out.u16(opts.loop ?? 0);
     out.byte(0);
   }
-  return { frames, out, w, h, delays, transparent, colorCount, global, gPalette, opts, i: 0 };
+  return out.toUint8Array();
 }
 
-export function gifEncodeNext(st) {
-  if (st.i >= st.frames.length) return false;
-  const { out, w, h, frames, delays, transparent, colorCount, global, gPalette } = st;
-  const i = st.i;
-  const f = frames[i];
+// 第 i 帧的完整子块（图形控制扩展 + 图像描述符 + 可选局部表 + LZW 数据）。
+// 只读 p 和传进来的那一帧，所以多帧可以任意顺序、任意线程分别算。
+export function gifFrameBytes(p, frame, i) {
+  const { w, h, delays, transparent, colorCount, global, gPalette } = p;
+  const f = frame;
+  const out = new ByteSink();
   const palette = global ? gPalette : buildFramePalette(f, colorCount, transparent);
   const bits = bitsFor(palette.length / 3);
   const table = nearestCache(palette, transparent);
@@ -93,25 +106,53 @@ export function gifEncodeNext(st) {
   const minCode = Math.max(2, bits);
   const data = lzwEncode(minCode, indices);
   out.byte(minCode);
-  for (let p = 0; p < data.length; p += 255) {
-    const n = Math.min(255, data.length - p);
+  for (let q = 0; q < data.length; q += 255) {
+    const n = Math.min(255, data.length - q);
     out.byte(n);
-    out.raw(data, p, n);
+    out.raw(data, q, n);
   }
   out.byte(0);
-  st.i = i + 1;
+  return out.toUint8Array();
+}
+
+export function gifTrailer() {
+  return new Uint8Array([0x3b]);
+}
+
+export function gifStart(frames, opts = {}) {
+  const p = gifParams(frames, opts);
+  return { p, frames, parts: [gifHeader(p)], i: 0 };
+}
+
+export function gifEncodeNext(st) {
+  if (st.i >= st.frames.length) return false;
+  st.parts.push(gifFrameBytes(st.p, st.frames[st.i], st.i));
+  st.i++;
   return true;
 }
 
 export function gifFinish(st) {
-  st.out.byte(0x3b);
-  return st.out.toUint8Array();
+  st.parts.push(gifTrailer());
+  return gifConcat(st.parts);
 }
 
 export function encodeGif(frames, opts = {}) {
   const st = gifStart(frames, opts);
   while (gifEncodeNext(st));
   return gifFinish(st);
+}
+
+// 把「文件头 + 各帧字节 + 收尾」拼成一个完整文件（顺序即帧序）
+export function gifConcat(parts) {
+  let n = 0;
+  for (const p of parts) n += p.length;
+  const out = new Uint8Array(n);
+  let at = 0;
+  for (const p of parts) {
+    out.set(p, at);
+    at += p.length;
+  }
+  return out;
 }
 
 // 帧延时（1/100 秒）：可以是单值或数组；GIF 里 1 会被多数浏览器当 0，钳到 2
@@ -387,26 +428,45 @@ export function lzwEncode(minCodeSize, indices) {
   return Uint8Array.from(bytes);
 }
 
+// 可增长的字节缓冲。原来用普通数组逐字节 push 再 Uint8Array.from，
+// 一段上千帧的 GIF 就是几千万次 push；现在直接写进 Uint8Array，
+// LZW 数据和调色板这种成段的内容用 set 一次搬完。
 class ByteSink {
   constructor() {
-    this.a = [];
+    this.a = new Uint8Array(1024);
+    this.n = 0;
+  }
+  ensure(k) {
+    if (this.n + k <= this.a.length) return;
+    let cap = this.a.length * 2;
+    while (cap < this.n + k) cap *= 2;
+    const next = new Uint8Array(cap);
+    next.set(this.a.subarray(0, this.n));
+    this.a = next;
   }
   byte(v) {
-    this.a.push(v & 0xff);
+    this.ensure(1);
+    this.a[this.n++] = v & 0xff;
   }
   bytes(...v) {
-    for (const x of v) this.a.push(x & 0xff);
+    this.ensure(v.length);
+    for (const x of v) this.a[this.n++] = x & 0xff;
   }
   u16(v) {
-    this.a.push(v & 0xff, (v >> 8) & 0xff);
+    this.ensure(2);
+    this.a[this.n++] = v & 0xff;
+    this.a[this.n++] = (v >> 8) & 0xff;
   }
   ascii(s) {
-    for (let i = 0; i < s.length; i++) this.a.push(s.charCodeAt(i) & 0xff);
+    this.ensure(s.length);
+    for (let i = 0; i < s.length; i++) this.a[this.n++] = s.charCodeAt(i) & 0xff;
   }
   raw(buf, off, len) {
-    for (let i = 0; i < len; i++) this.a.push(buf[off + i]);
+    this.ensure(len);
+    this.a.set(buf.subarray(off, off + len), this.n);
+    this.n += len;
   }
   toUint8Array() {
-    return Uint8Array.from(this.a);
+    return this.a.slice(0, this.n);
   }
 }
