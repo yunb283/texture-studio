@@ -1,4 +1,5 @@
 import { CanvasView } from './view.js';
+import { makeZoomPan } from './zoom-pan.js';
 import { initSplit } from './split.js';
 import { initMerge } from './merge.js';
 import { initConvert } from './convert.js';
@@ -64,6 +65,24 @@ function makeCssBgButtons(container, el, modes, current) {
   }
 }
 
+// 右侧预览的视图工具，插在它那排背景色块的左边
+function makeViewTools(bgContainer, api) {
+  const box = document.createElement('div');
+  box.className = 'view-tools';
+  const mk = (label, title, fn) => {
+    const b = document.createElement('button');
+    b.className = 'view-btn';
+    b.textContent = label;
+    b.title = title;
+    b.addEventListener('click', fn);
+    box.appendChild(b);
+  };
+  mk('重置位置', '平移归零，保留当前缩放', () => api.resetPan());
+  mk('100%', '一个图像像素对一个屏幕像素', () => api.zoomActual());
+  mk('适配窗口', '整张图铺满窗口并归位', () => api.fitWindow());
+  bgContainer.parentNode.insertBefore(box, bgContainer);
+}
+
 const tabSplit = document.getElementById('tab-split');
 const tabMerge = document.getElementById('tab-merge');
 const tabConvert = document.getElementById('tab-convert');
@@ -81,17 +100,30 @@ const srcView = new CanvasView(document.getElementById('src-canvas'), {
   clickable: true,
   bgMode: 3,
 });
-const frameView = new CanvasView(document.getElementById('frame-canvas'), { bgMode: 2 });
+const frameView = new CanvasView(document.getElementById('frame-canvas'), {
+  bgMode: 2,
+  zoomable: true,
+});
 const mergeView = new CanvasView(document.getElementById('merge-canvas'), {
   bgMode: 2,
   gridColor: 'rgba(77,217,255,0.9)',
   hlColor: '#FFD926',
+  zoomable: true,
 });
-const convView = new CanvasView(document.getElementById('conv-canvas'), { bgMode: 2 });
+const convView = new CanvasView(document.getElementById('conv-canvas'), {
+  bgMode: 2,
+  zoomable: true,
+});
 const nrmSrcView = new CanvasView(document.getElementById('nrm-src-canvas'), { bgMode: 2 });
-const nrmOutView = new CanvasView(document.getElementById('nrm-out-canvas'), { bgMode: 2 });
+const nrmOutView = new CanvasView(document.getElementById('nrm-out-canvas'), {
+  bgMode: 2,
+  zoomable: true,
+});
 const smlSrcView = new CanvasView(document.getElementById('sml-src-canvas'), { bgMode: 2 });
-const smlOutView = new CanvasView(document.getElementById('sml-out-canvas'), { bgMode: 2 });
+const smlOutView = new CanvasView(document.getElementById('sml-out-canvas'), {
+  bgMode: 2,
+  zoomable: true,
+});
 const gifSrcView = new CanvasView(document.getElementById('gif-src-canvas'), {
   bgMode: 2,
   selectable: true,
@@ -112,6 +144,34 @@ makeCssBgButtons(
   [0, 1, 2],
   2
 );
+
+// GIF 结果预览只有一张 canvas（播放和逐帧都画它），缩放平移只能走 CSS 变量
+const gifWrap = document.getElementById('gif-prev-wrap');
+const gifFrame = document.getElementById('gif-frame');
+const gifZp = makeZoomPan(
+  gifWrap,
+  () => {
+    // 隐藏时 canvas 还是默认的 300x150 空位，不能拿它当图像尺寸
+    const nw = gifFrame.hidden ? 0 : gifFrame.width;
+    const nh = gifFrame.hidden ? 0 : gifFrame.height;
+    const boxW = gifWrap.clientWidth;
+    const boxH = gifWrap.clientHeight;
+    // object-fit: scale-down 的「适配」只缩不放，基准倍率封顶 1
+    return { boxW, boxH, s0: nw && nh && boxW && boxH ? Math.min(1, boxW / nw, boxH / nh) : 0 };
+  },
+  (st) => {
+    gifWrap.style.setProperty('--zz', String(st.zoom));
+    gifWrap.style.setProperty('--zpx', `${st.panX}px`);
+    gifWrap.style.setProperty('--zpy', `${st.panY}px`);
+  }
+);
+
+makeViewTools(document.getElementById('split-prev-bg'), frameView);
+makeViewTools(document.getElementById('merge-prev-bg'), mergeView);
+makeViewTools(document.getElementById('conv-prev-bg'), convView);
+makeViewTools(document.getElementById('nrm-out-bg'), nrmOutView);
+makeViewTools(document.getElementById('sml-out-bg'), smlOutView);
+makeViewTools(document.getElementById('gif-prev-bg'), gifZp);
 
 const splitApi = initSplit({ srcView, frameView });
 const mergeApi = initMerge({ mergeView });

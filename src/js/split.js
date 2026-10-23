@@ -26,6 +26,8 @@ export function initSplit({ srcView, frameView }) {
   const pos = $('split-pos');
   const playBtn = $('split-play');
   const resetBtn = $('split-reset');
+  const prevBtn = $('split-prev');
+  const nextBtn = $('split-next');
   const colsIn = $('split-cols');
   const rowsIn = $('split-rows');
   const fpsIn = $('split-fps');
@@ -164,6 +166,14 @@ export function initSplit({ srcView, frameView }) {
     refreshGrid();
   }
 
+  // 逐帧步进：到头就停，不回绕（回绕是播放时循环的事，手动找帧要的是边界）
+  function stepFrame(delta) {
+    if (!sourceCanvas || total() === 0) return;
+    current = Math.max(0, Math.min(current + delta, total() - 1));
+    stop();
+    refreshFrame();
+  }
+
   function stop() {
     playing = false;
     if (timer) {
@@ -267,6 +277,8 @@ export function initSplit({ srcView, frameView }) {
     stop();
     refreshFrame();
   });
+  prevBtn.addEventListener('click', () => stepFrame(-1));
+  nextBtn.addEventListener('click', () => stepFrame(1));
   colsIn.addEventListener('input', onGridChanged);
   rowsIn.addEventListener('input', onGridChanged);
   fpsIn.addEventListener('input', () => {

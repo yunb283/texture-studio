@@ -106,18 +106,64 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
 }
 
 .panel-title {
   color: #fff;
   font-weight: 600;
   font-size: 14px;
+  margin-right: auto; /* 把视图工具和色块一起顶到右边，两者挨着 */
 }
 
 .canvas-wrap {
   flex: 1;
   min-height: 120px;
   position: relative;
+}
+
+/* 只有 GIF 结果预览需要裁边：它是被 CSS transform 放大的那张图。
+   画布自己会裁掉画到 bitmap 外的部分，而 .canvas-wrap 里还藏着 offscreen 的 video，别加 overflow */
+#gif-prev-wrap {
+  overflow: hidden;
+}
+
+/* 可缩放平移的预览：光标提示可拖 */
+canvas.zoomable,
+#gif-prev-wrap {
+  cursor: grab;
+}
+
+canvas.zoomable.panning,
+#gif-prev-wrap.panning {
+  cursor: grabbing;
+}
+
+.view-tools {
+  display: flex;
+  gap: 4px;
+}
+
+.view-btn {
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid #45454f;
+  border-radius: 3px;
+  background: #2b2b33;
+  color: #cfd0d6;
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.view-btn:hover {
+  background: #3e3d47;
+  border-color: #585762;
+  color: #fff;
+}
+
+.view-btn:active {
+  background: #2c2b34;
 }
 
 .canvas-wrap canvas {
@@ -128,17 +174,7 @@ body {
   border-radius: 4px;
 }
 
-/* GIF 预览用真 <img> 播放（canvas 只能画单帧），底色和画布那边的棋盘格一致 */
-.canvas-wrap img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  border-radius: 4px;
-}
-
-/* GIF 预览：按实际像素显示，只有超出窗口才缩小（object-fit: scale-down）。
-   底色由 .bg-* 决定，img 和 canvas 两条预览路径都要透出底色 */
+/* GIF 结果预览的底板：底色由下面几条 .bg-* 决定，canvas 的透明处透出它 */
 #gif-prev-wrap {
   border-radius: 4px;
 }
@@ -157,10 +193,11 @@ body {
   background: #d9d9d9;
 }
 
-#gif-prev-wrap img,
 #gif-prev-wrap canvas {
   object-fit: scale-down;
   object-position: center;
+  /* 缩放平移由 main.js 写进这三个变量；元素铺满 wrap，所以原点正好是图中心 */
+  transform: translate(var(--zpx, 0px), var(--zpy, 0px)) scale(var(--zz, 1));
 }
 
 /* 视频源不直接显示，画进 CanvasView；但仍要保持已渲染状态，否则 WebView2 不解帧 */
@@ -542,8 +579,19 @@ select:focus {
   text-align: right;
 }
 
+/* GIF 预览三个按钮挤同一行：步进按钮缩窄内边距，窄面板下也不会把「播放动画」挤变形 */
+.dual-row .step-btn {
+  flex: 0 0 auto;
+  padding: 6px 8px;
+}
+
 /* GIF 页工具行控件多，面板窄时换行而不是把按钮挤扁 */
 .vid-tools {
+  flex-wrap: wrap;
+}
+
+/* 拆分/合并的播放行加了逐帧按钮，窄面板下宁可换行，别让帧率输入框溢出到面板外 */
+.ctrl-row.wrap {
   flex-wrap: wrap;
 }
 

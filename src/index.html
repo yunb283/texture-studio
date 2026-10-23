@@ -51,13 +51,15 @@
         </div>
         <div class="canvas-wrap"><canvas id="frame-canvas"></canvas></div>
         <input type="range" id="split-slider" min="0" max="0" value="0" />
-        <div class="ctrl-row">
+        <div class="ctrl-row wrap">
+          <button class="btn small" id="split-play">播放</button>
+          <button class="btn small" id="split-reset">重置</button>
+          <button class="btn small" id="split-prev">上一帧</button>
+          <button class="btn small" id="split-next">下一帧</button>
           <span class="pos-label" id="split-pos">0/0</span>
           <span class="spacer"></span>
           <span class="dim-label">帧率</span>
           <input type="number" class="fps-input" id="split-fps" min="1" max="240" value="30" />
-          <button class="btn small" id="split-play">播放</button>
-          <button class="btn small" id="split-reset">重置</button>
         </div>
         <div class="form-grid">
           <label>列数</label>
@@ -103,8 +105,12 @@
           <div class="bg-btns" id="merge-prev-bg"></div>
         </div>
         <div class="canvas-wrap"><canvas id="merge-canvas"></canvas></div>
-        <div class="ctrl-row">
+        <input type="range" id="merge-slider" min="1" max="1" value="1" />
+        <div class="ctrl-row wrap">
           <button class="btn small" id="merge-play">播放</button>
+          <button class="btn small" id="merge-reset">重置</button>
+          <button class="btn small" id="merge-prev">上一帧</button>
+          <button class="btn small" id="merge-next">下一帧</button>
           <span class="pos-label" id="merge-pos">0/0</span>
           <span class="spacer"></span>
           <label class="chk inline">
@@ -114,7 +120,6 @@
           <span class="dim-label">帧率</span>
           <input type="number" class="fps-input" id="merge-fps" min="1" max="240" value="30" />
         </div>
-        <input type="range" id="merge-slider" min="1" max="1" value="1" />
         <div class="form-grid">
           <label>列数</label>
           <input type="number" id="merge-cols" min="1" max="256" value="8" />
@@ -407,7 +412,6 @@
           <div class="bg-btns" id="gif-prev-bg"></div>
         </div>
         <div class="canvas-wrap" id="gif-prev-wrap">
-          <img id="gif-preview" alt="GIF 预览动画" hidden />
           <canvas id="gif-frame" hidden></canvas>
         </div>
         <div class="dim-label" id="gif-out-info">GIF：-  |  尺寸：-  |  体积：-</div>
@@ -415,6 +419,8 @@
           <label>预览</label>
           <div class="dual-row">
             <button class="btn" id="gif-play" disabled>播放动画</button>
+            <button class="btn step-btn" id="gif-prev" disabled>上一帧</button>
+            <button class="btn step-btn" id="gif-next" disabled>下一帧</button>
           </div>
           <label>逐帧</label>
           <div class="dual-row">

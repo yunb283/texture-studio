@@ -41,6 +41,9 @@ export function initMerge({ mergeView }) {
   const addBtn = $('merge-add');
   const clearBtn = $('merge-clear');
   const playBtn = $('merge-play');
+  const resetBtn = $('merge-reset');
+  const prevBtn = $('merge-prev');
+  const nextBtn = $('merge-next');
   const pos = $('merge-pos');
   const gridChk = $('merge-grid');
   const fpsIn = $('merge-fps');
@@ -413,6 +416,24 @@ export function initMerge({ mergeView }) {
     pos.textContent = `${Math.max(1, Math.min(p, vis))}/${vis}`;
   }
 
+  // 手动定位到某一帧：停播放、退出合并图视图，和拖滑块走同一条路
+  function showOneFrame(idx) {
+    current = idx;
+    stop();
+    showMerged = false;
+    markSelection();
+    refreshView();
+  }
+
+  // 逐帧步进只在「可见帧」之间走（隐藏的帧不参与播放，读数也不能跳过去）；到头停住不回绕
+  function stepFrame(delta) {
+    const vis = visibleIndices();
+    if (!vis.length) return;
+    const nxt = delta > 0 ? vis.find((i) => i > current) : vis.filter((i) => i < current).pop();
+    if (nxt === undefined) return;
+    showOneFrame(nxt);
+  }
+
   function tick() {
     const vis = visibleIndices();
     if (!vis.length) {
@@ -467,16 +488,15 @@ export function initMerge({ mergeView }) {
   });
   slider.addEventListener('input', () => {
     if (!frames.length) return;
-    const v = parseInt(slider.value, 10);
-    const idx = frameAtVisiblePos(v);
-    if (idx !== current) {
-      current = idx;
-      stop();
-      showMerged = false;
-      markSelection();
-      refreshView();
-    }
+    const idx = frameAtVisiblePos(parseInt(slider.value, 10));
+    if (idx !== current) showOneFrame(idx);
   });
+  resetBtn.addEventListener('click', () => {
+    const vis = visibleIndices();
+    if (vis.length) showOneFrame(vis[0]);
+  });
+  prevBtn.addEventListener('click', () => stepFrame(-1));
+  nextBtn.addEventListener('click', () => stepFrame(1));
   gridChk.addEventListener('change', refreshView);
   fpsIn.addEventListener('input', () => {
     if (playing) startTimer();

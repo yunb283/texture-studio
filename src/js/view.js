@@ -1,3 +1,5 @@
+import { makeZoomPan } from './zoom-pan.js';
+
 // 框选手柄：8 个方位，顺序对应光标表
 const HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
 const CURSORS = {
@@ -12,6 +14,8 @@ const CURSORS = {
 };
 const HS = 7; // 手柄边长（CSS px）
 const HIT = 6; // 手柄命中半径
+
+const NO_ZP = { zoom: 1, panX: 0, panY: 0 };
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
@@ -29,6 +33,9 @@ export class CanvasView {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.image = null;
+    // 平铺预览：同一张源图按 n×n 画出来，用来肉眼确认接缝消失。
+    // 走绘制而不是拼一张 n 倍大的 canvas：2048 的图拼 2×2 是 4096²（64MB），每次改参数重建一次太贵
+    this.tile = 1;
     this.bgMode = opts.bgMode ?? 2;
     this.xEdges = null;
     this.yEdges = null;
@@ -46,6 +53,25 @@ export class CanvasView {
     this._checker = null;
     this._checkerSize = 0;
     this._checkerPattern = null;
+    // 右侧预览才开缩放平移：左侧源画布上的滚轮/拖拽留给各自的交互（框选、点格子）
+    if (opts.zoomable) {
+      this._zp = makeZoomPan(
+        canvas,
+        () => {
+          const cw = canvas.clientWidth;
+          const ch = canvas.clientHeight;
+          if (!cw || !ch || !this.image) return { boxW: cw, boxH: ch, s0: 0 };
+          // 平铺时按整幅（n×n 张）算适配；「100%」仍然是一个源像素对一个屏幕像素
+          return {
+            boxW: cw,
+            boxH: ch,
+            s0: Math.min(cw / (this.image.w * this.tile), ch / (this.image.h * this.tile)),
+          };
+        },
+        () => this.redraw()
+      );
+      canvas.classList.add('zoomable');
+    }
     if (canvas.parentElement) {
       new ResizeObserver(() => this.redraw()).observe(canvas.parentElement);
     }
@@ -83,6 +109,14 @@ export class CanvasView {
 
   setImage(source, w, h) {
     this.image = source ? { source, w, h } : null;
+    this.redraw();
+  }
+
+  // 平铺预览的列数/行数；1 就是正常显示。改这里不会换图，只重画一次
+  setTile(n) {
+    const v = Math.max(1, Math.min(4, Math.floor(n) || 1));
+    if (v === this.tile) return;
+    this.tile = v;
     this.redraw();
   }
 
@@ -124,10 +158,27 @@ export class CanvasView {
     const cw = this.canvas.clientWidth;
     const ch = this.canvas.clientHeight;
     if (!cw || !ch || !this.image.w || !this.image.h) return null;
-    const s = Math.min(cw / this.image.w, ch / this.image.h);
-    const tw = this.image.w * s;
-    const th = this.image.h * s;
-    return { x: (cw - tw) / 2, y: (ch - th) / 2, w: tw, h: th };
+    // 缩放平移只在这一个出口生效：绘制、网格、框选命中全都走这里，坐标自然跟着走
+    const v = this._zp ? this._zp.state : NO_ZP;
+    const ew = this.image.w * this.tile;
+    const eh = this.image.h * this.tile;
+    const s = Math.min(cw / ew, ch / eh) * v.zoom;
+    const tw = ew * s;
+    const th = eh * s;
+    return { x: (cw - tw) / 2 + v.panX, y: (ch - th) / 2 + v.panY, w: tw, h: th };
+  }
+
+  // 视图工具按钮用；没开 zoomable 的视图调了也不动
+  fitWindow() {
+    if (this._zp) this._zp.fitWindow();
+  }
+
+  resetPan() {
+    if (this._zp) this._zp.resetPan();
+  }
+
+  zoomActual() {
+    if (this._zp) this._zp.zoomActual();
   }
 
   redraw() {
@@ -164,7 +215,16 @@ export class CanvasView {
     if (!this.image) return;
     const t = this.targetRect();
     if (!t) return;
-    ctx.drawImage(this.image.source, t.x, t.y, t.w, t.h);
+    const src = this.image.source;
+    if (this.tile === 1) {
+      ctx.drawImage(src, t.x, t.y, t.w, t.h);
+    } else {
+      const sw = t.w / this.tile;
+      const sh = t.h / this.tile;
+      for (let j = 0; j < this.tile; j++) {
+        for (let i = 0; i < this.tile; i++) ctx.drawImage(src, t.x + i * sw, t.y + j * sh, sw, sh);
+      }
+    }
     if (this.xEdges && this.yEdges && this.xEdges.length > 1) {
       ctx.lineWidth = 1;
       ctx.strokeStyle = this.gridColor;

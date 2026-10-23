@@ -14,21 +14,11 @@ import {
 import { canvasToImageData, encodeCanvas } from './image-util.js';
 import { decodeToCanvas, rgbaCanvas, FORMAT_NAME, extOf, humanSize } from './decode.js';
 import { makeSeamless, seamMetrics } from './seamless.js';
+import { makeTexClient } from './tex-client.js';
 import { equalizeCanvases } from './layout.js';
 import { createIoButtons } from './io-buttons.js';
 
 const $ = (id) => document.getElementById(id);
-
-// 平铺预览：把结果重复 n×n 次拼一张大图，用来肉眼确认接缝真的消失
-function tileCanvas(src, n) {
-  if (n <= 1) return src;
-  const c = document.createElement('canvas');
-  c.width = src.width * n;
-  c.height = src.height * n;
-  const x = c.getContext('2d');
-  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) x.drawImage(src, i * src.width, j * src.height);
-  return c;
-}
 
 const num = (v) => (Number.isFinite(v) ? v.toFixed(2) : String(v));
 
@@ -95,6 +85,72 @@ export function initSeamless({ srcView, outView }) {
     };
   }
 
+  // 平铺预览的列数/行数；只影响绘制，不动结果
+  function tileN() {
+    return Math.max(1, Math.min(4, Number(tileSel.value) || 1));
+  }
+
+  // 结果那一行的文字。平铺数单独走：换平铺不该重算算法
+  let lastOut = null;
+  function showOut() {
+    if (!lastOut) return;
+    const n = tileN();
+    outInfo.textContent =
+      `结果尺寸：${lastOut.w}x${lastOut.h}  |  平铺 ${n}x${n}  |  融合 ${lastOut.band}  |  ` +
+      `耗时 ${lastOut.ms < 10 ? lastOut.ms.toFixed(1) : Math.round(lastOut.ms)}ms`;
+  }
+
+  function bandText(o, w, h) {
+    const dirTxt = { both: '双向', h: '仅横向', v: '仅纵向' }[o.dir];
+    const axes = [];
+    if (o.dir !== 'v') axes.push({ n: '横', b: Math.round(w * o.pct), len: w });
+    if (o.dir !== 'h') axes.push({ n: '纵', b: Math.round(h * o.pct), len: h });
+    const listB = (f) => axes.map((a) => `${a.n}${f(a)}px`).join(' ');
+    if (o.pct === 0) return '不处理（等于原图）';
+    if (o.levels <= 0) return `${dirTxt} 单尺度 ${listB((a) => a.b)}`;
+    const spread = 1 << (o.levels - 1);
+    const cap = (a) => {
+      const want = a.b * spread;
+      const max = a.len >> 2;
+      return want > max ? `${max}(已封顶)` : `${want}`;
+    };
+    return `${dirTxt} 带 ${listB((a) => a.b)} · 低频半径 ${listB(cap)} ×${o.levels + 1} 频段`;
+  }
+
+  // 无缝化 + 接缝指标都在 worker 里算（见 tex-client.js）：2048 单尺度一次约 230ms，
+  // levels>=1 上秒级，放主线程就是拖动滑块时整窗定住。levels 那一档实测最贵，
+  // 也只能靠「不阻塞主线程」换来拖动时的实时感。
+  const client = makeTexClient({
+    kind: 'seamless',
+    compute: (o) => {
+      const data = makeSeamless(imgData, o);
+      return { data, metrics: seamMetrics({ width: imgData.width, height: imgData.height, data }) };
+    },
+    metricsOf: (img) => seamMetrics(img),
+    apply: (r) => {
+      if (!imgData) return;
+      if (!r.ok) {
+        setStatus('无缝化失败：' + r.message);
+        return;
+      }
+      resultCanvas = rgbaCanvas(imgData.width, imgData.height, r.data);
+      outView.setImage(resultCanvas, resultCanvas.width, resultCanvas.height);
+      outView.setTile(tileN());
+      lastOut = {
+        w: imgData.width,
+        h: imgData.height,
+        band: bandText(r.opts, imgData.width, imgData.height),
+        ms: r.ms,
+      };
+      showOut();
+      const after = r.metrics;
+      metricLabel.textContent =
+        `接缝指标（越小越平）  左右色差 ${before.lr.toFixed(1)} → ${after.lr.toFixed(1)}  ` +
+        `上下色差 ${before.tb.toFixed(1)} → ${after.tb.toFixed(1)}  ` +
+        `边缘/梯度比值 ${num(before.ratio)} → ${num(after.ratio)}`;
+    },
+  });
+
   let pending = false;
   // 用尾随定时器而不是 requestAnimationFrame 合帧：rAF 在页面不可见时不触发，
   // 那样滑块改动会被静默吞掉（也让自动化测不到这条路径）
@@ -108,45 +164,8 @@ export function initSeamless({ srcView, outView }) {
   }
 
   function render() {
-    if (!imgData) return;
-    const o = opts();
-    const t0 = performance.now();
-    let data;
-    try {
-      data = makeSeamless(imgData, o);
-    } catch (ex) {
-      setStatus('无缝化失败：' + (ex?.message ?? ex));
-      return;
-    }
-    const ms = performance.now() - t0;
-    resultCanvas = rgbaCanvas(imgData.width, imgData.height, data);
-    const n = Number(tileSel.value) || 1;
-    outView.setImage(tileCanvas(resultCanvas, n), resultCanvas.width * n, resultCanvas.height * n);
-    const after = seamMetrics({ width: imgData.width, height: imgData.height, data });
-    const dirTxt = { both: '双向', h: '仅横向', v: '仅纵向' }[o.dir];
-    const axes = [];
-    if (o.dir !== 'v') axes.push({ n: '横', b: Math.round(imgData.width * o.pct), len: imgData.width });
-    if (o.dir !== 'h') axes.push({ n: '纵', b: Math.round(imgData.height * o.pct), len: imgData.height });
-    const listB = (f) => axes.map((a) => `${a.n}${f(a)}px`).join(' ');
-    let bandTxt;
-    if (o.pct === 0) bandTxt = '不处理（等于原图）';
-    else if (o.levels <= 0) bandTxt = `${dirTxt} 单尺度 ${listB((a) => a.b)}`;
-    else {
-      const spread = 1 << (o.levels - 1);
-      const cap = (a) => {
-        const want = a.b * spread;
-        const max = a.len >> 2;
-        return want > max ? `${max}(已封顶)` : `${want}`;
-      };
-      bandTxt = `${dirTxt} 带 ${listB((a) => a.b)} · 低频半径 ${listB(cap)} ×${o.levels + 1} 频段`;
-    }
-    outInfo.textContent =
-      `结果尺寸：${imgData.width}x${imgData.height}  |  平铺 ${n}x${n}  |  融合 ${bandTxt}  |  ` +
-      `耗时 ${ms < 10 ? ms.toFixed(1) : Math.round(ms)}ms`;
-    metricLabel.textContent =
-      `接缝指标（越小越平）  左右色差 ${before.lr.toFixed(1)} → ${after.lr.toFixed(1)}  ` +
-      `上下色差 ${before.tb.toFixed(1)} → ${after.tb.toFixed(1)}  ` +
-      `边缘/梯度比值 ${num(before.ratio)} → ${num(after.ratio)}`;
+    if (!imgData) return Promise.resolve();
+    return client.request(opts());
   }
 
   async function loadEntry(entry) {
@@ -166,7 +185,9 @@ export function initSeamless({ srcView, outView }) {
       srcCanvas = await decodeToCanvas(entry.name, bytes);
       srcView.setImage(srcCanvas, srcCanvas.width, srcCanvas.height);
       imgData = canvasToImageData(srcCanvas);
-      before = seamMetrics(imgData);
+      // 原始图的接缝指标也丢给 worker 算：整图遍历一次在 2048 上是 80ms。
+      // worker 中途坏了 load() 给 null，这里补一次主线程的，否则指标行没基准
+      before = (await client.load(imgData)) || seamMetrics(imgData);
       setEnabled(true);
       updateInfo();
       render();
@@ -174,8 +195,10 @@ export function initSeamless({ srcView, outView }) {
       io.setExport(null);
       setStatus('已载入：' + entry.name);
     } catch (ex) {
+      client.unload();
       imgData = null;
       before = null;
+      lastOut = null;
       resultCanvas = null;
       srcCanvas = null;
       srcView.setImage(null);
@@ -188,9 +211,11 @@ export function initSeamless({ srcView, outView }) {
 
   function clearImage() {
     if (!srcCanvas) return;
+    client.unload();
     srcCanvas = null;
     imgData = null;
     before = null;
+    lastOut = null;
     resultCanvas = null;
     sourcePath = null;
     sourceName = '';
@@ -212,6 +237,8 @@ export function initSeamless({ srcView, outView }) {
   }
 
   async function exportTo() {
+    // 先等当前参数这一轮算完：worker 里可能还挂着一次没落地，导出的必须是屏幕上那张
+    if (imgData) await render();
     if (!resultCanvas) {
       setStatus('还没有可导出的结果');
       return;
@@ -256,7 +283,11 @@ export function initSeamless({ srcView, outView }) {
   alphaChk.addEventListener('change', schedule);
   dirSel.addEventListener('change', schedule);
   levelSel.addEventListener('change', schedule);
-  tileSel.addEventListener('change', schedule);
+  // 换平铺不重新计算：结果还是同一张，只让视图按 n×n 重画
+  tileSel.addEventListener('change', () => {
+    outView.setTile(tileN());
+    showOut();
+  });
 
   return { loadEntry };
 }

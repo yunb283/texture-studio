@@ -1,5 +1,5 @@
 // GIF 制作页：图片按网格拆帧，视频按区间抽帧，都编成 GIF。
-// 预览两种模式：播放 = 真 <img> 跑编码后的 GIF 字节；逐帧 = canvas 画本地帧（暂停时拖动）。
+// 预览只有一张 canvas：播放按时钟画帧，暂停时画滑块/步进按钮选中的那一帧。
 // 编码在 gif.js（已通过 PIL / Chrome 双向闭环），这里按帧让出主线程，避免长动画把 UI 冻住。
 import {
   pickImages,
@@ -60,9 +60,10 @@ export function initGif({ srcView }) {
   const saveOrigChk = $('gif-save-orig');
   const exportBtn = $('gif-export');
   const status = $('gif-status');
-  const preview = $('gif-preview');
   const frameCanvas = $('gif-frame');
   const playBtn = $('gif-play');
+  const prevBtn = $('gif-prev');
+  const nextBtn = $('gif-next');
   const frameRange = $('gif-frame-range');
   const frameLabel = $('gif-frame-label');
   const video = $('gif-video');
@@ -98,7 +99,7 @@ export function initGif({ srcView }) {
   let chunkCache = null; // 帧字节缓存：编码参数没变时改循环次数只需重拼文件头
   let pullMs = null; // 最近一次抽帧耗时；缓存命中时为 null
   let curFrames = [];
-  let result = null; // {bytes, blobUrl, count, w, h, delay, loops}
+  let result = null; // {bytes, count, w, h, delay, loops}
   let playing = true;
   let frameIndex = 0;
   let runId = 0;
@@ -526,7 +527,9 @@ export function initGif({ srcView }) {
     return c;
   }
 
-  // 预览模式切换：播放用 <img>（跑真实字节），暂停用 canvas（可逐帧拖）
+  // 预览就是这张 canvas：播放由帧定时器画，暂停时画滑块/步进选中的那一帧。
+  // 原来播放走真 <img>（跑编码后的字节），但 <img> 定位不到某一帧 —— 既不能续播也不能步进，
+  // 而且循环回到第 1 帧时它要先按 disposal 清成透明底，看着就是闪一下。
   function showFrame(i) {
     if (!curFrames.length) return;
     frameIndex = Math.min(curFrames.length - 1, Math.max(0, i));
@@ -540,68 +543,58 @@ export function initGif({ srcView }) {
     frameLabel.textContent = `第 ${frameIndex + 1}/${curFrames.length} 帧`;
   }
 
-  // 播放时让「逐帧」滑块跟着动画走：<img> 不暴露当前帧号，但我们的 GIF 每帧延迟固定，
-  // 所以按「距离开始播放的时间 / 帧延迟」推算。用绝对时刻算，中途被冻结（后台、卡顿）也会自动追平。
-  // 用 setInterval 而不是 rAF：rAF 在窗口不可见时完全不触发，50ms 刷新对 70ms 一帧足够。
+  // 播放位置按「距离起播的绝对时间 / 帧延迟」推算，不在定时器里累加：
+  // 编码占用主线程、窗口被挡住时定时器会晚，用绝对时刻才能自动追平，不会越走越偏。
+  // 起播时把当前帧号折进基准时刻，所以暂停后再播是从那一帧接着播，不是回第 1 帧。
+  // 用 rAF：canvas 是自己在画，刷新率跟着屏幕走才顺（<img> 时代才需要 setInterval 补帧号）。
   let playStart = 0;
-  let playTimer = 0;
+  let playRaf = 0;
 
   function tickFrameSync() {
-    if (!playing || !result) {
-      stopFrameSync();
-      return;
-    }
+    playRaf = 0;
+    if (!playing || !result) return;
     const i = Math.floor((performance.now() - playStart) / (result.delay * 10));
     const n = result.loops ? Math.min(i + 1, result.count * result.loops) : i + 1;
-    showFrameIndex((n - 1) % result.count);
+    const idx = (n - 1) % result.count;
+    if (idx !== frameIndex) showFrame(idx); // 帧号没变就别重画：60Hz 刷 putImageData 是白干
+    playRaf = requestAnimationFrame(tickFrameSync);
   }
 
   function startFrameSync() {
-    clearInterval(playTimer);
-    playTimer = setInterval(tickFrameSync, 50);
+    stopFrameSync();
+    playStart = performance.now() - frameIndex * result.delay * 10;
     tickFrameSync();
   }
 
   function stopFrameSync() {
-    clearInterval(playTimer);
-    playTimer = 0;
-  }
-
-  // 只同步滑块和文字，不画 canvas（画了会和 <img> 打架）
-  function showFrameIndex(i) {
-    if (i === frameIndex && frameRange.value === String(i + 1)) return;
-    frameIndex = i;
-    frameRange.value = String(i + 1);
-    frameLabel.textContent = `第 ${i + 1}/${result.count} 帧`;
+    if (playRaf) cancelAnimationFrame(playRaf);
+    playRaf = 0;
   }
 
   function setPlaying(on) {
     playing = !!on && !!result;
-    playBtn.disabled = !result;
-    frameRange.disabled = !result;
+    for (const el of [playBtn, prevBtn, nextBtn, frameRange]) el.disabled = !result;
     playBtn.textContent = playing ? '暂停动画' : '播放动画';
     refreshPreview();
   }
 
   function refreshPreview() {
     if (!result) return;
-    playBtn.disabled = false;
-    frameRange.disabled = false;
+    for (const el of [playBtn, prevBtn, nextBtn, frameRange]) el.disabled = false;
     frameRange.max = String(result.count);
+    frameIndex = Math.min(frameIndex, result.count - 1);
     playBtn.textContent = playing ? '暂停动画' : '播放动画';
-    if (playing) {
-      // 换 #片段 让 <img> 重新解码，动画才会从头播（同一个 blob URL 直接重设不会重启）
-      preview.src = `${result.blobUrl}#${Date.now()}`;
-      preview.hidden = false;
-      frameCanvas.hidden = true;
-      playStart = performance.now();
-      startFrameSync();
-    } else {
-      stopFrameSync();
-      preview.hidden = true;
-      frameCanvas.hidden = false;
-      showFrame(Math.min(frameIndex, result.count - 1));
-    }
+    frameCanvas.hidden = false;
+    showFrame(frameIndex); // 先画当前帧：定时器只在帧号变了才画，不然新结果一上来是空 canvas
+    if (playing) startFrameSync();
+    else stopFrameSync();
+  }
+
+  // 逐帧步进：先看单帧，所以在播就停住。frameIndex 是定时器最后画到的那一帧，从它接着走
+  function stepFrame(delta) {
+    if (!result) return;
+    if (playing) setPlaying(false);
+    showFrame(frameIndex + delta);
   }
 
   // 让出主线程用 MessageChannel 而不是 setTimeout：窗口被遮挡/切到后台时
@@ -878,11 +871,8 @@ export function initGif({ srcView }) {
         transparent: opts.transparent,
       };
     }
-    if (result) URL.revokeObjectURL(result.blobUrl);
-    const blob = new Blob([bytes], { type: 'image/gif' });
     result = {
       bytes,
-      blobUrl: URL.createObjectURL(blob),
       count: frames.length,
       w: tw,
       h: th,
@@ -1258,12 +1248,7 @@ export function initGif({ srcView }) {
     sourceName = '';
     sourceBytes = 0;
     io.clear();
-    if (result) {
-      URL.revokeObjectURL(result.blobUrl);
-      result = null;
-    }
-    preview.removeAttribute('src');
-    preview.hidden = true;
+    result = null;
     frameCanvas.hidden = true;
     frameRange.max = '1';
     frameRange.value = '1';
@@ -1316,10 +1301,8 @@ export function initGif({ srcView }) {
   clearBtn.addEventListener('click', clearImage);
   exportBtn.addEventListener('click', exportTo);
   playBtn.addEventListener('click', () => setPlaying(!playing));
-  // <img> 解码完成才是动画真正的起点，用它校正一次推算的基准
-  preview.addEventListener('load', () => {
-    if (playing) playStart = performance.now();
-  });
+  prevBtn.addEventListener('click', () => stepFrame(-1));
+  nextBtn.addEventListener('click', () => stepFrame(1));
   frameRange.addEventListener('input', () => {
     // 先取值：setPlaying(false) 会走 showFrame，把滑块写回当前帧号
     const i = Number(frameRange.value) - 1;
@@ -1463,7 +1446,6 @@ export function initGif({ srcView }) {
   setVideoUI(false);
   syncFpsLabel();
   syncAutoBtn();
-  preview.hidden = true;
   frameCanvas.hidden = true;
   updateOut('GIF：-  |  尺寸：-  |  体积：-');
   updateSelInfo();

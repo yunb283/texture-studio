@@ -1,5 +1,6 @@
 // 贴图转法线页：左侧原图、右侧法线图，参数改动实时重算，导出 PNG / TGA。
-// 算法在 normal.js（已用 numpy 独立实现逐字节交叉核对），这里只管解码、控件和导出。
+// 算法在 normal.js（已用 numpy 独立实现逐字节交叉核对），这里只管解码、控件和导出；
+// 真正的计算丢给 tex-worker.js，滑块拖动时主线程不阻塞。
 import {
   pickImages,
   readEntryBytes,
@@ -14,6 +15,7 @@ import {
 import { canvasToImageData, encodeCanvas } from './image-util.js';
 import { decodeToCanvas, rgbaCanvas, FORMAT_NAME, extOf, humanSize } from './decode.js';
 import { heightToNormal } from './normal.js';
+import { makeTexClient } from './tex-client.js';
 import { equalizeCanvases } from './layout.js';
 import { createIoButtons } from './io-buttons.js';
 
@@ -78,6 +80,25 @@ export function initNormal({ srcView, outView }) {
     };
   }
 
+  // 计算在 worker 里跑（见 tex-client.js）：2048 的图一次要 85~230ms，
+  // 放主线程会把滑块拖成一卡一卡的。这里每个 tick 都发请求，结果回来才重画。
+  const client = makeTexClient({
+    kind: 'normal',
+    compute: (o) => ({ data: heightToNormal(imgData, o) }),
+    apply: (r) => {
+      if (!imgData) return;
+      if (!r.ok) {
+        setStatus('生成失败：' + r.message);
+        return;
+      }
+      const c = rgbaCanvas(imgData.width, imgData.height, r.data);
+      outView.setImage(c, c.width, c.height);
+      const ms = r.ms;
+      outInfo.textContent =
+        `法线尺寸：${c.width}x${c.height}  |  生成耗时：${ms < 10 ? ms.toFixed(1) : Math.round(ms)}ms`;
+    },
+  });
+
   // 参数改动即时重算；同一帧内的多次拖动只算一次
   let pending = false;
   // 尾随定时器而不是 requestAnimationFrame：rAF 在页面不可见时不触发，滑块改动会被静默吞掉
@@ -91,20 +112,8 @@ export function initNormal({ srcView, outView }) {
   }
 
   function render() {
-    if (!imgData) return;
-    const t0 = performance.now();
-    let data;
-    try {
-      data = heightToNormal(imgData, opts());
-    } catch (ex) {
-      setStatus('生成失败：' + (ex?.message ?? ex));
-      return;
-    }
-    const ms = performance.now() - t0;
-    const c = rgbaCanvas(imgData.width, imgData.height, data);
-    outView.setImage(c, c.width, c.height);
-    outInfo.textContent =
-      `法线尺寸：${c.width}x${c.height}  |  生成耗时：${ms < 10 ? ms.toFixed(1) : Math.round(ms)}ms`;
+    if (!imgData) return Promise.resolve();
+    return client.request(opts());
   }
 
   async function loadEntry(entry) {
@@ -124,6 +133,8 @@ export function initNormal({ srcView, outView }) {
       srcCanvas = await decodeToCanvas(entry.name, bytes);
       srcView.setImage(srcCanvas, srcCanvas.width, srcCanvas.height);
       imgData = canvasToImageData(srcCanvas);
+      // 图像搬进 worker 只要一次；run 排在 load 后面，消息有序，不用 await
+      client.load(imgData);
       setEnabled(true);
       updateInfo();
       render();
@@ -143,6 +154,7 @@ export function initNormal({ srcView, outView }) {
 
   function clearImage() {
     if (!srcCanvas) return;
+    client.unload();
     srcCanvas = null;
     imgData = null;
     sourcePath = null;
@@ -166,7 +178,7 @@ export function initNormal({ srcView, outView }) {
 
   async function exportTo() {
     if (!imgData) return;
-    render();
+    await render();
     const ext = fmtSel.value.toLowerCase();
     const canvas = outView.image?.source || null;
     if (!canvas) {
