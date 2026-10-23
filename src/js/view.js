@@ -43,7 +43,9 @@ export class CanvasView {
     this.onSelectEnd = null;
     this.selectEnabled = !!opts.selectable;
     this._drag = null;
-    this._checker = this._makeChecker();
+    this._checker = null;
+    this._checkerSize = 0;
+    this._checkerPattern = null;
     if (canvas.parentElement) {
       new ResizeObserver(() => this.redraw()).observe(canvas.parentElement);
     }
@@ -57,17 +59,26 @@ export class CanvasView {
     }
   }
 
-  _makeChecker() {
+  // 图样按设备像素生成：CSS 变换下 48 CSS px 的图样在 1.25/1.5 缩放屏上要被放大，
+  // 再走双线性插值，格子边界就糊了。尺寸变了（换屏、改缩放）重建一份。
+  _checkerAt(dpr) {
+    const size = Math.max(2, Math.round(48 * dpr));
+    if (size === this._checkerSize) return this._checkerPattern;
     const c = document.createElement('canvas');
-    c.width = 48;
-    c.height = 48;
+    c.width = size;
+    c.height = size;
     const x = c.getContext('2d');
     x.fillStyle = '#515159';
-    x.fillRect(0, 0, 48, 48);
+    x.fillRect(0, 0, size, size);
     x.fillStyle = '#909098';
-    x.fillRect(24, 0, 24, 24);
-    x.fillRect(0, 24, 24, 24);
-    return c;
+    const half = Math.round(size / 2);
+    // 整数边界：半格取整后剩下的那条缝别留给抗锯齿
+    x.fillRect(half, 0, size - half, half);
+    x.fillRect(0, half, half, size - half);
+    this._checker = c;
+    this._checkerSize = size;
+    this._checkerPattern = this.ctx.createPattern(c, 'repeat');
+    return this._checkerPattern;
   }
 
   setImage(source, w, h) {
@@ -141,8 +152,14 @@ export class CanvasView {
       ctx.fillStyle = '#1A1A22';
       ctx.fillRect(0, 0, cw, ch);
     } else {
-      ctx.fillStyle = ctx.createPattern(this._checker, 'repeat');
-      ctx.fillRect(0, 0, cw, ch);
+      // 回到设备像素空间铺图样，1 图样像素 = 1 屏幕像素；关掉平滑避免边界插值
+      const pat = this._checkerAt(dpr);
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      ctx.fillStyle = pat;
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      ctx.restore();
     }
     if (!this.image) return;
     const t = this.targetRect();
