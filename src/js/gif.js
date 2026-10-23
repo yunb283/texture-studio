@@ -76,14 +76,19 @@ export function gifHeader(p) {
 
 // 第 i 帧的完整子块（图形控制扩展 + 图像描述符 + 可选局部表 + LZW 数据）。
 // 只读 p 和传进来的那一帧，所以多帧可以任意顺序、任意线程分别算。
-export function gifFrameBytes(p, frame, i) {
+// table 可传跨帧共享的桶缓存（全局调色板固定时由 gifTableFor 建），不传就按帧新建。
+export function gifFrameBytes(p, frame, i, table) {
   const { w, h, delays, transparent, colorCount, global, gPalette } = p;
   const f = frame;
   const out = new ByteSink();
   const palette = global ? gPalette : buildFramePalette(f, colorCount, transparent);
   const bits = bitsFor(palette.length / 3);
-  const table = nearestCache(palette, transparent);
-  const indices = quantize(f, palette, table, transparent);
+  const indices = quantize(
+    f,
+    palette,
+    nearestCache(palette, transparent, table ? table.bucket : null),
+    transparent
+  );
   out.bytes(0x21, 0xf9, 0x04);
   // GCE 打包位（GIF89a 规范，MSB→LSB：保留 3 位 | disposal 3 位 | user input 1 位 | 透明 1 位）：
   //   透明标志 = 0x01，disposal 放在 bit2-4（即 disposal << 2）。
@@ -119,14 +124,24 @@ export function gifTrailer() {
   return new Uint8Array([0x3b]);
 }
 
+// 全局调色板模式下可以跨帧复用的只有「5bit 桶」这一层：桶中心色 → 最近调色板色
+// 是纯函数，结果与命中顺序无关，所以跨帧共享、多 worker 各自一份、逐帧新建，
+// 三者逐字节一致（test/gif-test.mjs 的拼装一致性守着这条）。
+// exact 层必须每帧独立：它有「满 8192 项就永久转桶」的状态，跨帧共享会让映射
+// 依赖处理顺序和之前帧的内容，并行拼装就不再和单线程一致。
+// 高质量（每帧局部调色板）返回 null，按帧各建各的。
+export function gifTableFor(p) {
+  return p.global ? { bucket: new Map() } : null;
+}
+
 export function gifStart(frames, opts = {}) {
   const p = gifParams(frames, opts);
-  return { p, frames, parts: [gifHeader(p)], i: 0 };
+  return { p, frames, parts: [gifHeader(p)], i: 0, table: gifTableFor(p) };
 }
 
 export function gifEncodeNext(st) {
   if (st.i >= st.frames.length) return false;
-  st.parts.push(gifFrameBytes(st.p, st.frames[st.i], st.i));
+  st.parts.push(gifFrameBytes(st.p, st.frames[st.i], st.i, st.table));
   st.i++;
   return true;
 }
@@ -302,11 +317,13 @@ function medianCut(rgb, count) {
 // 精确色 → 最近「可用色」下标（调色板里跳过透明占位后的第几个颜色）。
 // 逐像素精确匹配；不同颜色数超过 cap 后退化成 5bit 桶（同桶共用一个索引），
 // 免得超大图的最近色搜索失控（8192 色 × 256 调色板 ≈ 200 万次比较）。
-function nearestCache(palette, transparent, cap = 8192) {
+// sharedBucket 传入跨帧共享的桶表（见 gifTableFor）：桶值是纯函数，共享不影响结果，
+// 只是把「每个桶第一次都要线性搜一遍」的预热成本摊到整段动画上。
+function nearestCache(palette, transparent, sharedBucket = null, cap = 8192) {
   const base = transparent ? 1 : 0; // 透明时调色板第 0 项是透明占位，不参与最近色
   const colorCount = palette.length / 3;
   const exact = new Map();
-  const bucket = new Map();
+  const bucket = sharedBucket ?? new Map();
   let coarse = false;
   const find = (r, g, b) => {
     let best = base;

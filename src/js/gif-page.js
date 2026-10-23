@@ -89,8 +89,13 @@ export function initGif({ srcView }) {
   let sourcePath = null;
   let sourceName = '';
   let sourceBytes = 0;
-  // 拆帧/抽帧结果按「源 + 影响像素的参数」缓存，只改帧率以外的项时不必重做
+  // 拆帧/抽帧结果按「源 + 影响像素的参数」缓存；视频抽帧另存「源帧网格」层，
+  // 帧率只影响从网格里怎么重采样，不再触发重新抽帧（见 extractFrames / materialize）
   let cache = null;
+  let srcCache = null; // 视频抽帧：{key, gridFps, items:[{t, frame}], ms}
+  let matMemo = null; // materialize 结果按（网格、帧率）记一份，同一批帧只重采样一次
+  let chunkCache = null; // 帧字节缓存：编码参数没变时改循环次数只需重拼文件头
+  let pullMs = null; // 最近一次抽帧耗时；缓存命中时为 null
   let curFrames = [];
   let result = null; // {bytes, blobUrl, count, w, h, delay, loops}
   let playing = true;
@@ -305,16 +310,39 @@ export function initGif({ srcView }) {
     return out;
   }
 
-  // 抽帧：按帧率把 [t0, t1] 均分，逐次 seek 后把选区画进离屏画布。
-  // 采样率高于视频帧率时会抽到重复帧，这里不去重——去重会让 GIF 比原视频快。
+  // 抽帧分两层：
+  //   captureGrid 按「网格帧率」把 [t0, t1] 抽成一串源帧，缓存 key 不含帧率；
+  //   materialize 按目标帧率从源帧里取「覆盖该时刻的那一帧」。
+  // 改帧率不再重新抽帧：降到网格以下零成本（重复帧共享同一份像素），
+  // 升到网格以上才按新网格重抽一次。
   async function extractFrames(id) {
     const fps = curFps();
     const pct = scalePct();
     const r = srcPixelRect();
     const key =
-      `v:${videoMeta.src}:${range.t0.toFixed(3)}-${range.t1.toFixed(3)}:${fps}:` +
+      `v:${videoMeta.src}:${range.t0.toFixed(3)}-${range.t1.toFixed(3)}:` +
       `${r.x},${r.y},${r.w},${r.h}:${pct}`;
-    if (cache && cache.key === key) return cache.frames;
+    if (srcCache && srcCache.key === key && fps <= srcCache.gridFps) {
+      pullMs = null;
+      return materialize(srcCache.items, srcCache.gridFps, fps);
+    }
+    const grid = await captureGrid(id, fps, key);
+    if (id !== runId) return null;
+    pullMs = grid.ms;
+    srcCache = grid;
+    return materialize(grid.items, grid.gridFps, fps);
+  }
+
+  // 一遍 4× 加速播放取帧：seek 每次都要回退到关键帧重解（实测 72ms/帧），
+  // 顺序解码整段只解一遍（实测整段 5s 素材 1.26s）。缺的槽交给下面的分段补播和 seek 补。
+  const PLAY_RATE = 4;
+  const STALL_MS = 2000;
+  // 实测单次 seek 平均 53ms、最慢 111ms，用来估算「逐帧补」的成本
+  const SEEK_MS = 0.07;
+
+  async function captureGrid(id, fps, key) {
+    const pct = scalePct();
+    const r = srcPixelRect();
     const outW = Math.max(1, Math.round((r.w * pct) / 100));
     const outH = Math.max(1, Math.round((r.h * pct) / 100));
     const cv = document.createElement('canvas');
@@ -326,12 +354,15 @@ export function initGif({ srcView }) {
     const total = Math.max(1, Math.floor((range.t1 - range.t0) * fps) + 1);
     const targets = new Array(total);
     for (let i = 0; i < total; i++) targets[i] = Math.min(range.t1, range.t0 + i / fps);
-    const frames = new Array(total).fill(null);
+    const items = new Array(total).fill(null);
     let done = 0;
     const grab = (i) => {
       ctx.drawImage(video, r.x, r.y, r.w, r.h, 0, 0, outW, outH);
       // getImageData 返回的就是新分配的数组，再包一层等于每帧白拷一遍全尺寸
-      frames[i] = { width: outW, height: outH, data: ctx.getImageData(0, 0, outW, outH).data };
+      items[i] = {
+        t: targets[i],
+        frame: { width: outW, height: outH, data: ctx.getImageData(0, 0, outW, outH).data },
+      };
       done++;
       setStatus(`正在抽帧 ${done}/${total}…`);
       setProgress('pull', done / total);
@@ -339,22 +370,38 @@ export function initGif({ srcView }) {
     const wasAt = video.currentTime;
     pauseVideo();
     const t0 = performance.now();
-    await playThrough(id, targets, grab);
+    await playThrough(id, targets, grab, PLAY_RATE);
     // 只补「单格空洞」——就是掉了一帧的常见情况，沿用左边那帧误差不到一个源帧间隔；
-    // 连续多格空洞说明播放跟不上，交给下面的 seek，免得把一帧冻结成一段
+    // 连续多格空洞说明播放跟不上，交给下面的分段补播
     let lo = 0;
-    while (lo < total && !frames[lo]) lo++;
+    while (lo < total && !items[lo]) lo++;
     let hi = total - 1;
-    while (hi >= 0 && !frames[hi]) hi--;
+    while (hi >= 0 && !items[hi]) hi--;
     for (let i = lo + 1; i < hi; i++) {
-      if (frames[i] || !frames[i - 1]) continue;
-      if (!frames[i + 1]) continue; // 后面还空着就不算单格空洞
-      frames[i] = frames[i - 1];
+      if (items[i] || !items[i - 1]) continue;
+      if (!items[i + 1]) continue; // 后面还空着就不算单格空洞
+      items[i] = { t: targets[i], frame: items[i - 1].frame };
       done++;
     }
+    // 连续空洞按段补：对每段做一遍 1× 短播，一段只付一次 seek 的钱；
+    // 只有比逐帧 seek 便宜（段时长 < (段内格数-1)×单次 seek）才值得，否则留给兜底
+    const holes = [];
+    for (let i = 0; i < total; i++) if (!items[i]) holes.push(i);
+    let h = 0;
+    while (h < holes.length) {
+      let e = h;
+      while (e + 1 < holes.length && holes[e + 1] === holes[e] + 1) e++;
+      const n = e - h + 1;
+      if (n >= 2 && n / fps < (n - 1) * SEEK_MS) {
+        await playThrough(id, targets.slice(holes[h], holes[e] + 1), (j) => grab(holes[h] + j), 1);
+        if (id !== runId) return null;
+      }
+      h = e + 1;
+    }
+    // 还缺的（段首尾、补播又掉帧的）逐帧 seek 兜底
     for (let i = 0; i < total; i++) {
       if (id !== runId) return null;
-      if (frames[i]) continue;
+      if (items[i]) continue;
       await seekVideo(targets[i]);
       if (id !== runId) return null;
       grab(i);
@@ -365,16 +412,31 @@ export function initGif({ srcView }) {
     await seekVideo(wasAt);
     srcView.redraw();
     updateTimeUI();
-    cache = { key, frames, ms };
-    return frames;
+    return { key, gridFps: fps, items, ms };
   }
 
-  // 一遍 4× 加速播放取帧：seek 每次都要回退到关键帧重解（实测 72ms/帧），
-  // 顺序解码整段只解一遍（实测整段 5s 素材 1.26s）。缺的槽交给上面的 seek 补。
-  const PLAY_RATE = 4;
-  const STALL_MS = 2000;
+  // 目标帧率 ≤ 网格帧率时，给每个目标时刻取「起始时刻 ≤ 该时刻」的最近源帧；
+  // 重复帧按引用共享，不复制像素。fps === gridFps 时就是原样那批帧。
+  function materialize(items, gridFps, fps) {
+    if (matMemo && matMemo.src === items && matMemo.fps === fps) return matMemo.frames;
+    let out;
+    if (fps >= gridFps) {
+      out = items.map((it) => it.frame);
+    } else {
+      const total = Math.max(1, Math.floor((range.t1 - range.t0) * fps) + 1);
+      out = new Array(total);
+      let j = 0;
+      for (let i = 0; i < total; i++) {
+        const t = Math.min(range.t1, range.t0 + i / fps);
+        while (j + 1 < items.length && items[j + 1].t <= t + 1e-6) j++;
+        out[i] = items[j].frame;
+      }
+    }
+    matMemo = { src: items, fps, frames: out };
+    return out;
+  }
 
-  function playThrough(id, targets, grab) {
+  function playThrough(id, targets, grab, rate = PLAY_RATE) {
     return new Promise((resolve) => {
       // 后台标签/被遮挡窗口里 play() 要拖一秒多才 reject，直接不走这条路
       if (!video.requestVideoFrameCallback || targets.length < 2 || document.hidden) return resolve();
@@ -403,7 +465,6 @@ export function initGif({ srcView }) {
         if (prevStart !== null) {
           const delta = s - prevStart;
           if (delta > 1e-6 && (!frameDur || delta < frameDur)) frameDur = delta;
-          // 顺手把源帧率记下来，信息行要显示总帧数
           // 顺手把源帧率记下来，信息行要显示帧率和总帧数
           if (frameDur && !videoMeta.srcFrames) {
             videoMeta.srcFrames = Math.round(videoMeta.duration / frameDur);
@@ -414,7 +475,7 @@ export function initGif({ srcView }) {
         prevStart = s;
         if (frameDur) {
           // 只认「目标时刻落在 [本帧起始, 起始+帧长)」的帧，和 seek 拿到的帧保持一致；
-          // 落不到的（开头几帧、被丢掉帧的窗口）留给后面的 seek 补
+          // 落不到的（开头几帧、被丢掉帧的窗口）留给后面的分段补播和 seek 补
           while (next < targets.length && targets[next] < s + frameDur - 1e-6) {
             if (targets[next] >= s - 1e-6) grab(next);
             next++;
@@ -431,7 +492,7 @@ export function initGif({ srcView }) {
       video.addEventListener('ended', finish);
       handle = video.requestVideoFrameCallback(onFrame);
       video.currentTime = targets[0];
-      video.playbackRate = PLAY_RATE;
+      video.playbackRate = rate;
       video.play().catch(finish);
     });
   }
@@ -558,7 +619,14 @@ export function initGif({ srcView }) {
   // 参数变了要重算，缓存里只有像素无关的项能留
   function invalidate() {
     cache = null;
+    dropSrcCache();
     updateInfo();
+  }
+
+  // 源帧网格和它的重采样结果一起丢（网格换了的旧采样没有保留价值）
+  function dropSrcCache() {
+    srcCache = null;
+    matMemo = null;
   }
 
   async function render() {
@@ -672,7 +740,10 @@ export function initGif({ srcView }) {
           const copy = new Uint8ClampedArray(f.data);
           s.w.postMessage({ type: 'frame', index: i, width: f.width, height: f.height, data: copy }, [copy.buffer]);
         }
-        if (!slots.some((x) => x.busy)) stop(gifConcat([header, ...chunks, gifTrailer()]));
+        if (!slots.some((x) => x.busy)) {
+          // chunks 一并交回去：编码参数没变时（改循环次数）可以整批复用，只重拼文件头
+          stop({ bytes: gifConcat([header, ...chunks, gifTrailer()]), chunks });
+        }
       };
       for (const s of slots) {
         s.w.onmessage = (e) => {
@@ -711,56 +782,85 @@ export function initGif({ srcView }) {
       transparent: transparentOf(frames), // 同一批帧只扫一次 alpha，改颜色/循环时不必重扫
     };
     const est = estimate();
-    if (overLimit(est)) {
-      setStatus(`帧数 ${est.count}、内存约 ${est.memMB.toFixed(0)}MB，偏大，会慢…`, true);
-    } else {
-      setStatus(`正在编码 0/${frames.length} 帧…`);
-    }
-    setProgress('encode', 0);
-    await idle();
+    // 循环次数只写在文件头里：除 loop 外的编码参数都没变时（改循环 / 帧率不变的重渲染），
+    // 直接重拼头，一帧都不用重算
+    const chunkHit =
+      chunkCache &&
+      chunkCache.frames === frames &&
+      chunkCache.colors === opts.colors &&
+      chunkCache.quality === opts.quality &&
+      chunkCache.delay === opts.delay &&
+      chunkCache.transparent === opts.transparent;
     let bytes = null;
-    let err = null;
-    // 优先走 worker 池：每帧字节互相独立，几个线程分头算完再按帧号拼起来，字节和单线程一致。
-    // 帧太少不值得建线程，或者 worker 建不起来 / 报错，就退回下面的主线程路径。
-    if (!poolBroken && frames.length >= POOL_MIN_FRAMES) {
-      let p = null;
-      try {
-        p = gifParams(frames, opts);
-      } catch (ex) {
-        err = ex;
+    let chunks = null;
+    let p = null;
+    if (chunkHit) {
+      chunkCache.p.opts = { ...chunkCache.p.opts, loop: opts.loop };
+      bytes = gifConcat([gifHeader(chunkCache.p), ...chunkCache.chunks, gifTrailer()]);
+    } else {
+      if (overLimit(est)) {
+        setStatus(`帧数 ${est.count}、内存约 ${est.memMB.toFixed(0)}MB，偏大，会慢…`, true);
+      } else {
+        setStatus(`正在编码 0/${frames.length} 帧…`);
       }
-      if (p) {
-        const r = await encodePool(id, frames, p);
-        if (r === 'cancelled') return;
-        if (r === 'broken') poolBroken = true;
-        else if (typeof r !== 'string') bytes = r;
-        if (poolBroken) setStatus('编码 worker 不可用，已改用主线程…');
-      }
-    }
-    if (bytes === null && !err) {
-      try {
-        const st = gifStart(frames, opts);
-        let done = 0;
-        while (gifEncodeNext(st)) {
-          done++;
-          if (id !== runId) return; // 参数又变了，丢掉这一轮
-          setStatus(`正在编码 ${done}/${frames.length} 帧…`);
-          setProgress('encode', done / frames.length);
-          await idle();
+      setProgress('encode', 0);
+      await idle();
+      let err = null;
+      // 优先走 worker 池：每帧字节互相独立，几个线程分头算完再按帧号拼起来，字节和单线程一致。
+      // 帧太少不值得建线程，或者 worker 建不起来 / 报错，就退回下面的主线程路径。
+      if (!poolBroken && frames.length >= POOL_MIN_FRAMES) {
+        try {
+          p = gifParams(frames, opts);
+        } catch (ex) {
+          err = ex;
         }
-        bytes = gifFinish(st);
-      } catch (ex) {
-        err = ex;
+        if (p) {
+          const r = await encodePool(id, frames, p);
+          if (r === 'cancelled') return;
+          if (r === 'broken') poolBroken = true;
+          else if (typeof r === 'object') {
+            bytes = r.bytes;
+            chunks = r.chunks;
+          }
+          if (poolBroken) setStatus('编码 worker 不可用，已改用主线程…');
+        }
       }
-    }
-    if (err) {
-      if (id === runId) {
-        setStatus('编码失败：' + (err?.message ?? err), true);
-        setProgress(null);
+      if (bytes === null && !err) {
+        try {
+          const st = gifStart(frames, opts);
+          let done = 0;
+          while (gifEncodeNext(st)) {
+            done++;
+            if (id !== runId) return; // 参数又变了，丢掉这一轮
+            setStatus(`正在编码 ${done}/${frames.length} 帧…`);
+            setProgress('encode', done / frames.length);
+            await idle();
+          }
+          p = st.p;
+          chunks = st.parts.slice(1); // parts[0] 是文件头，其余按帧序排好
+          bytes = gifFinish(st);
+        } catch (ex) {
+          err = ex;
+        }
       }
-      return;
+      if (err) {
+        if (id === runId) {
+          setStatus('编码失败：' + (err?.message ?? err), true);
+          setProgress(null);
+        }
+        return;
+      }
+      if (id !== runId) return;
+      chunkCache = {
+        frames,
+        p,
+        chunks,
+        colors: opts.colors,
+        quality: opts.quality,
+        delay: opts.delay,
+        transparent: opts.transparent,
+      };
     }
-    if (id !== runId) return;
     if (result) URL.revokeObjectURL(result.blobUrl);
     const blob = new Blob([bytes], { type: 'image/gif' });
     result = {
@@ -778,7 +878,13 @@ export function initGif({ srcView }) {
       `GIF：${frames.length} 帧  |  ${tw}x${th}  |  每帧 ${opts.delay * 10}ms（约 ${gifFpsForDelay(opts.delay).toFixed(1)}fps）  |  ` +
         `${humanSize(bytes.length)}  |  时长 ${fmtDur((frames.length * opts.delay) / 100)}`
     );
-    const pulled = cache?.ms ? `  |  抽帧 ${Math.round(cache.ms)}ms` : '';
+    // 抽帧耗时只在真的抽过这一轮时显示；缓存命中（改帧率降档、改循环/颜色等）标明走了缓存
+    const pulled =
+      mode === 'video'
+        ? pullMs != null
+          ? `  |  抽帧 ${Math.round(pullMs)}ms`
+          : '  |  抽帧（缓存）'
+        : '';
     setStatus(`已生成：${outName()}${pulled}`, overLimit(est));
   }
 
@@ -1085,6 +1191,8 @@ export function initGif({ srcView }) {
     sourceName = entry.name;
     nameIn.value = '';
     cache = null;
+    dropSrcCache();
+    chunkCache = null;
     io.setSource(entry.path);
     io.setExport(null);
     frameIndex = 0;
@@ -1124,6 +1232,8 @@ export function initGif({ srcView }) {
     mode = null;
     srcCanvas = null;
     cache = null;
+    dropSrcCache();
+    chunkCache = null;
     curFrames = [];
     sourcePath = null;
     sourceName = '';
@@ -1301,9 +1411,9 @@ export function initGif({ srcView }) {
   fpsIn.addEventListener('change', () => {
     fpsIn.value = String(curFps());
     if (mode === 'video') {
-      // 帧率决定区间最小长度，跟着收一下
+      // 帧率决定区间最小长度，跟着收一下；抽帧缓存不按帧率失效（见 extractFrames），
+      // 降帧率只做重采样，升帧率才重新抽
       setRange(range.t0, range.t1);
-      invalidate();
       scheduleVideo();
     } else {
       schedule();
