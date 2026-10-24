@@ -4,6 +4,7 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::{DialogExt, FilePath};
@@ -862,7 +863,51 @@ pub struct YtDlpDownloadOptions {
     pub proxy: Option<String>,
 }
 
-/// 调用 yt-dlp 下载视频，通过 ytdlp-progress 事件上报进度（0~1）
+/// yt-dlp 下载进度：百分比 + 速度 + 剩余时间（后两个拿不到时是空串）
+#[derive(Clone, Serialize)]
+pub struct DownloadProgress {
+    pub percent: f64,
+    pub speed: String,
+    pub eta: String,
+}
+
+/// 从 "[download]  25.0% of 10.00MiB at 1.23MiB/s ETA 00:12" 里取速度和剩余时间
+fn extract_speed_eta(line: &str) -> (String, String) {
+    let token_after = |needle: &str| -> String {
+        line.find(needle)
+            .map(|i| {
+                line[i + needle.len()..]
+                    .trim_start()
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("")
+                    .to_string()
+            })
+            .unwrap_or_default()
+    };
+    (token_after(" at "), token_after("ETA "))
+}
+
+/// 解析一行下载进度并发事件。进度只允许单调递增（视频、音频是分两段下的）。
+fn emit_progress(line: &str, last: &Arc<Mutex<f64>>, window: &tauri::Window) {
+    if !line.starts_with("[download]") {
+        return;
+    }
+    let Some(pct) = extract_percent(line) else {
+        return;
+    };
+    let p = (pct / 100.0).clamp(0.0, 1.0);
+    let Ok(mut guard) = last.lock() else { return };
+    if p <= *guard {
+        return;
+    }
+    *guard = p;
+    let (speed, eta) = extract_speed_eta(line);
+    let _ = window.emit("ytdlp-progress", DownloadProgress { percent: p, speed, eta });
+}
+
+/// 调用 yt-dlp 下载视频，通过 ytdlp-progress 事件上报进度（0~1）。
+/// 返回 yt-dlp 报告的最终文件路径（合并后的文件），拿不到就是空串。
 #[tauri::command]
 async fn ytdlp_download(
     app: tauri::AppHandle,
@@ -870,17 +915,37 @@ async fn ytdlp_download(
     url: String,
     output: String,
     options: YtDlpDownloadOptions,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let ytdlp = locate_ytdlp_inner(&app)?;
     let ytdlp_str = ytdlp.to_string_lossy().into_owned();
+
+    // 视频/音频分离的站点需要合并，告诉 yt-dlp 内置 ffmpeg 在哪
+    let ffmpeg_dir = locate_ffmpeg_inner(&app)
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.to_string_lossy().into_owned()));
 
     let mut args: Vec<String> = vec![
         "--no-playlist".to_string(),
         "--newline".to_string(),
         "--no-color".to_string(),
+        // 同名文件已存在时默认会跳过（还报"下载完成"），换分辨率重下必须覆盖
+        "--force-overwrites".to_string(),
+        // --print 会进 quiet 模式，进度行需要 --progress 才会输出
+        "--progress".to_string(),
+        // --print 默认会带 --simulate，不关掉就只解析不下载
+        "--no-simulate".to_string(),
+        "--print".to_string(),
+        "after_move:filepath".to_string(),
+        // 文件名可能含中文：固定 UTF-8，否则管道里是 GBK，读出来是乱码/空
+        "--encoding".to_string(),
+        "utf-8".to_string(),
         "--user-agent".to_string(),
         YTDLP_UA.to_string(),
     ];
+    if let Some(dir) = &ffmpeg_dir {
+        args.push("--ffmpeg-location".to_string());
+        args.push(dir.clone());
+    }
     if let Some(fmt) = &options.format {
         if !fmt.is_empty() {
             args.push("-f".to_string());
@@ -907,21 +972,55 @@ async fn ytdlp_download(
     args.push(output.clone());
     args.push(url.clone());
 
+    // 目标目录可能还不存在（默认下载目录\图像工具箱），先建出来
+    if let Some(parent) = Path::new(&output).parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+
     let window_clone = window.clone();
 
-    let result = tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+    let result = tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
         let mut child = command_no_window(&ytdlp_str)
             .args(&args)
+            // yt-dlp 是 PyInstaller 打包的 Python：管道里默认按块缓冲，进度会憋到结束才一次性吐出来。
+            // 关掉缓冲，进度行才能实时到达。
+            .env("PYTHONUNBUFFERED", "1")
             .stderr(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
             .map_err(|e| format!("启动 yt-dlp 失败：{e}"))?;
 
-        // yt-dlp 的进度行输出到 stderr，格式如：[download]  25.0% of ~50.00MiB at ...
+        // 进度行有些站点写 stdout、有些写 stderr，两边都解析；用共享的最大值去重
+        let last_pct = Arc::new(Mutex::new(0.0_f64));
+
+        // stdout 里还有 --print 输出的最终文件路径
+        let stdout_handle = child.stdout.take().map(|stdout| {
+            let win = window_clone.clone();
+            let shared = last_pct.clone();
+            std::thread::spawn(move || {
+                let mut last_non_progress = String::new();
+                for line in BufReader::new(stdout).lines() {
+                    let line = match line {
+                        Ok(l) => l,
+                        Err(_) => break,
+                    };
+                    let trimmed = line.trim();
+                    if trimmed.starts_with("[download]") {
+                        emit_progress(trimmed, &shared, &win);
+                        continue;
+                    }
+                    if !trimmed.is_empty() {
+                        last_non_progress = trimmed.to_string();
+                    }
+                }
+                last_non_progress
+            })
+        });
+
+        // stderr：错误识别 + 进度（YouTube 这类站点进度走 stderr）
         let mut risk_blocked = false;
         if let Some(stderr) = child.stderr.take() {
-            let reader = BufReader::new(stderr);
-            for line in reader.lines() {
+            for line in BufReader::new(stderr).lines() {
                 let line = match line {
                     Ok(l) => l,
                     Err(_) => break,
@@ -929,16 +1028,12 @@ async fn ytdlp_download(
                 if line.contains("412") || line.contains("Precondition Failed") {
                     risk_blocked = true;
                 }
-                if line.contains("%") {
-                    // 提取形如 " 25.0%" 中的数字
-                    if let Some(pct) = extract_percent(&line) {
-                        let _ = window_clone.emit("ytdlp-progress", (pct / 100.0).min(1.0).max(0.0));
-                    }
-                }
+                emit_progress(line.trim(), &last_pct, &window_clone);
             }
         }
 
         let status = child.wait().map_err(|e| e.to_string())?;
+        let final_path = stdout_handle.and_then(|h| h.join().ok()).unwrap_or_default();
         if !status.success() {
             return Err(if risk_blocked {
                 "下载失败：站点返回 HTTP 412（当前网络出口被风控，常见于代理/VPN。请让 bilibili.com 直连或在「网络代理」里换一个出口后重试）".into()
@@ -946,13 +1041,12 @@ async fn ytdlp_download(
                 "yt-dlp 下载失败，请检查链接或网络".into()
             });
         }
-        Ok(())
+        Ok(final_path)
     })
     .await
     .map_err(|e| format!("任务执行异常：{e}"))??;
 
-    let _ = result;
-    Ok(())
+    Ok(result)
 }
 
 /// 从 yt-dlp 输出行中提取百分比数值（如 " 25.0%" → 25.0）

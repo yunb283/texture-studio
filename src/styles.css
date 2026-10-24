@@ -1064,6 +1064,50 @@ select:disabled {
   background: #16161a;
 }
 
+/* 下载页：分辨率 + 编码两个下拉同排 */
+.dl-pick-row {
+  display: flex;
+  gap: 6px;
+}
+
+.dl-pick-row select:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dl-pick-row select:last-child {
+  flex: 0 0 92px;
+}
+
+/* 格式列表的右键菜单 */
+.dl-ctx-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 170px;
+  padding: 4px;
+  background: #232634;
+  border: 1px solid #3a3f52;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.dl-ctx-menu button {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  color: #e0e0e6;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dl-ctx-menu button:hover {
+  background: #2f3446;
+}
+
 .dl-fmt-item {
   display: flex;
   align-items: center;

@@ -848,7 +848,7 @@
           <span class="dim-label" id="dl-thumb-placeholder">尚未解析视频</span>
         </div>
         <div class="dim-label info-wrap" id="dl-info">未解析视频</div>
-        <div class="panel-subhead">可用格式（点击选择，留空则下载最佳质量）</div>
+        <div class="panel-subhead">可用格式（点击选中，右键可直接下载该格式）</div>
         <div class="dim-label" style="font-size:11px;padding:0 10px 4px;line-height:1.5;">
           同一分辨率出现多条是不同编码：H.264 兼容性最好，H.265 压缩率高，AV1 体积通常最小；码率和体积会不一样
         </div>
@@ -859,30 +859,16 @@
           <span class="panel-title">下载设置</span>
         </div>
         <div class="form-grid">
-          <label>已选格式</label>
-          <span class="dim-label" id="dl-fmt-label">最佳质量（自动）</span>
           <label>文件名</label>
           <input type="text" id="dl-name" placeholder="留空则用视频标题" />
+          <label>视频分辨率</label>
+          <div class="dl-pick-row">
+            <select id="dl-res"></select>
+            <select id="dl-codec" title="编码格式"></select>
+          </div>
         </div>
-        <label class="chk">
-          <input type="checkbox" id="dl-save-default" checked />
-          <span>保存到默认下载目录</span>
-        </label>
-        <div class="dim-label">Cookies（B 站等站点反爬时需要）</div>
-        <div class="size-row">
-          <select id="dl-cookie-source">
-            <option value="">不使用</option>
-            <option value="chrome">从 Chrome 读取</option>
-            <option value="edge">从 Edge 读取</option>
-            <option value="firefox">从 Firefox 读取</option>
-            <option value="file">自定义 cookies.txt 文件</option>
-          </select>
-        </div>
-        <div class="size-row" id="dl-cookie-file-row" style="display:none;">
-          <input type="text" id="dl-cookies" placeholder="从浏览器导出的 cookies.txt" readonly />
-          <button class="btn small" id="dl-cookies-browse">浏览…</button>
-          <button class="btn small" id="dl-cookies-clear">清除</button>
-        </div>
+        <div class="dim-label" id="dl-size-line" style="padding:2px 0 2px;">文件大小：-</div>
+        <div class="dim-label" id="dl-fmt-label" style="padding:0 0 6px;">将下载：-</div>
         <div class="dim-label">网络代理</div>
         <div class="size-row">
           <select id="dl-proxy-mode">
@@ -893,21 +879,29 @@
           </select>
           <input type="text" id="dl-proxy-url" placeholder="http://127.0.0.1:7890" style="display: none" />
         </div>
-        <div class="dim-label">自定义保存目录</div>
+        <label class="chk">
+          <input type="checkbox" id="dl-save-default" checked />
+          <span>保存到默认下载目录（下载\图像工具箱）</span>
+        </label>
+        <label class="chk">
+          <input type="checkbox" id="dl-save-custom" />
+          <span>下载到指定文件夹</span>
+        </label>
         <div class="size-row">
-          <input type="text" id="dl-dir" placeholder="不选则用默认下载目录" />
-          <button class="btn small" id="dl-browse">浏览…</button>
+          <input type="text" id="dl-dir" placeholder="选择文件夹" disabled />
+          <button class="btn small" id="dl-browse" disabled>浏览…</button>
         </div>
         <button class="btn primary" id="dl-download" disabled>开始下载</button>
         <div class="progress-wrap">
           <div class="progress-bar"><div class="progress-fill" id="dl-progress-fill"></div></div>
           <span class="dim-label" id="dl-progress-text">0%</span>
         </div>
+        <div class="dim-label" id="dl-progress-meta"></div>
         <div class="status" id="dl-status"></div>
         <div class="io-row end" id="dl-io"></div>
         <div class="help-label">
-          基于内置 yt-dlp，支持 YouTube、Bilibili、Twitter、TikTok 等上千个站点<br />
-          默认下载最佳质量；也可在左侧列表点选特定分辨率/格式
+          基于内置 yt-dlp + FFmpeg，支持 YouTube、Bilibili、Twitter、TikTok 等上千个站点<br />
+          视频与音频分开的站点会自动下载音频并合并；左侧列表右键可直接下载该格式
         </div>
       </div>
     </div>
