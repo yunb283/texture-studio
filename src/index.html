@@ -23,6 +23,7 @@
       <button class="tab" id="tab-gif">制作GIF</button>
       <button class="tab" id="tab-gifview">GIF动画预览</button>
       <button class="tab" id="tab-video">视频格式转换</button>
+      <button class="tab" id="tab-audio">音频格式转换</button>
       <button class="pin-btn" id="pin-top" title="总在最前" aria-pressed="false">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -721,6 +722,95 @@
         </div>
         <div class="status" id="vid-status"></div>
         <div class="io-row end" id="vid-io"></div>
+      </div>
+    </div>
+
+    <div class="page hidden" id="page-audio">
+      <div class="panel" style="flex: 50">
+        <div class="panel-head">
+          <span class="panel-title">源音频</span>
+        </div>
+        <div class="canvas-wrap" id="aud-canvas-wrap" style="display:flex;flex-direction:column;justify-content:center;align-items:center;background:#000;">
+          <audio id="aud-src" controls style="width:100%;max-width:480px;"></audio>
+        </div>
+        <div class="dim-label info-wrap" id="aud-info">未载入音频</div>
+        <button class="btn" id="aud-open">打开音频…（或拖入文件）</button>
+        <button class="btn" id="aud-clear" disabled>清空</button>
+        <div class="help-label">
+          支持导入：MP3、WAV、FLAC、AAC、OGG、Opus、M4A、WMA、AIFF 等音频格式，也可从视频中提取音轨<br />
+          基于内置 FFmpeg 9，完全离线转换，无需联网
+        </div>
+      </div>
+      <div class="panel" style="flex: 50">
+        <div class="panel-head">
+          <span class="panel-title">转换设置</span>
+        </div>
+        <div class="form-grid">
+          <label>输出格式</label>
+          <select id="aud-fmt">
+            <option value="mp3">MP3（通用兼容）</option>
+            <option value="wav">WAV（无损，体积大）</option>
+            <option value="flac">FLAC（无损压缩）</option>
+            <option value="aac">AAC（MP4/M4A 用）</option>
+            <option value="m4a">M4A（AAC 容器）</option>
+            <option value="ogg">OGG（Vorbis）</option>
+            <option value="opus">Opus（高质量低码率）</option>
+          </select>
+          <label>音频编码</label>
+          <select id="aud-acodec">
+            <option value="libmp3lame">MP3（LAME）</option>
+            <option value="aac">AAC</option>
+            <option value="flac">FLAC（无损）</option>
+            <option value="pcm_s16le">PCM 16-bit（WAV 无损）</option>
+            <option value="libvorbis">Vorbis（OGG）</option>
+            <option value="libopus">Opus</option>
+            <option value="alac">ALAC（Apple 无损）</option>
+            <option value="copy">直接复制（不重编码，极速）</option>
+          </select>
+          <label>比特率</label>
+          <select id="aud-bitrate">
+            <option value="">默认（自动）</option>
+            <option value="64k">64 kbps</option>
+            <option value="96k">96 kbps</option>
+            <option value="128k">128 kbps</option>
+            <option value="192k">192 kbps</option>
+            <option value="256k">256 kbps</option>
+            <option value="320k">320 kbps</option>
+          </select>
+          <label>采样率</label>
+          <select id="aud-sr">
+            <option value="0">保持原始</option>
+            <option value="22050">22050 Hz</option>
+            <option value="44100">44100 Hz</option>
+            <option value="48000">48000 Hz</option>
+            <option value="96000">96000 Hz</option>
+          </select>
+          <label>声道</label>
+          <select id="aud-ch">
+            <option value="0">保持原始</option>
+            <option value="1">单声道（Mono）</option>
+            <option value="2">立体声（Stereo）</option>
+          </select>
+          <label>起始时间</label>
+          <input type="text" id="aud-start" placeholder="留空从头开始，例：00:01:30" />
+          <label>结束时间</label>
+          <input type="text" id="aud-end" placeholder="留空到结尾，例：00:02:30" />
+          <label>输出文件名</label>
+          <input type="text" id="aud-name" placeholder="留空则用 原名_转换" />
+          <label>保存位置</label>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;">
+              <input type="checkbox" id="aud-save-orig" checked /> 源文件同目录
+            </label>
+          </div>
+        </div>
+        <button class="btn primary" id="aud-convert" disabled>开始转换</button>
+        <div class="progress-wrap">
+          <div class="progress-bar"><div class="progress-fill" id="aud-progress-fill"></div></div>
+          <span class="dim-label" id="aud-progress-text">0%</span>
+        </div>
+        <div class="status" id="aud-status"></div>
+        <div class="io-row end" id="aud-io"></div>
       </div>
     </div>
 

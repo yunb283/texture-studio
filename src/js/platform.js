@@ -51,6 +51,16 @@ export const TEXTURE_EXTS = [
 export const VIDEO_EXTS = ['mp4', 'm4v', 'mov', 'webm', 'mkv', 'avi', 'wmv'];
 export const GIF_SOURCE_EXTS = [...TEXTURE_EXTS, ...VIDEO_EXTS];
 
+// 音频格式
+export const AUDIO_EXTS = ['mp3', 'wav', 'flac', 'aac', 'ogg', 'opus', 'm4a', 'wma', 'aiff', 'alac'];
+
+export function isAudioName(name) {
+  return AUDIO_EXTS.includes((name.split('.').pop() || '').toLowerCase());
+}
+
+// 音频转换页：音频文件 + 含音频的视频（可从中提取音轨）
+export const AUDIO_SOURCE_EXTS = [...AUDIO_EXTS, ...VIDEO_EXTS];
+
 // GIF 动画预览页只收 GIF：其它格式没有逐帧结构，硬解出来也只是张静图，不如不接
 export const GIF_ONLY_EXTS = ['gif'];
 

@@ -151,6 +151,8 @@ pub struct VideoInfo {
     pub video_codec: String,
     pub audio_codec: String,
     pub bitrate: String,
+    pub sample_rate: Option<u32>,
+    pub channels: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -235,6 +237,8 @@ fn ffprobe_inner(ffmpeg: &Path, path: &str) -> Result<VideoInfo, String> {
         video_codec: String::new(),
         audio_codec: String::new(),
         bitrate: String::new(),
+        sample_rate: None,
+        channels: None,
     };
 
     for line in stderr.lines() {
@@ -249,7 +253,7 @@ fn ffprobe_inner(ffmpeg: &Path, path: &str) -> Result<VideoInfo, String> {
                 }
             }
             if let Some(br) = parts.iter().find(|p| p.contains("bitrate")) {
-                info.bitrate = br.trim().to_string();
+                info.bitrate = br.trim().replace("bitrate: ", "比特率：");
             }
         }
         // Stream #0:0: Video: h264, yuv420p, 1920x1080, 30 fps
@@ -302,8 +306,29 @@ fn ffprobe_inner(ffmpeg: &Path, path: &str) -> Result<VideoInfo, String> {
         if line.contains("Audio:") {
             if let Some(idx) = line.find("Audio:") {
                 let rest = &line[idx + 6..];
-                if let Some(codec) = rest.split(',').next() {
+                let parts: Vec<&str> = rest.split(',').collect();
+                if let Some(codec) = parts.first() {
                     info.audio_codec = codec.trim().split(' ').next().unwrap_or("").to_string();
+                }
+                for p in &parts {
+                    let p = p.trim();
+                    if p.ends_with("Hz") {
+                        let sr: u32 = p.trim_end_matches("Hz").trim().parse().unwrap_or(0);
+                        if sr > 0 {
+                            info.sample_rate = Some(sr);
+                        }
+                    }
+                    let ch = match p {
+                        "mono" => Some(1),
+                        "stereo" => Some(2),
+                        "2.1" => Some(3),
+                        "5.1" => Some(6),
+                        "7.1" => Some(8),
+                        _ => None,
+                    };
+                    if ch.is_some() {
+                        info.channels = ch;
+                    }
                 }
             }
         }
@@ -451,6 +476,118 @@ async fn convert_video(
     Ok(())
 }
 
+// ===================== 音频转换 =====================
+
+#[derive(Serialize, Deserialize)]
+pub struct AudioConvertOptions {
+    pub audio_codec: Option<String>,
+    pub audio_bitrate: Option<String>,
+    pub sample_rate: Option<u32>,
+    pub channels: Option<u32>,
+    pub start_time: Option<f64>,
+    pub end_time: Option<f64>,
+}
+
+#[tauri::command]
+async fn convert_audio(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    input: String,
+    output: String,
+    options: AudioConvertOptions,
+) -> Result<(), String> {
+    let ffmpeg = locate_ffmpeg_inner(&app)?;
+    let info = ffprobe_inner(&ffmpeg, &input)?;
+    let total = info.duration.max(0.001);
+
+    let start = options.start_time.unwrap_or(0.0).max(0.0);
+    let end = options.end_time.unwrap_or(total).min(total).max(start);
+    let duration = end - start;
+
+    let mut args: Vec<String> = vec!["-y".to_string()];
+    if start > 0.0 {
+        args.push("-ss".to_string());
+        args.push(format!("{:.3}", start));
+    }
+    args.push("-i".to_string());
+    args.push(input.clone());
+    if duration < total - 0.001 {
+        args.push("-t".to_string());
+        args.push(format!("{:.3}", duration));
+    }
+    // 丢弃视频流
+    args.push("-vn".to_string());
+
+    if let Some(ac) = &options.audio_codec {
+        if ac != "copy" {
+            args.push("-c:a".to_string());
+            args.push(ac.clone());
+        } else {
+            args.push("-c:a".to_string());
+            args.push("copy".to_string());
+        }
+    }
+    if let Some(ab) = &options.audio_bitrate {
+        args.push("-b:a".to_string());
+        args.push(ab.clone());
+    }
+    if let Some(sr) = options.sample_rate {
+        if sr > 0 {
+            args.push("-ar".to_string());
+            args.push(sr.to_string());
+        }
+    }
+    if let Some(ch) = options.channels {
+        if ch > 0 {
+            args.push("-ac".to_string());
+            args.push(ch.to_string());
+        }
+    }
+
+    args.push(output.clone());
+
+    let window_clone = window.clone();
+    let ffmpeg_str = ffmpeg.to_string_lossy().into_owned();
+
+    let result = tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+        let mut child = Command::new(&ffmpeg_str)
+            .args(&args)
+            .stderr(Stdio::piped())
+            .stdout(Stdio::null())
+            .spawn()
+            .map_err(|e| format!("启动 ffmpeg 失败：{e}"))?;
+
+        if let Some(stderr) = child.stderr.take() {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines() {
+                let line = match line {
+                    Ok(l) => l,
+                    Err(_) => break,
+                };
+                if let Some(idx) = line.find("time=") {
+                    let rest = &line[idx + 5..];
+                    let time_str = rest.split(' ').next().unwrap_or("");
+                    if let Some(t) = parse_time_to_seconds(time_str) {
+                        let progress = (t / total).min(1.0).max(0.0);
+                        let _ = window_clone.emit("audio-progress", progress);
+                    }
+                }
+            }
+        }
+
+        let status = child.wait().map_err(|e| e.to_string())?;
+        if !status.success() {
+            return Err("ffmpeg 转换失败，请检查参数或输出格式".into());
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("任务执行异常：{e}"))??;
+
+    let _ = result;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -464,7 +601,8 @@ pub fn run() {
             open_path,
             locate_ffmpeg,
             ffprobe_video,
-            convert_video
+            convert_video,
+            convert_audio
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

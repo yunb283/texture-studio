@@ -31,7 +31,7 @@ body {
   color: #b9bac1;
   border: 1px solid #262a38;
   border-radius: 3px;
-  padding: 7px 24px;
+  padding: 7px 12px;
   cursor: pointer;
   font-size: 13px;
 }
@@ -120,6 +120,11 @@ body {
   flex: 1;
   min-height: 120px;
   position: relative;
+}
+
+/* 音频页左侧预览窗口高度缩小一半，不再撑满剩余空间 */
+#aud-canvas-wrap {
+  flex: 0 0 25%;
 }
 
 /* 只有 GIF 结果预览需要裁边：它是被 CSS transform 放大的那张图。

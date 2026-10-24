@@ -12,6 +12,7 @@ import {
   VIDEO_EXTS,
   openPath,
 } from './platform.js';
+import { createIoButtons } from './io-buttons.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -69,6 +70,8 @@ export function initVideoConvert() {
   const maskB = cropOverlay.querySelector('.crop-mask-b');
   const maskL = cropOverlay.querySelector('.crop-mask-l');
   const maskR = cropOverlay.querySelector('.crop-mask-r');
+
+  const io = createIoButtons($('vid-io'), setStatus);
 
   let entry = null;
   let srcUrl = null;
@@ -195,6 +198,8 @@ export function initVideoConvert() {
       return;
     }
     entry = e;
+    io.setSource(e.path);
+    io.setExport(null);
     setStatus('正在读取视频信息…');
 
     // 预览
@@ -349,6 +354,7 @@ export function initVideoConvert() {
       });
       setProgress(1);
       setStatus('转换完成：' + outPath);
+      io.setExport(outPath);
     } catch (ex) {
       setStatus('转换失败：' + (ex?.message ?? ex));
     } finally {
@@ -402,6 +408,7 @@ export function initVideoConvert() {
     gripBFrac = 1;
     updateGripUI();
     updateInfo();
+    io.clear();
     setStatus('');
   });
 
