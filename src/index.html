@@ -516,6 +516,7 @@
           <button class="btn small step-btn" id="gv-prev" disabled>上一帧</button>
           <button class="btn small step-btn" id="gv-next" disabled>下一帧</button>
           <span class="spacer"></span>
+          <span class="dim-label tl-time" id="gv-fps-now">-</span>
           <span class="dim-label tl-time" id="gv-time">00:00.00 / 00:00.00</span>
         </div>
       </div>
@@ -526,10 +527,10 @@
         <button class="btn" id="gv-open">打开 GIF…（或拖入文件）</button>
         <button class="btn" id="gv-clear" disabled>清空</button>
         <div class="form-grid">
-          <label>帧率</label>
+          <label>速度</label>
           <div class="dual-row">
-            <input type="range" id="gv-fps" min="1" max="60" step="1" value="15" disabled title="导入时自动跳到原文件的平均帧率。改动按同一个倍率缩放每帧延时，原文件里快慢不一的节奏不会被抹平" />
-            <span class="dim-label" id="gv-fps-label">15</span>
+            <input type="range" id="gv-speed" min="0.1" max="3" step="0.1" value="1" disabled title="1 就是源文件自己的帧率；0.1 放慢到十分之一，3 加快到 3 倍。按同一个倍率缩放每帧延时，原文件里快慢不一的节奏不会被抹平" />
+            <span class="dim-label" id="gv-speed-label">1.0×</span>
           </div>
           <label>抽帧</label>
           <select id="gv-drop" disabled title="0 不抽帧；1 从第一帧起每 2 帧留 1 帧；2 再走一遍，每 4 帧留 1 帧。抽掉的帧把时长并进后一帧，一圈总时长不变">

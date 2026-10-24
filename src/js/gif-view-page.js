@@ -2,7 +2,7 @@
 // 所以能停在任意一帧上看 disposal 留下的残影。
 // 为什么不走 WebView2 的 <img>：它只能整块播，定位不到某一帧，循环回第 1 帧时还会先按
 // disposal 清一次底 —— 看着就是闪一下，而逐帧检查正是这个页面要干的事。
-// 左栏是预览 + 逐帧 + 帧区间，右栏是导入 / 帧率 / 缩放 / 导出。
+// 左栏是预览 + 逐帧 + 帧区间，右栏是导入 / 速度 / 缩放 / 导出。
 import {
   pickImages,
   readEntryBytes,
@@ -23,9 +23,11 @@ import { createIoButtons } from './io-buttons.js';
 
 const $ = (id) => document.getElementById(id);
 
-const FPS_MIN = 1;
-const FPS_MAX = 60;
-const clampFps = (v) => Math.min(FPS_MAX, Math.max(FPS_MIN, Math.round(v) || FPS_MIN));
+const SPEED_MIN = 0.1;
+const SPEED_MAX = 3;
+// 滑条步进 0.1，读数也按 0.1 归整，免得浮点尾数跑到标签上（0.30000000000000004×）
+const clampSpeed = (v) =>
+  Math.min(SPEED_MAX, Math.max(SPEED_MIN, Math.round(v * 10) / 10 || SPEED_MIN));
 // 导出的延时以 1/100 秒写进文件，2 是最小可用值（1 会被多数播放器当 0）
 const MIN_MS = 20;
 // 合成好的一帧缓存预算：槽位数按它算。和合成器那边的检查点预算（gif-decode.js，64MB）
@@ -60,8 +62,9 @@ export function initGifView({ view }) {
   const prevBtn = $('gv-prev');
   const nextBtn = $('gv-next');
   const status = $('gv-status');
-  const fpsRange = $('gv-fps');
-  const fpsLabel = $('gv-fps-label');
+  const speedRange = $('gv-speed');
+  const speedLabel = $('gv-speed-label');
+  const fpsNowLabel = $('gv-fps-now');
   const frTl = $('gv-fr-tl');
   const frBand = $('gv-fr-band');
   const frAGrip = $('gv-fr-a');
@@ -88,7 +91,7 @@ export function initGifView({ view }) {
   let parsed = null; // parseGif 的结果：尺寸、循环次数、每帧的补丁和延时
   let comp = null; // 逐帧合成器，状态只能往前推
   let srcClock = null; // 原文件的时间轴（每帧自己的延时）
-  let play = null; // 播放用的时间轴：已按帧率倍率缩放，且只覆盖选中的帧区间
+  let play = null; // 播放用的时间轴：已按速度倍率缩放，且只覆盖选中的帧区间
   let drop = 0; // 抽帧档位：保留帧的间隔是 2^drop
   let keep = []; // 逻辑帧号 -> 源帧号（抽帧后两套编号的唯一桥梁）
   let spanMs = []; // 逻辑帧的时长 = 它和下一保留帧之间所有源帧延时之和
@@ -98,7 +101,7 @@ export function initGifView({ view }) {
   let frameIndex = 0; // 逻辑帧号（抽帧后的编号）
   let cutA = 0; // 帧区间：含头含尾的逻辑帧号
   let cutB = 0;
-  let fps = 15;
+  let speed = 1; // 速度倍率：1 就是源文件自己的帧率
   let playing = false;
   let playStart = 0; // 起播的绝对时刻，已把当前帧折进基准，所以暂停后是从那一帧接着播
   let playRaf = 0;
@@ -146,7 +149,7 @@ export function initGifView({ view }) {
       prevBtn,
       nextBtn,
       frameRange,
-      fpsRange,
+      speedRange,
       frAIn,
       frBIn,
       frAllBtn,
@@ -202,25 +205,33 @@ export function initGifView({ view }) {
     return [a, b];
   }
 
-  // 帧率滑条相对原文件平均帧率的倍率：按同一个倍率缩放每帧延时，
-  // 原文件里快慢不一的节奏（比如末帧停得久）不会被抹平成等长
+  // 速度倍率：倍率作用在「快慢」上，所以除到每帧延时上（3 倍速 = 每帧只留三分之一时间）。
+  // 用同一个倍率而不是「重算成等长」，原文件里快慢不一的节奏（比如末帧停得久）才不会被抹平
   function rebuildPlay() {
     if (!parsed) {
       play = null;
+      updateFpsNow();
       return;
     }
-    // 滑条初值就是原文件平均帧率四舍五入，停在这一格时按原样播（倍率 1）：
-    // 否则信息行写「一圈 2.10s」、导出写 2.13s，看着像 bug
-    const k = !srcClock.avgFps || Math.round(srcClock.avgFps) === fps ? 1 : srcClock.avgFps / fps;
     const ms = new Array(selFrames());
     const cum = new Array(ms.length);
     let t = 0;
     for (let i = 0; i < ms.length; i++) {
-      ms[i] = Math.max(MIN_MS, Math.round(spanMs[cutA + i] * k));
+      ms[i] = Math.max(MIN_MS, Math.round(spanMs[cutA + i] / speed));
       cum[i] = t;
       t += ms[i];
     }
     play = { ms, cum, total: t || 1 };
+    updateFpsNow();
+  }
+
+  // 左下角时间旁边的当前帧率：这一圈的实际平均帧率，速度倍率和抽帧都已经算在里面
+  function updateFpsNow() {
+    if (!play) {
+      fpsNowLabel.textContent = '-';
+      return;
+    }
+    fpsNowLabel.textContent = `${((play.ms.length / play.total) * 1000).toFixed(1)} fps`;
   }
 
   function updateInfo() {
@@ -644,9 +655,9 @@ export function initGifView({ view }) {
       frameIndex = 0;
       cutA = 0;
       cutB = keep.length - 1;
-      fps = clampFps(srcClock.avgFps || 15);
-      fpsRange.value = String(fps);
-      fpsLabel.textContent = String(fps);
+      speed = 1;
+      speedRange.value = '1';
+      speedLabel.textContent = '1.0×';
       rebuildPlay();
       setEnabled(true);
       syncFrUI();
@@ -687,6 +698,7 @@ export function initGifView({ view }) {
     updateInfo();
     updatePos();
     timeLabel.textContent = '00:00.00 / 00:00.00';
+    updateFpsNow();
     frAIn.value = '1';
     frBIn.value = '1';
     syncFrUI();
@@ -728,9 +740,9 @@ export function initGifView({ view }) {
   window.addEventListener('mousemove', frMove);
   window.addEventListener('mouseup', frUp);
 
-  fpsRange.addEventListener('input', () => {
-    fps = clampFps(Number(fpsRange.value));
-    fpsLabel.textContent = String(fps);
+  speedRange.addEventListener('input', () => {
+    speed = clampSpeed(Number(speedRange.value));
+    speedLabel.textContent = `${speed.toFixed(1)}×`;
     rebuildPlay();
     updateOutInfo();
     showFrame(frameIndex);
