@@ -87,6 +87,7 @@ export function initMerge({ mergeView }) {
       timer = null;
     }
     playBtn.textContent = '播放';
+    playBtn.classList.remove('on');
   }
 
   function startTimer() {
@@ -483,6 +484,7 @@ export function initMerge({ mergeView }) {
     gridChk.checked = false;
     playing = true;
     playBtn.textContent = '暂停';
+    playBtn.classList.add('on');
     startTimer();
     refreshView();
   });

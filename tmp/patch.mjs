@@ -19,6 +19,11 @@ const edit = (rel, from, to) => {
 edit('js/io-buttons.js', 'container.hidden = !isTauri', 'container.hidden = false');
 edit('js/main.js', "showTab('split');", "showTab('gifview');\nwindow.__view = gvView;");
 edit(
+  'js/main.js',
+  'const gifApi = initGif({ srcView: gifSrcView });',
+  'const gifApi = initGif({ srcView: gifSrcView });\nwindow.__split = splitApi; window.__merge = mergeApi; window.__gif = gifApi;'
+);
+edit(
   'js/gif-view-page.js',
   '  return { loadEntry };',
   `  window.__gv = {

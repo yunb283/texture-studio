@@ -473,6 +473,13 @@ canvas.zoomable.panning,
   color: #7fe3fb;
 }
 
+/* 禁掉时别留着按下的蓝：换文件/清空的瞬间状态可能还没归位，蓝着又点不动 */
+.btn.on:disabled {
+  color: #6a6c75;
+  background: #24262e;
+  border-color: #34363e;
+}
+
 /* 一行放两个动作：左边的撑开，右边按内容宽度。
    放在 .btn.primary 之后，否则它的 width:100% 会把同排的复选框挤成 0 宽 */
 .btn-row > :first-child {

@@ -589,6 +589,7 @@ export function initGif({ srcView }) {
     playing = !!on && !!result;
     for (const el of [playBtn, prevBtn, nextBtn, frameRange]) el.disabled = !result;
     playBtn.textContent = playing ? '暂停动画' : '播放动画';
+    playBtn.classList.toggle('on', playing);
     refreshPreview();
   }
 
@@ -599,6 +600,7 @@ export function initGif({ srcView }) {
     frameRange.max = String(result.count);
     frameIndex = Math.min(frameIndex, result.count - 1);
     playBtn.textContent = playing ? '暂停动画' : '播放动画';
+    playBtn.classList.toggle('on', playing);
     frameCanvas.hidden = false;
     showFrame(frameIndex); // 先画当前帧：定时器只在帧号变了才画，不然新结果一上来是空 canvas
     if (playing) startFrameSync();
@@ -1079,6 +1081,7 @@ export function initGif({ srcView }) {
     if (video.paused || video.ended) {
       rafId = 0;
       vidPlayBtn.textContent = '播放';
+      vidPlayBtn.classList.remove('on');
       return;
     }
     rafId = requestAnimationFrame(tickVideo);
@@ -1093,6 +1096,7 @@ export function initGif({ srcView }) {
     }
     video.play().catch(() => setStatus('播放失败：' + (video.error?.message || '未知原因'), true));
     vidPlayBtn.textContent = '暂停';
+    vidPlayBtn.classList.add('on');
     if (!rafId) rafId = requestAnimationFrame(tickVideo);
   }
 
@@ -1100,6 +1104,7 @@ export function initGif({ srcView }) {
     if (!videoMeta) return;
     video.pause();
     vidPlayBtn.textContent = '播放';
+    vidPlayBtn.classList.remove('on');
   }
 
   function setRange(t0, t1) {
@@ -1478,6 +1483,7 @@ export function initGif({ srcView }) {
   });
   video.addEventListener('ended', () => {
     vidPlayBtn.textContent = '播放';
+    vidPlayBtn.classList.remove('on');
   });
   tl.addEventListener('mousedown', tlDown);
   window.addEventListener('mousemove', tlMove);

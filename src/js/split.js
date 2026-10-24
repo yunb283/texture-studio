@@ -181,6 +181,7 @@ export function initSplit({ srcView, frameView }) {
       timer = null;
     }
     playBtn.textContent = '播放';
+    playBtn.classList.remove('on');
   }
 
   function startTimer() {
@@ -270,6 +271,7 @@ export function initSplit({ srcView, frameView }) {
     if (!sourceCanvas || total() === 0) return;
     playing = true;
     playBtn.textContent = '暂停';
+    playBtn.classList.add('on');
     startTimer();
   });
   resetBtn.addEventListener('click', () => {
