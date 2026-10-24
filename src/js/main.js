@@ -132,10 +132,12 @@ const gifSrcView = new CanvasView(document.getElementById('gif-src-canvas'), {
   bgMode: 2,
   selectable: true,
 });
-// GIF 动画预览：整幅画面就这一张 canvas，播放/暂停/拖动都在这里
+// GIF 动画预览：整幅画面就这一张 canvas，播放/暂停/拖动都在这里。
+// selectable 只是注册框选，默认关着（页面里 setSelectEnabled），进裁剪模式才接管左键
 const gvView = new CanvasView(document.getElementById('gv-canvas'), {
   bgMode: 2,
   zoomable: true,
+  selectable: true,
 });
 
 makeBgButtons(document.getElementById('src-bg'), srcView, [0, 1, 2, 3], 3);

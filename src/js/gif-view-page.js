@@ -61,6 +61,7 @@ export function initGifView({ view }) {
   const resetBtn = $('gv-reset');
   const prevBtn = $('gv-prev');
   const nextBtn = $('gv-next');
+  const cropBtn = $('gv-crop');
   const status = $('gv-status');
   const speedRange = $('gv-speed');
   const speedLabel = $('gv-speed-label');
@@ -87,6 +88,9 @@ export function initGifView({ view }) {
   const pctx = paint.getContext('2d', { willReadFrequently: true });
   const shrunk = document.createElement('canvas');
   const sctx = shrunk.getContext('2d', { willReadFrequently: true });
+  // 导出专用的中间画布（裁完再缩），不碰预览正在显示的 paint
+  const scratch = document.createElement('canvas');
+  const xctx = scratch.getContext('2d');
 
   let parsed = null; // parseGif 的结果：尺寸、循环次数、每帧的补丁和延时
   let comp = null; // 逐帧合成器，状态只能往前推
@@ -106,6 +110,7 @@ export function initGifView({ view }) {
   let playStart = 0; // 起播的绝对时刻，已把当前帧折进基准，所以暂停后是从那一帧接着播
   let playRaf = 0;
   let scrubRaf = 0; // 拖动逐帧滑块时攒帧的 rAF 句柄
+  let cropOn = false; // 裁剪模式：左键归框选，平移让位（见 syncCropMode）
   let frDrag = null;
   let runId = 0; // 读文件是异步的，后一次点掉前一次的结果
   let exportId = 0; // 同上：导出中途换文件或清空就作废
@@ -148,6 +153,7 @@ export function initGifView({ view }) {
       resetBtn,
       prevBtn,
       nextBtn,
+      cropBtn,
       frameRange,
       speedRange,
       frAIn,
@@ -268,7 +274,8 @@ export function initGifView({ view }) {
 
   function outSize() {
     const s = Number(scaleSel.value) / 100;
-    return [Math.max(1, Math.round(parsed.width * s)), Math.max(1, Math.round(parsed.height * s))];
+    const c = cropRect();
+    return [Math.max(1, Math.round(c.w * s)), Math.max(1, Math.round(c.h * s))];
   }
 
   // 逐帧滑块：量程是「选中的这几帧」，所以读数跟着区间走。
@@ -290,6 +297,29 @@ export function initGifView({ view }) {
         : `第 ${k + 1}/${sel} 帧 · 源 ${srcFrame(frameIndex) + 1}/${parsed.frames.length}`;
   }
 
+  // 框选区域换算成源像素整数矩形，没框选就是全画面
+  function cropRect() {
+    const w = parsed ? parsed.width : 0;
+    const h = parsed ? parsed.height : 0;
+    const s = view.select;
+    if (!s) return { x: 0, y: 0, w, h };
+    const x = Math.round(s.x0 * w);
+    const y = Math.round(s.y0 * h);
+    return {
+      x,
+      y,
+      w: Math.max(1, Math.round(s.x1 * w) - x),
+      h: Math.max(1, Math.round(s.y1 * h) - y),
+    };
+  }
+
+  // 裁剪开关：进模式把左键从平移手里接管，再点一次清掉选区回到全画面
+  function syncCropMode() {
+    view.setSelectEnabled(cropOn);
+    view.setPanEnabled(!cropOn);
+    cropBtn.classList.toggle('on', cropOn);
+  }
+
   function showFrame(i) {
     if (!comp || !parsed || !parsed.frames.length) return;
     frameIndex = Math.min(cutB, Math.max(cutA, i));
@@ -299,6 +329,7 @@ export function initGifView({ view }) {
       paint.width = parsed.width;
       paint.height = parsed.height;
     }
+    // 源预览永远是整幅画面：裁剪框只是叠在上面的一层选区，改的是导出尺寸
     pctx.putImageData(new ImageData(rgba, parsed.width, parsed.height), 0, 0);
     view.setImage(paint, parsed.width, parsed.height);
     const at = frameIndex - cutA;
@@ -469,16 +500,24 @@ export function initGifView({ view }) {
 
   // ---------- 导出 ----------
 
-  // 缩放后的那一帧像素；100% 时直接给原缓冲，省一次画布往返
+  // 缩放后的那一帧像素（先按裁剪框裁，再等比缩）；没裁剪且 100% 时直接给原缓冲，省一次画布往返。
+  // 中间画布单独一张：paint 是预览正在显示的那张，导出时改它的尺寸会把画面拉花
   function scaledFrame(rgba, sw, sh) {
-    if (sw === parsed.width && sh === parsed.height) return rgba;
+    const c = cropRect();
+    const full = c.x === 0 && c.y === 0 && c.w === parsed.width && c.h === parsed.height;
+    if (full && sw === parsed.width && sh === parsed.height) return rgba;
+    // 负偏移 + 脏矩形：把源帧里那一块原样搬到画布左上角，省掉逐像素拷贝
+    if (scratch.width !== c.w || scratch.height !== c.h) {
+      scratch.width = c.w;
+      scratch.height = c.h;
+    }
+    xctx.putImageData(new ImageData(rgba, parsed.width, parsed.height), -c.x, -c.y, c.x, c.y, c.w, c.h);
     if (shrunk.width !== sw || shrunk.height !== sh) {
       shrunk.width = sw;
       shrunk.height = sh;
     }
-    pctx.putImageData(new ImageData(rgba, parsed.width, parsed.height), 0, 0);
     sctx.clearRect(0, 0, sw, sh);
-    sctx.drawImage(paint, 0, 0, parsed.width, parsed.height, 0, 0, sw, sh);
+    sctx.drawImage(scratch, 0, 0, c.w, c.h, 0, 0, sw, sh);
     return sctx.getImageData(0, 0, sw, sh).data;
   }
 
@@ -658,6 +697,9 @@ export function initGifView({ view }) {
       speed = 1;
       speedRange.value = '1';
       speedLabel.textContent = '1.0×';
+      cropOn = false;
+      view.setSelect(null);
+      syncCropMode();
       rebuildPlay();
       setEnabled(true);
       syncFrUI();
@@ -691,6 +733,9 @@ export function initGifView({ view }) {
     frameIndex = 0;
     cutA = 0;
     cutB = 0;
+    cropOn = false;
+    view.setSelect(null);
+    syncCropMode();
     playStart = 0;
     io.clear();
     view.setImage(null);
@@ -724,6 +769,29 @@ export function initGifView({ view }) {
   });
   prevBtn.addEventListener('click', () => stepFrame(-1));
   nextBtn.addEventListener('click', () => stepFrame(1));
+  cropBtn.addEventListener('click', () => {
+    cropOn = !cropOn;
+    syncCropMode();
+    if (cropOn) {
+      setStatus(
+        view.select
+          ? '拖手柄改大小、框内拖动改位置，右键拖动画面，再点一次取消'
+          : '在画面上拖拽框选要保留的区域，右键仍可拖动画面'
+      );
+      return;
+    }
+    if (!view.select) {
+      setStatus('已退出裁剪：全画面');
+      return;
+    }
+    view.setSelect(null);
+    updateOutInfo();
+    setStatus('已取消裁剪：全画面');
+  });
+  // 选区只决定导出留哪一块，源预览仍是整幅画面，所以每一笔只要更新读数
+  view.onSelect = () => {
+    if (parsed) updateOutInfo();
+  };
   // 滑块量程是区间内的相对帧号，所以换算要加回 cutA。
   // 拖动不逐事件合成：一次 mousemove 就解一帧的话，中间那几帧根本不会停留，
   // 却把主线程排满了 —— 攒到下一帧只做一次，而且读的是当时的滑块值，
@@ -773,6 +841,7 @@ export function initGifView({ view }) {
   exportFrameBtn.addEventListener('click', exportFrame);
 
   setEnabled(false);
+  syncCropMode(); // 框选默认关着：左键先是平移，进了裁剪模式才接管
   updateInfo();
   updatePos();
   return { loadEntry };

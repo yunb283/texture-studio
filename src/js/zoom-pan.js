@@ -56,9 +56,13 @@ export function makeZoomPan(el, getLayout, onChange) {
   );
 
   let drag = null;
+  // 左键要留给别的交互时（比如框选裁剪）把左键平移关掉，那种场合改用右键平移
+  let panEnabled = true;
   el.addEventListener('mousedown', (e) => {
-    if (e.button !== 0 || !getLayout().s0) return;
-    drag = { x: e.clientX, y: e.clientY, px: st.panX, py: st.panY };
+    if (e.button !== 0 && e.button !== 2) return;
+    if (e.button === 0 && !panEnabled) return; // 开关只管左键，右键始终能平移
+    if (!getLayout().s0) return;
+    drag = { btn: e.button, x: e.clientX, y: e.clientY, px: st.panX, py: st.panY };
     el.classList.add('panning');
     e.preventDefault();
   });
@@ -68,14 +72,22 @@ export function makeZoomPan(el, getLayout, onChange) {
     st.panY = drag.py + (e.clientY - drag.y);
     apply();
   });
-  window.addEventListener('mouseup', () => {
-    if (!drag) return;
+  window.addEventListener('mouseup', (e) => {
+    if (!drag || e.button !== drag.btn) return; // 左右键混着按时，别把另一种拖拽掐掉
     drag = null;
     el.classList.remove('panning');
   });
 
   return {
     state: st,
+    setPanEnabled(on) {
+      if (panEnabled === on) return;
+      panEnabled = on;
+      if (!on && drag) {
+        drag = null;
+        el.classList.remove('panning');
+      }
+    },
     fitWindow() {
       st.zoom = 1;
       st.panX = st.panY = 0;

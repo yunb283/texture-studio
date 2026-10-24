@@ -81,7 +81,7 @@ export class CanvasView {
     if (opts.selectable) {
       canvas.addEventListener('mousedown', (e) => this._selDown(e));
       canvas.addEventListener('mousemove', (e) => this._selMove(e));
-      window.addEventListener('mouseup', () => this._selUp());
+      window.addEventListener('mouseup', (e) => this._selUp(e));
     }
   }
 
@@ -151,6 +151,11 @@ export class CanvasView {
     this.selectEnabled = on;
     if (!on) this._drag = null;
     this.canvas.style.cursor = on ? 'crosshair' : 'default';
+  }
+
+  // 同一颗左键不能既拖图又框选：进裁剪模式时把平移让出去
+  setPanEnabled(on) {
+    if (this._zp) this._zp.setPanEnabled(on);
   }
 
   targetRect() {
@@ -324,7 +329,7 @@ export class CanvasView {
   }
 
   _selDown(e) {
-    if (!this.selectEnabled) return;
+    if (!this.selectEnabled || e.button !== 0) return; // 右键归平移，不参与框选
     const t = this.targetRect();
     if (!t) return;
     const [px, py] = this._localXY(e);
@@ -353,6 +358,7 @@ export class CanvasView {
     const fy = clamp01((py - t.y) / t.h);
     const d = this._drag;
     if (!d) {
+      if (e.buttons & 2) return; // 右键平移进行中：别用悬停光标盖掉 grabbing
       const hit = this._hitSelect(px, py, t);
       this.canvas.style.cursor =
         hit.mode === 'resize' ? CURSORS[hit.which] : hit.mode === 'move' ? 'move' : 'crosshair';
@@ -378,7 +384,8 @@ export class CanvasView {
     if (this.onSelect) this.onSelect(this.select);
   }
 
-  _selUp() {
+  _selUp(e) {
+    if (e && e.button !== 0) return; // 松开右键只该结束平移
     const d = this._drag;
     if (!d) return;
     this._drag = null;

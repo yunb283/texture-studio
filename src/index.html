@@ -515,6 +515,7 @@
           <button class="btn small" id="gv-reset" disabled>重置</button>
           <button class="btn small step-btn" id="gv-prev" disabled>上一帧</button>
           <button class="btn small step-btn" id="gv-next" disabled>下一帧</button>
+          <button class="btn small" id="gv-crop" disabled title="在画面上拖拽框选一块，导出的 GIF 只留这一块；拖手柄改大小、框内拖动改位置，右键仍然拖动画面。再点一次取消选区">裁剪区域</button>
           <span class="spacer"></span>
           <span class="dim-label tl-time" id="gv-fps-now">-</span>
           <span class="dim-label tl-time" id="gv-time">00:00.00 / 00:00.00</span>
@@ -555,7 +556,7 @@
           <span>导出到源文件所在目录</span>
         </label>
         <button class="btn primary" id="gv-export" disabled>导出 GIF</button>
-        <button class="btn" id="gv-export-frame" disabled title="导出预览里停住的这一帧（PNG，无损，按上面的等比缩放）。文件名固定是 源文件名_f帧号，帧号是源文件里的第几帧">导出当前帧</button>
+        <button class="btn" id="gv-export-frame" disabled title="导出预览里停住的这一帧（PNG，无损，按上面的等比缩放）">导出当前帧</button>
         <div class="io-row end" id="gv-io"></div>
         <div class="status" id="gv-status"></div>
       </div>
