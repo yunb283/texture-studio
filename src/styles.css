@@ -221,6 +221,13 @@ canvas.zoomable.panning,
   margin-bottom: 4px;
 }
 
+/* GIF 预览的帧区间轴：定位靠上面那根逐帧滑块，轨道上没有倒三角，所以不留 .tl-row 的 12px。
+   轨道在行里居中，行高由同排的按钮撑到 30px，上下各有 5px 余量；
+   手柄旗帜下探 8px，所以只补 3px 就够，再多就是把预览画面往下压 */
+.fr-row {
+  padding-bottom: 3px;
+}
+
 .tl-time {
   flex: 0 0 auto;
   font-variant-numeric: tabular-nums;

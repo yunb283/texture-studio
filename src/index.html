@@ -21,6 +21,7 @@
       <button class="tab" id="tab-normal">贴图转法线</button>
       <button class="tab" id="tab-seamless">无缝贴图</button>
       <button class="tab" id="tab-gif">制作GIF</button>
+      <button class="tab" id="tab-gifview">GIF动画预览</button>
       <button class="pin-btn" id="pin-top" title="总在最前" aria-pressed="false">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -427,6 +428,18 @@
             <input type="range" id="gif-frame-range" min="1" max="1" step="1" value="1" disabled />
             <span class="dim-label" id="gif-frame-label">-</span>
           </div>
+          <label>帧区间</label>
+          <div class="dual-row fr-row">
+            <div class="tl" id="gif-fr-tl">
+              <div class="tl-band" id="gif-fr-band" hidden>
+                <div class="tl-grip" id="gif-fr-a"></div>
+                <div class="tl-grip" id="gif-fr-b"></div>
+              </div>
+            </div>
+            <input type="number" id="gif-fr-a-in" min="1" max="1" value="1" disabled />
+            <input type="number" id="gif-fr-b-in" min="1" max="1" value="1" disabled />
+            <button class="btn small" id="gif-fr-all" disabled>全区间</button>
+          </div>
           <label>列 / 行</label>
           <div class="dual-row">
             <input type="number" id="gif-cols" min="1" max="128" step="1" value="1" />
@@ -465,6 +478,85 @@
           </select>
         </div>
         <div class="io-row end" id="gif-io"></div>
+      </div>
+    </div>
+
+    <div class="page hidden" id="page-gifview">
+      <div class="panel" style="flex: 58">
+        <div class="panel-head">
+          <span class="panel-title">GIF 动画预览</span>
+          <div class="bg-btns" id="gv-prev-bg"></div>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="gv-canvas"></canvas>
+        </div>
+        <div class="dim-label" id="gv-info">未载入 GIF</div>
+        <div class="form-grid">
+          <label>逐帧</label>
+          <div class="dual-row">
+            <input type="range" id="gv-frame-range" min="1" max="1" step="1" value="1" disabled />
+            <span class="dim-label" id="gv-frame-label">-</span>
+          </div>
+          <label>帧区间</label>
+          <div class="dual-row fr-row">
+            <div class="tl" id="gv-fr-tl">
+              <div class="tl-band" id="gv-fr-band" hidden>
+                <div class="tl-grip" id="gv-fr-a"></div>
+                <div class="tl-grip" id="gv-fr-b"></div>
+              </div>
+            </div>
+            <input type="number" id="gv-fr-a-in" min="1" max="1" value="1" disabled />
+            <input type="number" id="gv-fr-b-in" min="1" max="1" value="1" disabled />
+            <button class="btn small" id="gv-fr-all" disabled>全区间</button>
+          </div>
+        </div>
+        <div class="vid-row">
+          <button class="btn small" id="gv-play" disabled>播放</button>
+          <button class="btn small" id="gv-reset" disabled>重置</button>
+          <button class="btn small step-btn" id="gv-prev" disabled>上一帧</button>
+          <button class="btn small step-btn" id="gv-next" disabled>下一帧</button>
+          <span class="spacer"></span>
+          <span class="dim-label tl-time" id="gv-time">00:00.00 / 00:00.00</span>
+        </div>
+      </div>
+      <div class="panel" style="flex: 42">
+        <div class="panel-head">
+          <span class="panel-title">导入与导出</span>
+        </div>
+        <button class="btn" id="gv-open">打开 GIF…（或拖入文件）</button>
+        <button class="btn" id="gv-clear" disabled>清空</button>
+        <div class="form-grid">
+          <label>帧率</label>
+          <div class="dual-row">
+            <input type="range" id="gv-fps" min="1" max="60" step="1" value="15" disabled title="导入时自动跳到原文件的平均帧率。改动按同一个倍率缩放每帧延时，原文件里快慢不一的节奏不会被抹平" />
+            <span class="dim-label" id="gv-fps-label">15</span>
+          </div>
+          <label>抽帧</label>
+          <select id="gv-drop" disabled title="0 不抽帧；1 从第一帧起每 2 帧留 1 帧；2 再走一遍，每 4 帧留 1 帧。抽掉的帧把时长并进后一帧，一圈总时长不变">
+            <option value="0" selected>0（不抽帧）</option>
+            <option value="1">1（每 2 帧留 1）</option>
+            <option value="2">2（每 4 帧留 1）</option>
+          </select>
+          <label>等比缩放</label>
+          <select id="gv-scale" disabled>
+            <option value="100" selected>100%</option>
+            <option value="75">75%</option>
+            <option value="50">50%</option>
+            <option value="25">25%</option>
+          </select>
+          <label>文件名</label>
+          <input type="text" id="gv-name" placeholder="留空则用 原名_1.gif" disabled />
+          <label>导出</label>
+          <div class="dim-label" id="gv-out-info">未载入 GIF</div>
+        </div>
+        <label class="chk">
+          <input type="checkbox" id="gv-save-orig" checked />
+          <span>导出到源文件所在目录</span>
+        </label>
+        <button class="btn primary" id="gv-export" disabled>导出 GIF</button>
+        <button class="btn" id="gv-export-frame" disabled title="导出预览里停住的这一帧（PNG，无损，按上面的等比缩放）。文件名固定是 源文件名_f帧号，帧号是源文件里的第几帧">导出当前帧</button>
+        <div class="io-row end" id="gv-io"></div>
+        <div class="status" id="gv-status"></div>
       </div>
     </div>
 

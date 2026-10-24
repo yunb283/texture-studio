@@ -66,6 +66,13 @@ export function initGif({ srcView }) {
   const nextBtn = $('gif-next');
   const frameRange = $('gif-frame-range');
   const frameLabel = $('gif-frame-label');
+  const frTl = $('gif-fr-tl');
+  const frBand = $('gif-fr-band');
+  const frAGrip = $('gif-fr-a');
+  const frBGrip = $('gif-fr-b');
+  const frAIn = $('gif-fr-a-in');
+  const frBIn = $('gif-fr-b-in');
+  const frAllBtn = $('gif-fr-all');
   const video = $('gif-video');
   const vidPlayBtn = $('gif-vid-play');
   const vidResetBtn = $('gif-vid-reset');
@@ -99,6 +106,11 @@ export function initGif({ srcView }) {
   let chunkCache = null; // 帧字节缓存：编码参数没变时改循环次数只需重拼文件头
   let pullMs = null; // 最近一次抽帧耗时；缓存命中时为 null
   let curFrames = [];
+  let allFrames = []; // 这一轮抽出来的全部帧；帧区间只从这里切一段去编码，不重新抽帧
+  // 用户想要的区间（闭区间，索引进 allFrames）。full 表示没裁过，
+  // 帧数一变（改帧率/改时间段）就靠它退回全区间，而不是留着上一个源上的旧端点
+  let frameSel = { a: 0, b: 0, full: true };
+  let frDrag = null; // 帧区间轴正在拖：{which:'a'|'b'|'band', grab, w, n, was}
   let result = null; // {bytes, count, w, h, delay, loops}
   let playing = true;
   let frameIndex = 0;
@@ -275,6 +287,8 @@ export function initGif({ srcView }) {
     // 列/行只对图片有意义
     colsIn.disabled = !on || mode !== 'image';
     rowsIn.disabled = !on || mode !== 'image';
+    // 帧区间要有已抽好的帧才裁得动
+    for (const el of [frAIn, frBIn, frAllBtn]) el.disabled = !on || !allFrames.length;
   }
 
   function setVideoUI(on) {
@@ -581,6 +595,7 @@ export function initGif({ srcView }) {
   function refreshPreview() {
     if (!result) return;
     for (const el of [playBtn, prevBtn, nextBtn, frameRange]) el.disabled = false;
+    for (const el of [frAIn, frBIn, frAllBtn]) el.disabled = !allFrames.length;
     frameRange.max = String(result.count);
     frameIndex = Math.min(frameIndex, result.count - 1);
     playBtn.textContent = playing ? '暂停动画' : '播放动画';
@@ -639,6 +654,112 @@ export function initGif({ srcView }) {
     matMemo = null;
   }
 
+  // ---------- 帧区间（在抽好的帧里裁一段） ----------
+
+  // 当前生效的区间：没裁过就是全区间；帧数变少了就把端点收进来，不报错也不留空区间
+  function curSel() {
+    const n = allFrames.length;
+    if (!n) return { a: 0, b: 0, full: true };
+    if (frameSel.full) return { a: 0, b: n - 1, full: true };
+    const a = Math.min(Math.max(0, frameSel.a), n - 1);
+    const b = Math.min(Math.max(frameSel.b, a), n - 1);
+    return { a, b, full: a === 0 && b === n - 1 };
+  }
+
+  // 切片也记一份：chunkCache 是按帧数组的身份比对的，每次 render 新建一个切片
+  // 就等于让「改颜色/改循环只重拼头」那条快路永远命不中
+  let winMemo = { src: null, a: -1, b: -1, out: null };
+  function windowOf(frames) {
+    const { a, b, full } = curSel();
+    if (full) return frames;
+    if (winMemo.src === frames && winMemo.a === a && winMemo.b === b) return winMemo.out;
+    winMemo = { src: frames, a, b, out: frames.slice(a, b + 1) };
+    return winMemo.out;
+  }
+
+  function setFrameSel(a, b) {
+    const n = allFrames.length;
+    if (!n) return;
+    const lo = Math.min(Math.max(0, Math.round(a)), n - 1);
+    const hi = Math.min(Math.max(lo, Math.round(b)), n - 1);
+    frameSel = { a: lo, b: hi, full: lo === 0 && hi === n - 1 };
+    syncFrUI();
+  }
+
+  // 黄带的位置就是区间：left = a/n，width = 帧数/n（两端手柄由 CSS 挂在黄带上，跟着走）
+  function syncFrUI() {
+    const n = allFrames.length;
+    const { a, b } = curSel();
+    frBand.hidden = n === 0;
+    frTl.classList.toggle('loaded', n > 0);
+    frAIn.max = String(n || 1);
+    frBIn.max = String(n || 1);
+    if (!n) return;
+    frBand.style.left = `${(a / n) * 100}%`;
+    frBand.style.width = `${((b - a + 1) / n) * 100}%`;
+    frAIn.value = String(a + 1);
+    frBIn.value = String(b + 1);
+  }
+
+  // 区间定了才重编：切片换了，帧数、时长、体积、导出字节全跟着变
+  function frameSelCommitted() {
+    if (!allFrames.length) return;
+    frameIndex = 0; // 切片换了，原来的帧号在新切片里没有对应，从新区间第一帧接着看
+    if (!autoExtract) {
+      updateInfo();
+      return;
+    }
+    render();
+  }
+
+  function frFrac(e) {
+    const rect = frTl.getBoundingClientRect();
+    return rect.width ? Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width)) : 0;
+  }
+
+  // 拖轴：两端手柄改端点，黄带整体平移；轨道空白处不动作 —— 定位有上面那根逐帧滑块
+  function frDown(e) {
+    const n = allFrames.length;
+    if (n < 2) return;
+    const which =
+      e.target === frAGrip ? 'a' : e.target === frBGrip ? 'b' : e.target === frBand ? 'band' : null;
+    if (!which) return;
+    const s = curSel();
+    frDrag = {
+      which,
+      grab: frFrac(e) * n - s.a,
+      w: s.b - s.a + 1,
+      n,
+      was: s,
+    };
+    e.preventDefault();
+  }
+
+  function frMove(e) {
+    if (!frDrag) return;
+    const n = frDrag.n;
+    const s = curSel();
+    const f = frFrac(e) * n;
+    if (frDrag.which === 'a') setFrameSel(Math.floor(f), s.b);
+    else if (frDrag.which === 'b') setFrameSel(s.a, Math.ceil(f) - 1);
+    else {
+      const start = Math.min(Math.max(0, Math.round(f - frDrag.grab)), n - frDrag.w);
+      setFrameSel(start, start + frDrag.w - 1);
+    }
+    e.preventDefault();
+  }
+
+  // 拖动期间只挪黄带和读数，松手才真的重编（和左页时间轴同一个策略：
+  // 一边拖一边编，全是被中途作废的活）
+  function frUp() {
+    if (!frDrag) return;
+    const d = frDrag;
+    frDrag = null;
+    const s = curSel();
+    if (d.was.a === s.a && d.was.b === s.b) return;
+    frameSelCommitted();
+  }
+
   async function render() {
     if (!mode) return;
     // 手动模式：参数改动只反映到预估，不碰抽帧和编码
@@ -681,7 +802,10 @@ export function initGif({ srcView }) {
       setProgress(null);
       return;
     }
-    await encode(id, frames);
+    // 抽到的是全部帧，区间只在它们里切一刀交给编码：换区间不重新抽帧，也就不会重新 seek 源文件
+    allFrames = frames;
+    syncFrUI();
+    await encode(id, windowOf(frames));
   }
 
   // ---------- 编码 worker 池 ----------
@@ -881,9 +1005,13 @@ export function initGif({ srcView }) {
     };
     refreshPreview();
     setProgress(null);
+    // 裁过就把「区间 / 总帧数」一起写出来，否则看着像编码丢了帧
+    const cropped = frames.length !== allFrames.length;
     updateOut(
-      `GIF：${frames.length} 帧  |  ${tw}x${th}  |  每帧 ${opts.delay * 10}ms（约 ${gifFpsForDelay(opts.delay).toFixed(1)}fps）  |  ` +
-        `${humanSize(bytes.length)}  |  时长 ${fmtDur((frames.length * opts.delay) / 100)}`
+      `GIF：${frames.length}${cropped ? `/${allFrames.length}` : ''} 帧  |  ${tw}x${th}  |  ` +
+        `每帧 ${opts.delay * 10}ms（约 ${gifFpsForDelay(opts.delay).toFixed(1)}fps）  |  ` +
+        `${humanSize(bytes.length)}  |  时长 ${fmtDur((frames.length * opts.delay) / 100)}` +
+        (cropped ? `  |  区间 ${curSel().a + 1}–${curSel().b + 1}` : '')
     );
     // 抽帧耗时只在真的抽过这一轮时显示；缓存命中（改帧率降档、往窄里改范围、改循环/颜色等）标明走了缓存
     const pulled =
@@ -1202,6 +1330,9 @@ export function initGif({ srcView }) {
     cache = null;
     dropSrcCache();
     chunkCache = null;
+    // 换源：帧序列整批换掉，上一个源的区间端点没有意义，退回全区间
+    allFrames = [];
+    frameSel = { a: 0, b: 0, full: true };
     io.setSource(entry.path);
     io.setExport(null);
     frameIndex = 0;
@@ -1244,6 +1375,9 @@ export function initGif({ srcView }) {
     dropSrcCache();
     chunkCache = null;
     curFrames = [];
+    allFrames = [];
+    frameSel = { a: 0, b: 0, full: true };
+    syncFrUI();
     sourcePath = null;
     sourceName = '';
     sourceBytes = 0;
@@ -1308,6 +1442,31 @@ export function initGif({ srcView }) {
     const i = Number(frameRange.value) - 1;
     setPlaying(false);
     showFrame(i);
+  });
+
+  frTl.addEventListener('mousedown', frDown);
+  window.addEventListener('mousemove', frMove);
+  window.addEventListener('mouseup', () => {
+    frUp();
+  });
+  // 数字框走 change：敲到一半就重编等于把每一个中间值都编一遍
+  frAIn.addEventListener('change', () => {
+    const n = allFrames.length;
+    if (!n) return;
+    setFrameSel(clamped(frAIn, 1, n) - 1, curSel().b);
+    frameSelCommitted();
+  });
+  frBIn.addEventListener('change', () => {
+    const n = allFrames.length;
+    if (!n) return;
+    setFrameSel(curSel().a, clamped(frBIn, 1, n) - 1);
+    frameSelCommitted();
+  });
+  frAllBtn.addEventListener('click', () => {
+    const n = allFrames.length;
+    if (!n) return;
+    setFrameSel(0, n - 1);
+    frameSelCommitted();
   });
 
   vidPlayBtn.addEventListener('click', () => (video.paused ? playVideo() : pauseVideo()));

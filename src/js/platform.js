@@ -51,6 +51,9 @@ export const TEXTURE_EXTS = [
 export const VIDEO_EXTS = ['mp4', 'm4v', 'mov', 'webm', 'mkv', 'avi', 'wmv'];
 export const GIF_SOURCE_EXTS = [...TEXTURE_EXTS, ...VIDEO_EXTS];
 
+// GIF 动画预览页只收 GIF：其它格式没有逐帧结构，硬解出来也只是张静图，不如不接
+export const GIF_ONLY_EXTS = ['gif'];
+
 export function isVideoName(name) {
   return VIDEO_EXTS.includes((name.split('.').pop() || '').toLowerCase());
 }
@@ -237,6 +240,18 @@ export async function uniqueFilename(dir, name) {
   const dot = name.lastIndexOf('.');
   const stem = dot > 0 ? name.slice(0, dot) : name;
   const ext = dot > 0 ? name.slice(dot) : '';
+  for (let i = 1; ; i++) {
+    const cand = `${stem}_${i}${ext}`;
+    if (!taken.has(cand.toLowerCase())) return cand;
+  }
+}
+
+// 「原名_1.gif、原名_2.gif…」按序号找第一个没被占用的名字，从 1 起排。
+// 拿不到目录清单（浏览器环境或列目录失败）就返回 _1。
+export async function seqFilename(dir, stem, ext) {
+  const files = dir ? await listDir(dir) : null;
+  if (!files) return `${stem}_1${ext}`;
+  const taken = new Set(files.map((p) => baseName(p).toLowerCase()));
   for (let i = 1; ; i++) {
     const cand = `${stem}_${i}${ext}`;
     if (!taken.has(cand.toLowerCase())) return cand;

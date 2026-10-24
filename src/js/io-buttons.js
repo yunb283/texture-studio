@@ -1,6 +1,6 @@
 // 每个页面板的「打开…」入口：只负责把最近一次的源文件 / 导出文件路径记下来，
 // 再按路径决定哪个能点，实际打开走 Rust 的 open_path（explorer）。
-// 六个页共用这一份，页面里只需要 io.setSource(...) / io.setExport(...) 两处调用。
+// 七个页共用这一份，页面里只需要 io.setSource(...) / io.setExport(...) 两处调用。
 // 形态是文字链，挂在各页结果信息行（或状态行）的右端，不单独占一行。
 import { isTauri, openPath, dirname } from './platform.js';
 

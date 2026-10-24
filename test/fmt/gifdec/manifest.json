@@ -1,0 +1,181 @@
+{
+ "size": [
+  12,
+  9
+ ],
+ "cases": [
+  {
+   "name": "plain",
+   "note": "整幅帧轮流覆盖，最普通的一路",
+   "frames": 4,
+   "durations": [
+    100,
+    100,
+    100,
+    100
+   ],
+   "loop": null,
+   "structure": {
+    "frames": 4,
+    "patches": 0,
+    "interlaced": 0,
+    "loop": null,
+    "bg_index": 0
+   }
+  },
+  {
+   "name": "uneven",
+   "note": "不等长延时 + disposal=1 留着画面",
+   "frames": 3,
+   "durations": [
+    40,
+    200,
+    90
+   ],
+   "loop": null,
+   "structure": {
+    "frames": 3,
+    "patches": 1,
+    "interlaced": 0,
+    "loop": null,
+    "bg_index": 0
+   }
+  },
+  {
+   "name": "transp",
+   "note": "透明索引：索引 7 的像素透出上一帧",
+   "frames": 3,
+   "durations": [
+    80,
+    80,
+    80
+   ],
+   "loop": null,
+   "structure": {
+    "frames": 3,
+    "patches": 1,
+    "interlaced": 0,
+    "loop": null,
+    "bg_index": 0
+   }
+  },
+  {
+   "name": "d2_transp",
+   "note": "disposal=2 且全片用了透明索引：补丁画完擦成 alpha=0",
+   "frames": 3,
+   "durations": [
+    60,
+    60,
+    60
+   ],
+   "loop": null,
+   "structure": {
+    "frames": 3,
+    "patches": 1,
+    "interlaced": 0,
+    "loop": null,
+    "bg_index": 0
+   }
+  },
+  {
+   "name": "d2_bg",
+   "note": "disposal=2 且全片没有透明：补丁位置恢复成 LSD 背景色索引 2",
+   "frames": 3,
+   "durations": [
+    60,
+    60,
+    60
+   ],
+   "loop": null,
+   "structure": {
+    "frames": 3,
+    "patches": 1,
+    "interlaced": 0,
+    "loop": null,
+    "bg_index": 2
+   }
+  },
+  {
+   "name": "d3_patch",
+   "note": "disposal=3 只退回自己那块，补丁偏移走 x/y 定位",
+   "frames": 4,
+   "durations": [
+    50,
+    50,
+    50,
+    50
+   ],
+   "loop": null,
+   "structure": {
+    "frames": 4,
+    "patches": 2,
+    "interlaced": 0,
+    "loop": null,
+    "bg_index": 0
+   }
+  },
+  {
+   "name": "opt_delta",
+   "note": "optimize=True：PIL 自己算差集 bbox，帧尺寸小于画面且带局部调色板",
+   "frames": 3,
+   "durations": [
+    70,
+    70,
+    70
+   ],
+   "loop": null,
+   "structure": {
+    "frames": 3,
+    "patches": 2,
+    "interlaced": 0,
+    "loop": null,
+    "bg_index": 0
+   }
+  },
+  {
+   "name": "loop3",
+   "note": "NETSCAPE 循环次数=3",
+   "frames": 2,
+   "durations": [
+    120,
+    120
+   ],
+   "loop": 3,
+   "structure": {
+    "frames": 2,
+    "patches": 0,
+    "interlaced": 0,
+    "loop": 3,
+    "bg_index": 0
+   }
+  },
+  {
+   "name": "ref_interlaced",
+   "note": "外部素材 interlaced.gif 8x8，只解不生成",
+   "gif": "interlaced.gif",
+   "frames": 1,
+   "durations": [
+    0
+   ],
+   "loop": null,
+   "size": [
+    8,
+    8
+   ]
+  },
+  {
+   "name": "ref_z_pil",
+   "note": "外部素材 z_pil.gif 96x96，只解不生成",
+   "gif": "../../z_pil.gif",
+   "frames": 1,
+   "durations": [
+    0
+   ],
+   "loop": null,
+   "size": [
+    96,
+    96
+   ]
+  }
+ ]
+}

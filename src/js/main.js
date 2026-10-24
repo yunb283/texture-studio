@@ -6,6 +6,7 @@ import { initConvert } from './convert.js';
 import { initNormal } from './normal-page.js';
 import { initSeamless } from './seamless-page.js';
 import { initGif } from './gif-page.js';
+import { initGifView } from './gif-view-page.js';
 import {
   onGlobalDrop,
   isSupportedName,
@@ -13,6 +14,7 @@ import {
   CONVERT_EXTS,
   TEXTURE_EXTS,
   GIF_SOURCE_EXTS,
+  GIF_ONLY_EXTS,
 } from './platform.js';
 
 function makeBgButtons(container, view, modes, current) {
@@ -89,12 +91,14 @@ const tabConvert = document.getElementById('tab-convert');
 const tabNormal = document.getElementById('tab-normal');
 const tabSeamless = document.getElementById('tab-seamless');
 const tabGif = document.getElementById('tab-gif');
+const tabGifView = document.getElementById('tab-gifview');
 const pageSplit = document.getElementById('page-split');
 const pageMerge = document.getElementById('page-merge');
 const pageConvert = document.getElementById('page-convert');
 const pageNormal = document.getElementById('page-normal');
 const pageSeamless = document.getElementById('page-seamless');
 const pageGif = document.getElementById('page-gif');
+const pageGifView = document.getElementById('page-gifview');
 
 const srcView = new CanvasView(document.getElementById('src-canvas'), {
   clickable: true,
@@ -128,6 +132,11 @@ const gifSrcView = new CanvasView(document.getElementById('gif-src-canvas'), {
   bgMode: 2,
   selectable: true,
 });
+// GIF 动画预览：整幅画面就这一张 canvas，播放/暂停/拖动都在这里
+const gvView = new CanvasView(document.getElementById('gv-canvas'), {
+  bgMode: 2,
+  zoomable: true,
+});
 
 makeBgButtons(document.getElementById('src-bg'), srcView, [0, 1, 2, 3], 3);
 makeBgButtons(document.getElementById('split-prev-bg'), frameView, [0, 1, 2], 2);
@@ -138,6 +147,7 @@ makeBgButtons(document.getElementById('nrm-out-bg'), nrmOutView, [0, 1, 2], 2);
 makeBgButtons(document.getElementById('sml-src-bg'), smlSrcView, [0, 1, 2], 2);
 makeBgButtons(document.getElementById('sml-out-bg'), smlOutView, [0, 1, 2], 2);
 makeBgButtons(document.getElementById('gif-src-bg'), gifSrcView, [0, 1, 2], 2);
+makeBgButtons(document.getElementById('gv-prev-bg'), gvView, [0, 1, 2], 2);
 makeCssBgButtons(
   document.getElementById('gif-prev-bg'),
   document.getElementById('gif-prev-wrap'),
@@ -172,6 +182,7 @@ makeViewTools(document.getElementById('conv-prev-bg'), convView);
 makeViewTools(document.getElementById('nrm-out-bg'), nrmOutView);
 makeViewTools(document.getElementById('sml-out-bg'), smlOutView);
 makeViewTools(document.getElementById('gif-prev-bg'), gifZp);
+makeViewTools(document.getElementById('gv-prev-bg'), gvView);
 
 const splitApi = initSplit({ srcView, frameView });
 const mergeApi = initMerge({ mergeView });
@@ -179,6 +190,7 @@ const convApi = initConvert({ view: convView });
 const nrmApi = initNormal({ srcView: nrmSrcView, outView: nrmOutView });
 const smlApi = initSeamless({ srcView: smlSrcView, outView: smlOutView });
 const gifApi = initGif({ srcView: gifSrcView });
+const gvApi = initGifView({ view: gvView });
 
 // 两行封顶的那几行（各页状态行、GIF 页信息行）只显示两行，超出省略号；
 // 完整文字挂到 title 上，鼠标悬停看全文
@@ -197,6 +209,7 @@ const tabs = [
   ['normal', tabNormal, pageNormal, [nrmSrcView, nrmOutView]],
   ['seamless', tabSeamless, pageSeamless, [smlSrcView, smlOutView]],
   ['gif', tabGif, pageGif, [gifSrcView]],
+  ['gifview', tabGifView, pageGifView, [gvView]],
 ];
 
 function showTab(which) {
@@ -216,6 +229,7 @@ tabConvert.addEventListener('click', () => showTab('convert'));
 tabNormal.addEventListener('click', () => showTab('normal'));
 tabSeamless.addEventListener('click', () => showTab('seamless'));
 tabGif.addEventListener('click', () => showTab('gif'));
+tabGifView.addEventListener('click', () => showTab('gifview'));
 
 // 总在最前：默认关闭，按下启用（浏览器里没有窗口，直接隐藏）
 const pinBtn = document.getElementById('pin-top');
@@ -231,8 +245,9 @@ if (!isTauri) {
 }
 
 onGlobalDrop((entries) => {
-  // 三个贴图/动画处理页各有一份白名单，谁在前台就交给谁（白名单外也递过去，由页面给提示）
+  // 几个动画/贴图处理页各有一份白名单，谁在前台就交给谁（白名单外也递过去，由页面给提示）
   for (const [pageEl, api, exts] of [
+    [pageGifView, gvApi, GIF_ONLY_EXTS],
     [pageGif, gifApi, GIF_SOURCE_EXTS],
     [pageSeamless, smlApi, TEXTURE_EXTS],
     [pageNormal, nrmApi, TEXTURE_EXTS],
