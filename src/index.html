@@ -569,6 +569,7 @@
       <div class="panel" style="flex: 58">
         <div class="panel-head">
           <span class="panel-title">源视频</span>
+          <span class="dim-label" id="vid-src-size"></span>
           <button class="btn small" id="vid-crop" disabled>裁剪区域</button>
           <button class="btn small" id="vid-hide" disabled>隐藏暂停按钮</button>
         </div>
@@ -722,6 +723,7 @@
           <span class="dim-label" id="vid-progress-text">0%</span>
         </div>
         <div class="status" id="vid-status"></div>
+        <div class="dim-label" id="vid-out-size"></div>
         <div class="io-row end" id="vid-io"></div>
       </div>
     </div>
@@ -730,6 +732,7 @@
       <div class="panel" style="flex: 50">
         <div class="panel-head">
           <span class="panel-title">源音频</span>
+          <span class="dim-label" id="aud-src-size"></span>
         </div>
         <div class="canvas-wrap" id="aud-canvas-wrap" style="display:flex;flex-direction:column;justify-content:center;align-items:center;">
           <audio id="aud-src" controls style="width:100%;max-width:480px;"></audio>
@@ -811,6 +814,7 @@
           <span class="dim-label" id="aud-progress-text">0%</span>
         </div>
         <div class="status" id="aud-status"></div>
+        <div class="dim-label" id="aud-out-size"></div>
         <div class="io-row end" id="aud-io"></div>
       </div>
     </div>
@@ -825,11 +829,19 @@
           <button class="btn small" id="dl-fetch">解析</button>
         </div>
         <div class="canvas-wrap" id="dl-thumb-wrap" style="display:flex;align-items:center;justify-content:center;background:#000;">
-          <img id="dl-thumb" style="max-width:100%;max-height:100%;display:none;" />
+          <img
+            id="dl-thumb"
+            style="max-width:100%;max-height:100%;display:none;"
+            referrerpolicy="no-referrer"
+            decoding="async"
+          />
           <span class="dim-label" id="dl-thumb-placeholder">尚未解析视频</span>
         </div>
         <div class="dim-label info-wrap" id="dl-info">未解析视频</div>
         <div class="panel-subhead">可用格式（点击选择，留空则下载最佳质量）</div>
+        <div class="dim-label" style="font-size:11px;padding:0 10px 4px;line-height:1.5;">
+          同一分辨率出现多条是不同编码：H.264 兼容性最好，H.265 压缩率高，AV1 体积通常最小；码率和体积会不一样
+        </div>
         <div class="dl-fmt-list" id="dl-fmt-list"></div>
       </div>
       <div class="panel" style="flex: 45">
@@ -846,11 +858,30 @@
           <input type="checkbox" id="dl-save-default" checked />
           <span>保存到默认下载目录</span>
         </label>
-        <div class="dim-label">Cookies 文件（可选，B 站等站点反爬时需要）</div>
+        <div class="dim-label">Cookies（B 站等站点反爬时需要）</div>
         <div class="size-row">
-          <input type="text" id="dl-cookies" placeholder="从浏览器导出的 cookies.txt，留空则不使用" readonly />
+          <select id="dl-cookie-source">
+            <option value="">不使用</option>
+            <option value="chrome">从 Chrome 读取</option>
+            <option value="edge">从 Edge 读取</option>
+            <option value="firefox">从 Firefox 读取</option>
+            <option value="file">自定义 cookies.txt 文件</option>
+          </select>
+        </div>
+        <div class="size-row" id="dl-cookie-file-row" style="display:none;">
+          <input type="text" id="dl-cookies" placeholder="从浏览器导出的 cookies.txt" readonly />
           <button class="btn small" id="dl-cookies-browse">浏览…</button>
           <button class="btn small" id="dl-cookies-clear">清除</button>
+        </div>
+        <div class="dim-label">网络代理</div>
+        <div class="size-row">
+          <select id="dl-proxy-mode">
+            <option value="">跟随 yt-dlp 默认</option>
+            <option value="direct">直连（不使用代理）</option>
+            <option value="system">跟随系统代理</option>
+            <option value="custom">自定义…</option>
+          </select>
+          <input type="text" id="dl-proxy-url" placeholder="http://127.0.0.1:7890" style="display: none" />
         </div>
         <div class="dim-label">自定义保存目录</div>
         <div class="size-row">

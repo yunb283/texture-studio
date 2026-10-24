@@ -1103,6 +1103,18 @@ select:disabled {
   min-width: 42px;
 }
 
+/* 同一分辨率会有 H.264 / H.265 / AV1 多条，用编码标签区分 */
+.dl-fmt-item .fmt-codec {
+  color: #9ad1ff;
+  background: rgba(57, 199, 237, 0.12);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 11px;
+  min-width: 46px;
+  text-align: center;
+  white-space: nowrap;
+}
+
 .dl-fmt-item .fmt-note {
   color: #8a8a93;
   font-size: 12px;

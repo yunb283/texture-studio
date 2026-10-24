@@ -10,6 +10,8 @@ import {
   isAudioName,
   isVideoName,
   AUDIO_SOURCE_EXTS,
+  formatBytes,
+  fileSizeOf,
 } from './platform.js';
 import { createIoButtons } from './io-buttons.js';
 
@@ -62,10 +64,13 @@ export function initAudioConvert() {
   const status = $('aud-status');
 
   const io = createIoButtons($('aud-io'), setStatus);
+  const srcSizeEl = $('aud-src-size');
+  const outSizeEl = $('aud-out-size');
 
   let entry = null;
   let srcUrl = null;
   let audioInfo = null;
+  let probeSeq = 0; // 丢弃上一个文件迟到的探测结果
   let converting = false;
   let unlisten = null;
 
@@ -112,10 +117,17 @@ export function initAudioConvert() {
       setStatus('不支持的格式：' + e.name);
       return;
     }
+    const seq = ++probeSeq;
     entry = e;
     io.setSource(e.path);
     io.setExport(null);
-    setStatus('正在读取音频信息…');
+    // 先放个空壳，时长等 <audio> 元数据一到就填上
+    audioInfo = { duration: 0, audio_codec: '', sample_rate: null, channels: null, bitrate: '' };
+    outSizeEl.textContent = '';
+    srcSizeEl.textContent = '';
+    fileSizeOf(e).then((n) => {
+      if (entry === e) srcSizeEl.textContent = formatBytes(n);
+    });
 
     if (srcUrl) releaseSrc(srcUrl);
     srcUrl = videoSrc(e);
@@ -123,32 +135,32 @@ export function initAudioConvert() {
       audio.src = srcUrl;
     }
 
-    if (isTauri) {
-      try {
-        audioInfo = await window.__TAURI__.core.invoke('ffprobe_video', { path: e.path });
-      } catch (ex) {
-        audioInfo = null;
-        setStatus('读取音频信息失败：' + (ex?.message ?? ex));
-      }
-    } else {
-      const onLoaded = () => {
-        audioInfo = {
-          duration: audio.duration,
-          audio_codec: '',
-          sample_rate: null,
-          channels: null,
-          bitrate: '',
-        };
-        updateInfo();
-        audio.removeEventListener('loadedmetadata', onLoaded);
-      };
-      audio.addEventListener('loadedmetadata', onLoaded);
-    }
+    const onLoaded = () => {
+      if (audioInfo && isFinite(audio.duration)) audioInfo.duration = audio.duration;
+      updateInfo();
+      audio.removeEventListener('loadedmetadata', onLoaded);
+    };
+    audio.addEventListener('loadedmetadata', onLoaded);
 
+    // 导入不等探测：编码/采样率/声道数由后台 ffprobe 补
     updateInfo();
     setEnabled(true);
-    setStatus('已载入：' + e.name);
     setProgress(0);
+    setStatus('已载入：' + e.name);
+
+    if (isTauri) {
+      window.__TAURI__.core
+        .invoke('ffprobe_video', { path: e.path })
+        .then((info) => {
+          if (seq !== probeSeq || !info) return;
+          audioInfo = info;
+          updateInfo();
+        })
+        .catch((ex) => {
+          if (seq !== probeSeq) return;
+          setStatus('已载入：' + e.name + '（读取音频信息失败：' + (ex?.message ?? ex) + '）');
+        });
+    }
   }
 
   async function doConvert() {
@@ -209,6 +221,9 @@ export function initAudioConvert() {
       setProgress(1);
       setStatus('转换完成：' + outPath);
       io.setExport(outPath);
+      // 右侧栏提示转换后的大小
+      const outBytes = await fileSizeOf({ path: outPath });
+      outSizeEl.textContent = outBytes ? `输出大小：${formatBytes(outBytes)}` : '';
     } catch (ex) {
       setStatus('转换失败：' + (ex?.message ?? ex));
     } finally {
@@ -234,6 +249,9 @@ export function initAudioConvert() {
     if (converting) return;
     entry = null;
     audioInfo = null;
+    probeSeq++;
+    srcSizeEl.textContent = '';
+    outSizeEl.textContent = '';
     if (srcUrl) {
       releaseSrc(srcUrl);
       srcUrl = null;

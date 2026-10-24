@@ -16,6 +16,33 @@ export function stemOf(name) {
   return name.replace(/\.[^.]*$/, '');
 }
 
+// 人类可读的文件大小，如 "1.2 GB"
+export function formatBytes(n) {
+  if (!n || n <= 0) return '';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let v = n;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i += 1;
+  }
+  return `${i === 0 || v >= 100 ? Math.round(v) : v.toFixed(1)} ${units[i]}`;
+}
+
+// 取源文件大小：Tauri 走 Rust 的 metadata，浏览器环境用 File.size
+export async function fileSizeOf(entry) {
+  if (!entry) return 0;
+  if (entry.file && entry.file.size) return entry.file.size;
+  if (isTauri && entry.path) {
+    try {
+      return await window.__TAURI__.core.invoke('file_size', { path: entry.path });
+    } catch (_) {
+      return 0;
+    }
+  }
+  return 0;
+}
+
 const SUPPORTED_EXTS = ['png', 'tga', 'targa', 'jpg', 'jpeg', 'bmp', 'gif', 'webp', 'tif', 'tiff'];
 // 格式转换页的导入范围更宽（含 WebView2 解不了、需要自带解码器的格式）
 export const CONVERT_EXTS = [

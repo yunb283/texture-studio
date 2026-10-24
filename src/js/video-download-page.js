@@ -18,6 +18,10 @@ export function initVideoDownload() {
   const cookiesInput = $('dl-cookies');
   const cookiesBrowseBtn = $('dl-cookies-browse');
   const cookiesClearBtn = $('dl-cookies-clear');
+  const cookieSourceSel = $('dl-cookie-source');
+  const cookieFileRow = $('dl-cookie-file-row');
+  const proxyModeSel = $('dl-proxy-mode');
+  const proxyUrlIn = $('dl-proxy-url');
   const downloadBtn = $('dl-download');
   const progressFill = $('dl-progress-fill');
   const progressText = $('dl-progress-text');
@@ -35,11 +39,56 @@ export function initVideoDownload() {
     statusEl.textContent = msg || '';
   }
 
+  // 根据下拉选择返回 yt-dlp 的 cookies 参数
+  function getCookieArgs() {
+    const src = cookieSourceSel.value;
+    if (src === 'file') {
+      return { cookies: cookiesInput.value.trim() || null, cookies_from_browser: null };
+    }
+    if (src) {
+      return { cookies: null, cookies_from_browser: src };
+    }
+    return { cookies: null, cookies_from_browser: null };
+  }
+
   function setProgress(p) {
     const pct = Math.round(p * 100);
     progressFill.style.width = `${pct}%`;
     progressText.textContent = `${pct}%`;
   }
+
+  // 网络代理选择：'' 默认、direct 直连、system 系统代理、custom 自定义地址
+  function getProxyArg() {
+    const mode = proxyModeSel.value;
+    if (mode === 'custom') return proxyUrlIn.value.trim() || null;
+    return mode || null;
+  }
+
+  const PROXY_KEY = 'texture-studio.dl.proxy';
+  function saveProxyChoice() {
+    try {
+      localStorage.setItem(
+        PROXY_KEY,
+        JSON.stringify({ mode: proxyModeSel.value, url: proxyUrlIn.value.trim() })
+      );
+    } catch (_) {}
+  }
+  try {
+    const saved = JSON.parse(localStorage.getItem(PROXY_KEY) || 'null');
+    if (saved) {
+      proxyModeSel.value = saved.mode || '';
+      proxyUrlIn.value = saved.url || '';
+    }
+  } catch (_) {}
+  function syncProxyInput() {
+    proxyUrlIn.style.display = proxyModeSel.value === 'custom' ? '' : 'none';
+  }
+  syncProxyInput();
+  proxyModeSel.addEventListener('change', () => {
+    syncProxyInput();
+    saveProxyChoice();
+  });
+  proxyUrlIn.addEventListener('change', saveProxyChoice);
 
   function formatDuration(sec) {
     if (!sec || sec <= 0) return '未知';
@@ -59,13 +108,55 @@ export function initVideoDownload() {
 
   function renderInfo(info) {
     currentInfo = info;
-    thumb.src = info.thumbnail || '';
-    thumb.style.display = info.thumbnail ? 'block' : 'none';
-    thumbPh.style.display = info.thumbnail ? 'none' : '';
+    // 封面：B 站图床对 Referer 敏感（<img> 上已设 referrerpolicy=no-referrer），
+    // 加载失败就退回占位文案，别留一个裂图标
+    if (info.thumbnail) {
+      thumbPh.textContent = '封面加载中…';
+      thumb.style.display = 'none';
+      thumbPh.style.display = '';
+      thumb.src = info.thumbnail.replace(/^http:/, 'https:');
+    } else {
+      thumb.removeAttribute('src');
+      thumb.style.display = 'none';
+      thumbPh.textContent = '无封面';
+      thumbPh.style.display = '';
+    }
     const parts = [info.title];
     if (info.uploader) parts.push(`上传者：${info.uploader}`);
     if (info.duration) parts.push(`时长：${formatDuration(info.duration)}`);
     infoEl.textContent = parts.join(' · ');
+  }
+
+  thumb.addEventListener('load', () => {
+    if (!thumb.getAttribute('src')) return;
+    thumb.style.display = 'block';
+    thumbPh.style.display = 'none';
+  });
+  thumb.addEventListener('error', () => {
+    thumb.style.display = 'none';
+    thumbPh.textContent = '封面加载失败';
+    thumbPh.style.display = '';
+  });
+
+  // 同一分辨率会同时给出 H.264 / H.265 / AV1 多条（码率不同、体积不同），标出来免得当成重复项
+  function codecLabel(f) {
+    const v = (f.vcodec || '').toLowerCase();
+    const a = (f.acodec || '').toLowerCase();
+    if (v && v !== 'none') {
+      if (v.startsWith('avc') || v.startsWith('h264')) return 'H.264';
+      if (v.startsWith('hev') || v.startsWith('hvc') || v.startsWith('h265')) return 'H.265';
+      if (v.startsWith('av01')) return 'AV1';
+      if (v.startsWith('vp09') || v.startsWith('vp9')) return 'VP9';
+      if (v.startsWith('vp08') || v.startsWith('vp8')) return 'VP8';
+      if (v.startsWith('mp4v')) return 'MPEG-4';
+      return v.split('.')[0].toUpperCase();
+    }
+    if (a.startsWith('mp4a')) return 'AAC';
+    if (a.startsWith('opus')) return 'Opus';
+    if (a.startsWith('flac')) return 'FLAC';
+    if (a.startsWith('mp3')) return 'MP3';
+    if (a.startsWith('vorbis')) return 'Vorbis';
+    return '';
   }
 
   function renderFormats(formats) {
@@ -82,14 +173,17 @@ export function initVideoDownload() {
       const div = document.createElement('div');
       div.className = 'dl-fmt-item';
       if (f.vcodec === 'none') div.classList.add('audio-only');
-      const res = f.height ? `${f.height}p` : (f.resolution || '音频');
+      const res = f.height ? `${f.height}p` : (f.vcodec === 'none' ? '音频' : (f.resolution || '-'));
       const fps = f.fps ? ` ${f.fps}fps` : '';
-      const note = f.format_note || '';
+      const codec = codecLabel(f);
+      const kbps = f.tbr ? `${Math.round(f.tbr)} kbps` : '';
+      const note = [f.format_note, kbps].filter(Boolean).join(' · ');
       const size = f.filesize || f.filesize_approx;
       div.innerHTML = `
         <span class="fmt-id">${f.format_id}</span>
         <span class="fmt-res">${res}${fps}</span>
         <span class="fmt-ext">${f.ext}</span>
+        <span class="fmt-codec" title="${f.vcodec || f.acodec || ''}">${codec || '-'}</span>
         <span class="fmt-note">${note}</span>
         <span class="fmt-size">${formatSize(size)}</span>
       `;
@@ -100,7 +194,9 @@ export function initVideoDownload() {
           fmtLabel.textContent = '最佳质量（自动）';
         } else {
           selectedFormat = f.format_id;
-          fmtLabel.textContent = `${f.format_id} · ${res} · ${f.ext.toUpperCase()}`;
+          fmtLabel.textContent = [f.format_id, res, codec, f.ext.toUpperCase()]
+            .filter(Boolean)
+            .join(' · ');
         }
         for (const el of fmtList.querySelectorAll('.dl-fmt-item')) {
           el.classList.toggle('selected', el.querySelector('.fmt-id').textContent === selectedFormat);
@@ -133,8 +229,14 @@ export function initVideoDownload() {
     setStatus('正在解析视频信息…');
     setProgress(0);
     try {
-      const cookies = cookiesInput.value.trim() || null;
-      const info = await window.__TAURI__.core.invoke('ytdlp_info', { url, cookies });
+      const { cookies, cookies_from_browser } = getCookieArgs();
+      const proxy = getProxyArg();
+      const info = await window.__TAURI__.core.invoke('ytdlp_info', {
+        url,
+        cookies,
+        cookies_from_browser,
+        proxy,
+      });
       renderInfo(info);
       renderFormats(info.formats);
       selectedFormat = '';
@@ -190,11 +292,16 @@ export function initVideoDownload() {
       const output = `${dir}${sep}${nameStem}.%(ext)s`;
 
       setStatus('下载中…');
-      const cookies = cookiesInput.value.trim() || null;
+      const { cookies, cookies_from_browser } = getCookieArgs();
       await window.__TAURI__.core.invoke('ytdlp_download', {
         url,
         output,
-        options: { format: selectedFormat || null, cookies },
+        options: {
+          format: selectedFormat || null,
+          cookies,
+          cookies_from_browser,
+          proxy: getProxyArg(),
+        },
       });
       setProgress(1);
       lastOutputPath = output.replace('%(title)s', currentInfo.title).replace('%(ext)s', currentInfo.ext || 'mp4');
@@ -226,6 +333,9 @@ export function initVideoDownload() {
   cookiesBrowseBtn.addEventListener('click', pickCookies);
   cookiesClearBtn.addEventListener('click', () => {
     cookiesInput.value = '';
+  });
+  cookieSourceSel.addEventListener('change', () => {
+    cookieFileRow.style.display = cookieSourceSel.value === 'file' ? '' : 'none';
   });
 
   saveDefaultChk.addEventListener('change', () => {

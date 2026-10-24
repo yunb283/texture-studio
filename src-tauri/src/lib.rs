@@ -8,6 +8,26 @@ use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::{DialogExt, FilePath};
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+/// Windows 的 CREATE_NO_WINDOW：启动控制台子进程时不要新建控制台窗口。
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+/// 启动子进程（ffmpeg / yt-dlp）时统一隐藏控制台。
+///
+/// release 版是 GUI 子系统、自身没有控制台，Windows 会为每个控制台子进程新建一个
+/// conhost，实测每次多花 0.5~0.7 秒（还会闪一下黑框）；开发版（debug）是控制台程序，
+/// 子进程直接继承父进程的控制台，所以没有这笔开销。加上 CREATE_NO_WINDOW 后两边一致。
+fn command_no_window<P: AsRef<std::ffi::OsStr>>(program: P) -> Command {
+    #[allow(unused_mut)]
+    let mut cmd = Command::new(program);
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    cmd
+}
+
 fn file_path_to_string(fp: FilePath) -> String {
     match fp {
         FilePath::Path(p) => p.to_string_lossy().into_owned(),
@@ -23,7 +43,7 @@ const IMAGE_EXTS: &[&str] = &[
 ];
 
 #[tauri::command]
-fn pick_images(
+async fn pick_images(
     app: tauri::AppHandle,
     multi: bool,
     exts: Option<Vec<String>>,
@@ -54,11 +74,15 @@ fn pick_images(
                 let _ = tx.send(path.map(|p| vec![file_path_to_string(p)]));
             });
     }
-    rx.recv().ok().flatten()
+    // 对话框回调在插件自己的线程里执行；这里用阻塞线程等结果，别占住 UI 主线程
+    tauri::async_runtime::spawn_blocking(move || rx.recv().ok().flatten())
+        .await
+        .ok()
+        .flatten()
 }
 
 #[tauri::command]
-fn pick_dir(app: tauri::AppHandle) -> Option<String> {
+async fn pick_dir(app: tauri::AppHandle) -> Option<String> {
     let (tx, rx) = mpsc::channel();
     app.dialog()
         .file()
@@ -66,7 +90,10 @@ fn pick_dir(app: tauri::AppHandle) -> Option<String> {
         .pick_folder(move |path| {
             let _ = tx.send(path.map(file_path_to_string));
         });
-    rx.recv().ok().flatten()
+    tauri::async_runtime::spawn_blocking(move || rx.recv().ok().flatten())
+        .await
+        .ok()
+        .flatten()
 }
 
 // 原始字节直接回传，JS 侧收到 ArrayBuffer，避免 base64 编解码开销
@@ -125,6 +152,11 @@ fn open_path(path: String) -> Result<(), String> {
         .spawn()
         .map_err(|e| format!("打开失败：{e}"))?;
     Ok(())
+}
+
+#[tauri::command]
+fn file_size(path: String) -> Result<u64, String> {
+    fs::metadata(&path).map(|m| m.len()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -243,7 +275,8 @@ fn locate_ytdlp_inner(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 
 /// 用 ffmpeg -i 解析视频信息（不依赖 ffprobe）
 fn ffprobe_inner(ffmpeg: &Path, path: &str) -> Result<VideoInfo, String> {
-    let output = Command::new(ffmpeg)
+    let output = command_no_window(ffmpeg)
+        .arg("-hide_banner")
         .arg("-i")
         .arg(path)
         .stderr(Stdio::piped())
@@ -361,9 +394,12 @@ fn ffprobe_inner(ffmpeg: &Path, path: &str) -> Result<VideoInfo, String> {
 }
 
 #[tauri::command]
-fn ffprobe_video(app: tauri::AppHandle, path: String) -> Result<VideoInfo, String> {
+async fn ffprobe_video(app: tauri::AppHandle, path: String) -> Result<VideoInfo, String> {
     let ffmpeg = locate_ffmpeg_inner(&app)?;
-    ffprobe_inner(&ffmpeg, &path)
+    // 探测要起子进程、读文件头，放到阻塞线程池，别让 UI 线程等它
+    tauri::async_runtime::spawn_blocking(move || ffprobe_inner(&ffmpeg, &path))
+        .await
+        .map_err(|e| format!("任务执行异常：{e}"))?
 }
 
 #[tauri::command]
@@ -383,7 +419,13 @@ async fn convert_video(
     let end = options.end_time.unwrap_or(total).min(total).max(start);
     let duration = end - start;
 
-    let mut args: Vec<String> = vec!["-y".to_string()];
+    let mut args: Vec<String> = vec![
+        "-y".to_string(),
+        // 进度写到 stderr（每 0.5 秒一行 out_time=...），-nostats 关掉默认那种用 \r 覆盖的统计行
+        "-progress".to_string(),
+        "pipe:2".to_string(),
+        "-nostats".to_string(),
+    ];
     if start > 0.0 {
         args.push("-ss".to_string());
         args.push(format!("{:.3}", start));
@@ -461,7 +503,7 @@ async fn convert_video(
     let ffmpeg_str = ffmpeg.to_string_lossy().into_owned();
 
     let result = tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
-        let mut child = Command::new(&ffmpeg_str)
+        let mut child = command_no_window(&ffmpeg_str)
             .args(&args)
             .stderr(Stdio::piped())
             .stdout(Stdio::null())
@@ -475,13 +517,17 @@ async fn convert_video(
                     Ok(l) => l,
                     Err(_) => break,
                 };
-                if let Some(idx) = line.find("time=") {
-                    let rest = &line[idx + 5..];
-                    let time_str = rest.split(' ').next().unwrap_or("");
-                    if let Some(t) = parse_time_to_seconds(time_str) {
-                        let progress = (t / total).min(1.0).max(0.0);
-                        let _ = window_clone.emit("video-progress", progress);
-                    }
+                // -progress 的输出是逐行 "out_time=HH:MM:SS.xxxxxx"（带换行），
+                // 以前读默认统计行，而那是用 \r 覆盖同一行的，lines() 要等到进程结束才拿到，
+                // 所以界面只在最后跳到 100%。
+                let Some(rest) = line.strip_prefix("out_time=") else {
+                    continue;
+                };
+                if let Some(t) = parse_time_to_seconds(rest.trim()) {
+                    // out_time 是「输出文件」的时间轴（从 0 开始），所以分母要用导出时长 duration，
+                    // 用整段 total 的话设了时间区间就永远走不到 100%
+                    let progress = (t / duration.max(0.001)).min(1.0).max(0.0);
+                    let _ = window_clone.emit("video-progress", progress);
                 }
             }
         }
@@ -527,7 +573,13 @@ async fn convert_audio(
     let end = options.end_time.unwrap_or(total).min(total).max(start);
     let duration = end - start;
 
-    let mut args: Vec<String> = vec!["-y".to_string()];
+    let mut args: Vec<String> = vec![
+        "-y".to_string(),
+        // 进度写到 stderr（每 0.5 秒一行 out_time=...），-nostats 关掉默认那种用 \r 覆盖的统计行
+        "-progress".to_string(),
+        "pipe:2".to_string(),
+        "-nostats".to_string(),
+    ];
     if start > 0.0 {
         args.push("-ss".to_string());
         args.push(format!("{:.3}", start));
@@ -573,7 +625,7 @@ async fn convert_audio(
     let ffmpeg_str = ffmpeg.to_string_lossy().into_owned();
 
     let result = tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
-        let mut child = Command::new(&ffmpeg_str)
+        let mut child = command_no_window(&ffmpeg_str)
             .args(&args)
             .stderr(Stdio::piped())
             .stdout(Stdio::null())
@@ -587,13 +639,14 @@ async fn convert_audio(
                     Ok(l) => l,
                     Err(_) => break,
                 };
-                if let Some(idx) = line.find("time=") {
-                    let rest = &line[idx + 5..];
-                    let time_str = rest.split(' ').next().unwrap_or("");
-                    if let Some(t) = parse_time_to_seconds(time_str) {
-                        let progress = (t / total).min(1.0).max(0.0);
-                        let _ = window_clone.emit("audio-progress", progress);
-                    }
+                // 同视频转换：解析 -progress 的 out_time 行，才能实时刷新进度
+                let Some(rest) = line.strip_prefix("out_time=") else {
+                    continue;
+                };
+                if let Some(t) = parse_time_to_seconds(rest.trim()) {
+                    // 同视频：分母用导出时长，设了区间也能走到 100%
+                    let progress = (t / duration.max(0.001)).min(1.0).max(0.0);
+                    let _ = window_clone.emit("audio-progress", progress);
                 }
             }
         }
@@ -645,23 +698,101 @@ pub struct YtDlpInfo {
 /// 浏览器级 User-Agent，降低站点反爬拦截概率（如 B 站 HTTP 412）
 const YTDLP_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
+/// 读取 Windows「系统代理」设置（设置 → 网络 → 代理里的那一项）
+#[cfg(windows)]
+fn system_proxy() -> Option<String> {
+    use winreg::enums::HKEY_CURRENT_USER;
+    let key = winreg::RegKey::predef(HKEY_CURRENT_USER)
+        .open_subkey("Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings")
+        .ok()?;
+    let enabled: u32 = key.get_value("ProxyEnable").ok()?;
+    if enabled == 0 {
+        return None;
+    }
+    let server: String = key.get_value("ProxyServer").ok()?;
+    let server = server.trim();
+    if server.is_empty() {
+        return None;
+    }
+    // 可能是 "127.0.0.1:7890"，也可能是 "http=127.0.0.1:7890;https=127.0.0.1:7890"
+    let host = server
+        .split(';')
+        .find_map(|p| p.strip_prefix("http=").or_else(|| p.strip_prefix("https=")))
+        .unwrap_or(server);
+    let host = host.trim();
+    if host.is_empty() {
+        None
+    } else if host.contains("://") {
+        Some(host.to_string())
+    } else {
+        Some(format!("http://{host}"))
+    }
+}
+
+#[cfg(not(windows))]
+fn system_proxy() -> Option<String> {
+    None
+}
+
+/// 把界面上的「网络代理」选择换成 yt-dlp 的 --proxy 参数。
+/// None = 不传（保持 yt-dlp 默认）；Some("") = 强制直连（yt-dlp 的约定写法）。
+fn proxy_arg(proxy: &Option<String>) -> Option<String> {
+    let raw = proxy.as_deref().unwrap_or("").trim();
+    match raw {
+        "" => None,
+        "direct" => Some(String::new()),
+        "system" => Some(system_proxy().unwrap_or_default()),
+        url => {
+            if url.contains("://") {
+                Some(url.to_string())
+            } else {
+                Some(format!("http://{url}"))
+            }
+        }
+    }
+}
+
+/// 把 yt-dlp 的英文报错翻译成能直接照着做的中文提示
+fn friendly_ytdlp_error(msg: &str) -> String {
+    if msg.contains("Failed to decrypt") || msg.contains("Could not copy Chrome cookie database") {
+        return format!(
+            "yt-dlp 解析失败：{msg}（读不到浏览器 Cookies：新版 Chrome/Edge 给 Cookie 库加了加密或被占用。请先完全退出浏览器再选「从 Edge 读取」，或改用「自定义」导入导出的 cookies.txt）"
+        );
+    }
+    if msg.contains("412") || msg.contains("Precondition Failed") {
+        return format!(
+            "yt-dlp 解析失败：{msg}（HTTP 412 是站点风控：当前网络出口 IP 被判定为风险，常见于开着代理/VPN。请让 bilibili.com 走直连（或在 FlClash 里把本程序加入直连进程），再在下方「网络代理」选「直连」或「跟随系统代理」重试）"
+        );
+    }
+    format!("yt-dlp 解析失败：{msg}")
+}
+
 /// 调用 yt-dlp -J 获取视频信息和可用格式列表
 #[tauri::command]
 async fn ytdlp_info(
     app: tauri::AppHandle,
     url: String,
     cookies: Option<String>,
+    cookies_from_browser: Option<String>,
+    proxy: Option<String>,
 ) -> Result<YtDlpInfo, String> {
     let ytdlp = locate_ytdlp_inner(&app)?;
-    let mut cmd = Command::new(&ytdlp);
+    let mut cmd = command_no_window(&ytdlp);
     cmd.arg("-J")
         .arg("--no-playlist")
         .arg("--user-agent")
         .arg(YTDLP_UA);
-    if let Some(cookie_file) = &cookies {
+    if let Some(browser) = &cookies_from_browser {
+        if !browser.is_empty() {
+            cmd.arg("--cookies-from-browser").arg(browser);
+        }
+    } else if let Some(cookie_file) = &cookies {
         if !cookie_file.is_empty() {
             cmd.arg("--cookies").arg(cookie_file);
         }
+    }
+    if let Some(p) = proxy_arg(&proxy) {
+        cmd.arg("--proxy").arg(p);
     }
     cmd.arg(&url)
         .stdout(Stdio::piped())
@@ -672,15 +803,7 @@ async fn ytdlp_info(
 
     if !output.status.success() {
         let err = String::from_utf8_lossy(&output.stderr);
-        let msg = err.trim();
-        // 针对 B 站等站点反爬给出明确指引
-        if msg.contains("412") || msg.contains("Precondition") {
-            return Err(format!(
-                "yt-dlp 解析失败：{}（可能触发了站点反爬，建议在下方导入浏览器 Cookies 文件后重试）",
-                msg
-            ));
-        }
-        return Err(format!("yt-dlp 解析失败：{}", msg));
+        return Err(friendly_ytdlp_error(err.trim()));
     }
 
     let json: serde_json::Value = serde_json::from_slice(&output.stdout)
@@ -735,6 +858,8 @@ async fn ytdlp_info(
 pub struct YtDlpDownloadOptions {
     pub format: Option<String>,
     pub cookies: Option<String>,
+    pub cookies_from_browser: Option<String>,
+    pub proxy: Option<String>,
 }
 
 /// 调用 yt-dlp 下载视频，通过 ytdlp-progress 事件上报进度（0~1）
@@ -768,6 +893,16 @@ async fn ytdlp_download(
             args.push(cookie_file.clone());
         }
     }
+    if let Some(browser) = &options.cookies_from_browser {
+        if !browser.is_empty() {
+            args.push("--cookies-from-browser".to_string());
+            args.push(browser.clone());
+        }
+    }
+    if let Some(p) = proxy_arg(&options.proxy) {
+        args.push("--proxy".to_string());
+        args.push(p);
+    }
     args.push("-o".to_string());
     args.push(output.clone());
     args.push(url.clone());
@@ -775,7 +910,7 @@ async fn ytdlp_download(
     let window_clone = window.clone();
 
     let result = tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
-        let mut child = Command::new(&ytdlp_str)
+        let mut child = command_no_window(&ytdlp_str)
             .args(&args)
             .stderr(Stdio::piped())
             .stdout(Stdio::piped())
@@ -783,6 +918,7 @@ async fn ytdlp_download(
             .map_err(|e| format!("启动 yt-dlp 失败：{e}"))?;
 
         // yt-dlp 的进度行输出到 stderr，格式如：[download]  25.0% of ~50.00MiB at ...
+        let mut risk_blocked = false;
         if let Some(stderr) = child.stderr.take() {
             let reader = BufReader::new(stderr);
             for line in reader.lines() {
@@ -790,6 +926,9 @@ async fn ytdlp_download(
                     Ok(l) => l,
                     Err(_) => break,
                 };
+                if line.contains("412") || line.contains("Precondition Failed") {
+                    risk_blocked = true;
+                }
                 if line.contains("%") {
                     // 提取形如 " 25.0%" 中的数字
                     if let Some(pct) = extract_percent(&line) {
@@ -801,7 +940,11 @@ async fn ytdlp_download(
 
         let status = child.wait().map_err(|e| e.to_string())?;
         if !status.success() {
-            return Err("yt-dlp 下载失败，请检查链接或网络".into());
+            return Err(if risk_blocked {
+                "下载失败：站点返回 HTTP 412（当前网络出口被风控，常见于代理/VPN。请让 bilibili.com 直连或在「网络代理」里换一个出口后重试）".into()
+            } else {
+                "yt-dlp 下载失败，请检查链接或网络".into()
+            });
         }
         Ok(())
     })
@@ -844,6 +987,7 @@ pub fn run() {
             pick_dir,
             read_file,
             write_file,
+            file_size,
             list_files,
             open_path,
             locate_ffmpeg,
