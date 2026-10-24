@@ -864,7 +864,16 @@ select:disabled {
   -webkit-appearance: none;
   appearance: none;
   --seek-pct: 0%;
-  background: linear-gradient(to right, #39c7ed 0%, #39c7ed var(--seek-pct), #2a2a33 var(--seek-pct), #2a2a33 100%);
+  --grip-a: 0%;
+  --grip-b: 100%;
+  background: linear-gradient(to right,
+    #2a2a33 0%,
+    #2a2a33 var(--grip-a),
+    #39c7ed var(--grip-a),
+    #39c7ed var(--seek-pct),
+    #2a2a33 var(--seek-pct),
+    #2a2a33 var(--grip-b),
+    #2a2a33 100%);
   border-radius: 3px;
   outline: none;
   cursor: pointer;
@@ -910,10 +919,86 @@ select:disabled {
   color: #fff;
   background: rgba(0, 0, 0, 0.45);
   border-radius: 50%;
-  padding: 30px;
+  padding: 15px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
   transition: transform 0.15s ease, background 0.15s ease;
 }
+
+/* 视频时间轴容器（含黄色滑块） */
+.vid-seek-tl {
+  position: relative;
+  margin-top: 6px;
+}
+
+.vid-seek-tl input[type="range"] {
+  width: 100%;
+}
+
+/* 视频页黄色滑块：复用 GIF 页 .tl-grip 造型，但单独定位左右两端 */
+.vid-grip {
+  position: absolute;
+  top: -2px;
+  bottom: -8px;
+  width: 14px;
+  margin-left: -7px;
+  z-index: 3;
+  cursor: ew-resize;
+}
+
+.vid-grip::before {
+  content: none;
+}
+
+.vid-grip::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 10px;
+  height: 12px;
+  margin-left: -5px;
+  background: #ffd926;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
+}
+
+/* 裁剪叠加层 */
+.vid-crop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  cursor: crosshair;
+}
+
+.vid-crop-box {
+  position: absolute;
+  border: 1px dashed #fff;
+  cursor: move;
+}
+
+/* 裁剪选区外的暗化遮罩：只覆盖视频渲染区域内、选区外的部分 */
+.crop-mask {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+.crop-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #fff;
+  border: 1px solid #333;
+  z-index: 5;
+}
+
+.crop-handle.nw { top: -5px; left: -5px; cursor: nwse-resize; }
+.crop-handle.n { top: -5px; left: 50%; margin-left: -5px; cursor: ns-resize; }
+.crop-handle.ne { top: -5px; right: -5px; cursor: nesw-resize; }
+.crop-handle.e { top: 50%; right: -5px; margin-top: -5px; cursor: ew-resize; }
+.crop-handle.se { bottom: -5px; right: -5px; cursor: nwse-resize; }
+.crop-handle.s { bottom: -5px; left: 50%; margin-left: -5px; cursor: ns-resize; }
+.crop-handle.sw { bottom: -5px; left: -5px; cursor: nesw-resize; }
+.crop-handle.w { top: 50%; left: -5px; margin-top: -5px; cursor: ew-resize; }
 
 /* 音量控制 */
 .vid-vol {
@@ -932,7 +1017,9 @@ select:disabled {
 }
 
 .vid-vol input[type="range"] {
-  width: 140px;
+  flex: 1 1 70px;
+  min-width: 70px;
+  max-width: 140px;
   -webkit-appearance: none;
   appearance: none;
   height: 4px;

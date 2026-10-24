@@ -6,7 +6,7 @@
   "identifier": "com.spritetools.seqtool",
   "build": {
     "frontendDist": "../src",
-    "beforeBuildCommand": "powershell -ExecutionPolicy Bypass -File ../scripts/download-ffmpeg.ps1"
+    "beforeBuildCommand": "powershell -ExecutionPolicy Bypass -File scripts\\download-ffmpeg.ps1"
   },
   "app": {
     "withGlobalTauri": true,

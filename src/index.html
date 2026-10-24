@@ -567,11 +567,30 @@
       <div class="panel" style="flex: 58">
         <div class="panel-head">
           <span class="panel-title">源视频</span>
+          <button class="btn small" id="vid-crop" disabled>裁剪区域</button>
+          <button class="btn small" id="vid-hide" disabled>隐藏暂停按钮</button>
         </div>
-        <div class="canvas-wrap">
+        <div class="canvas-wrap" id="vid-canvas-wrap">
           <video id="vid-src" class="offscreen-video" muted playsinline preload="auto"></video>
           <div class="vid-play-overlay" id="vid-play-overlay" hidden>
-            <svg viewBox="0 0 24 24" width="144" height="144" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            <svg viewBox="0 0 24 24" width="72" height="72" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </div>
+          <!-- 裁剪叠加层 -->
+          <div class="vid-crop-overlay" id="vid-crop-overlay" hidden>
+            <div class="crop-mask crop-mask-t"></div>
+            <div class="crop-mask crop-mask-b"></div>
+            <div class="crop-mask crop-mask-l"></div>
+            <div class="crop-mask crop-mask-r"></div>
+            <div class="vid-crop-box" id="vid-crop-box">
+              <div class="crop-handle nw"></div>
+              <div class="crop-handle n"></div>
+              <div class="crop-handle ne"></div>
+              <div class="crop-handle e"></div>
+              <div class="crop-handle se"></div>
+              <div class="crop-handle s"></div>
+              <div class="crop-handle sw"></div>
+              <div class="crop-handle w"></div>
+            </div>
           </div>
         </div>
         <div class="vid-timeline" id="vid-timeline">
@@ -590,7 +609,11 @@
             </div>
             <button class="btn small" id="vid-reset" disabled>重置</button>
           </div>
-          <input type="range" id="vid-seek" min="0" max="1000" value="0" step="1" />
+          <div class="tl vid-seek-tl">
+            <input type="range" id="vid-seek" min="0" max="1000" value="0" step="1" />
+            <div class="tl-grip vid-grip" id="vid-grip-a"></div>
+            <div class="tl-grip vid-grip" id="vid-grip-b"></div>
+          </div>
         </div>
         <div class="dim-label info-wrap" id="vid-info">未载入视频</div>
         <button class="btn" id="vid-open">打开视频…（或拖入文件）</button>

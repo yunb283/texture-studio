@@ -58,6 +58,17 @@ export function initVideoConvert() {
   const muteBtn = $('vid-mute');
   const volSlider = $('vid-vol');
   const volLabel = $('vid-vol-label');
+  const hideBtn = $('vid-hide');
+  const cropBtn = $('vid-crop');
+  const cropOverlay = $('vid-crop-overlay');
+  const cropBox = $('vid-crop-box');
+  const canvasWrap = $('vid-canvas-wrap');
+  const gripA = $('vid-grip-a');
+  const gripB = $('vid-grip-b');
+  const maskT = cropOverlay.querySelector('.crop-mask-t');
+  const maskB = cropOverlay.querySelector('.crop-mask-b');
+  const maskL = cropOverlay.querySelector('.crop-mask-l');
+  const maskR = cropOverlay.querySelector('.crop-mask-r');
 
   let entry = null;
   let srcUrl = null;
@@ -69,6 +80,18 @@ export function initVideoConvert() {
   // 拖动节流：用 rAF 合并一帧内的多次 seek，只执行最后一次，避免浏览器排队 seek 导致延迟
   let seekRafId = null;
   let pendingSeekTime = null;
+  // 是否显示暂停时的中央播放按钮（由"隐藏暂停按钮"开关控制）
+  let showPauseOverlay = true;
+  // 裁剪状态
+  let cropOn = false;
+  let cropSel = null; // 归一化选区 {x0,y0,x1,y1}，相对视频画面
+  let cropDrag = null;
+  // 黄色时间滑块（归一化 0-1）
+  let gripAFrac = 0;
+  let gripBFrac = 1;
+  let gripDrag = null;
+  // 播放区间循环的 rAF 轮询（比 timeupdate 更精准，避免蓝球越过右滑块）
+  let loopRafId = null;
 
   function setStatus(msg) {
     status.textContent = msg;
@@ -93,12 +116,27 @@ export function initVideoConvert() {
     seek.disabled = !on;
     muteBtn.disabled = !on;
     volSlider.disabled = !on;
+    hideBtn.disabled = !on;
+    cropBtn.disabled = !on;
   }
 
-  // 同步进度条的蓝色填充比例
+  // 同步进度条的蓝色填充比例（只在两个黄色滑块之间填充）
   function updateSeekFill() {
     const pct = seek.max > 0 ? (seek.value / seek.max) * 100 : 0;
-    seek.style.setProperty('--seek-pct', pct + '%');
+    const aPct = gripAFrac * 100;
+    const bPct = gripBFrac * 100;
+    // 蓝色填充结束位置 = clamp(pct, aPct, bPct)
+    const fillEnd = Math.max(aPct, Math.min(pct, bPct));
+    seek.style.setProperty('--seek-pct', fillEnd + '%');
+    seek.style.setProperty('--grip-a', aPct + '%');
+    seek.style.setProperty('--grip-b', bPct + '%');
+  }
+
+  // 更新黄色滑块位置
+  function updateGripUI() {
+    gripA.style.left = (gripAFrac * 100) + '%';
+    gripB.style.left = (gripBFrac * 100) + '%';
+    updateSeekFill();
   }
 
   function updateTimeDisplay() {
@@ -171,8 +209,11 @@ export function initVideoConvert() {
       updateTimeDisplay();
       setTimelineEnabled(true);
       seek.value = 0;
-      updateSeekFill();
-      playOverlay.hidden = false;
+      // 重置黄色滑块到全区间
+      gripAFrac = 0;
+      gripBFrac = 1;
+      updateGripUI();
+      playOverlay.hidden = !showPauseOverlay;
       video.removeEventListener('loadedmetadata', onMeta);
     };
     video.addEventListener('loadedmetadata', onMeta);
@@ -270,6 +311,25 @@ export function initVideoConvert() {
       options.preset = presetSel.value;
     }
 
+    // 裁剪区域（归一化坐标 → 源像素坐标）
+    if (cropSel && videoInfo) {
+      const sx = cropSel.x1 - cropSel.x0;
+      const sy = cropSel.y1 - cropSel.y0;
+      if (sx > 0 && sy > 0) {
+        options.crop_x = Math.round(cropSel.x0 * videoInfo.width);
+        options.crop_y = Math.round(cropSel.y0 * videoInfo.height);
+        options.crop_w = Math.max(1, Math.round(cropSel.x1 * videoInfo.width) - options.crop_x);
+        options.crop_h = Math.max(1, Math.round(cropSel.y1 * videoInfo.height) - options.crop_y);
+      }
+    }
+
+    // 时间区间（黄色滑块之间）
+    const dur = isFinite(video.duration) ? video.duration : 0;
+    if (dur > 0 && (gripAFrac > 0 || gripBFrac < 1)) {
+      options.start_time = gripAFrac * dur;
+      options.end_time = gripBFrac * dur;
+    }
+
     converting = true;
     setEnabled(false);
     convertBtn.textContent = '转换中…';
@@ -330,6 +390,17 @@ export function initVideoConvert() {
     seek.value = 0;
     updateSeekFill();
     playOverlay.hidden = true;
+    // 重置暂停浮层开关为默认显示
+    showPauseOverlay = true;
+    hideBtn.textContent = '隐藏暂停按钮';
+    // 重置裁剪与时间滑块
+    cropOn = false;
+    cropSel = null;
+    cropOverlay.hidden = true;
+    cropBtn.classList.remove('on');
+    gripAFrac = 0;
+    gripBFrac = 1;
+    updateGripUI();
     updateInfo();
     setStatus('');
   });
@@ -364,35 +435,85 @@ export function initVideoConvert() {
   convertBtn.addEventListener('click', doConvert);
 
   // —— 时间轴控件 ——
+  // 当前导出时间区间（秒）
+  function rangeTimes() {
+    const dur = isFinite(video.duration) ? video.duration : 0;
+    return { start: gripAFrac * dur, end: gripBFrac * dur };
+  }
+
+  // 用 rAF 每帧检测是否越过右滑块，比 timeupdate（~250ms）更精准，避免蓝球视觉上越过右滑块
+  function startLoopCheck() {
+    stopLoopCheck();
+    const tick = () => {
+      if (!isSeeking && !video.paused) {
+        const { start, end } = rangeTimes();
+        if (video.currentTime >= end) {
+          video.currentTime = start;
+        }
+      }
+      loopRafId = requestAnimationFrame(tick);
+    };
+    loopRafId = requestAnimationFrame(tick);
+  }
+  function stopLoopCheck() {
+    if (loopRafId !== null) {
+      cancelAnimationFrame(loopRafId);
+      loopRafId = null;
+    }
+  }
+
   video.addEventListener('timeupdate', updateTimeDisplay);
   video.addEventListener('play', () => {
     playBtn.textContent = '暂停';
     playOverlay.hidden = true;
+    startLoopCheck();
   });
   video.addEventListener('pause', () => {
+    stopLoopCheck();
     playBtn.textContent = '播放';
-    playOverlay.hidden = false;
+    playOverlay.hidden = !showPauseOverlay;
   });
   video.addEventListener('ended', () => {
-    playBtn.textContent = '播放';
-    playOverlay.hidden = false;
+    stopLoopCheck();
+    const { start } = rangeTimes();
+    // 若滑块区间不是全范围，则循环播放；否则正常结束
+    if (gripAFrac > 0 || gripBFrac < 1) {
+      video.currentTime = start;
+      video.play();
+    } else {
+      playBtn.textContent = '播放';
+      playOverlay.hidden = !showPauseOverlay;
+    }
   });
 
   playBtn.addEventListener('click', () => {
-    if (video.paused) video.play();
-    else video.pause();
+    if (video.paused) {
+      const { start, end } = rangeTimes();
+      // 若当前位置在区间外，先跳到左滑块再播放
+      if (video.currentTime < start || video.currentTime >= end) {
+        video.currentTime = start;
+      }
+      video.play();
+    } else video.pause();
   });
 
   // 点击视频画面切换播放/暂停（只响应 video 本身，不响应黑边/留白）
   video.addEventListener('click', () => {
-    if (video.paused) video.play();
-    else video.pause();
+    if (video.paused) {
+      const { start, end } = rangeTimes();
+      if (video.currentTime < start || video.currentTime >= end) {
+        video.currentTime = start;
+      }
+      video.play();
+    } else video.pause();
   });
 
   prevBtn.addEventListener('click', () => stepFrame(-1));
   nextBtn.addEventListener('click', () => stepFrame(1));
   resetBtn.addEventListener('click', () => {
-    video.currentTime = 0;
+    // 重置到左滑块位置
+    const { start } = rangeTimes();
+    video.currentTime = start;
     updateTimeDisplay();
   });
 
@@ -430,6 +551,16 @@ export function initVideoConvert() {
   volSlider.value = 0;
   volLabel.textContent = '0';
   updateMuteIcon();
+
+  // —— "隐藏/显示暂停按钮"开关：控制暂停时中央播放三角是否显示 ——
+  hideBtn.addEventListener('click', () => {
+    showPauseOverlay = !showPauseOverlay;
+    hideBtn.textContent = showPauseOverlay ? '隐藏暂停按钮' : '显示暂停按钮';
+    // 立即反映到当前状态：若正在暂停，按新开关显示/隐藏浮层
+    if (video.paused) {
+      playOverlay.hidden = !showPauseOverlay;
+    }
+  });
 
   // 拖动进度条：用 rAF 合并一帧内的多次拖动，只执行最后一次 seek，画面跟手不卡顿
   function flushSeek() {
@@ -479,6 +610,183 @@ export function initVideoConvert() {
       resumeAfterSeek = false;
     }
   });
+
+  // —— 黄色时间滑块拖拽 ——
+  function gripPointerDown(e, which) {
+    e.preventDefault();
+    e.stopPropagation();
+    gripDrag = which;
+    document.addEventListener('mousemove', gripPointerMove);
+    document.addEventListener('mouseup', gripPointerUp);
+  }
+  function gripPointerMove(e) {
+    const tl = seek.parentElement; // .vid-seek-tl
+    const rect = tl.getBoundingClientRect();
+    let frac = (e.clientX - rect.left) / rect.width;
+    frac = Math.max(0, Math.min(1, frac));
+    if (gripDrag === 'a') {
+      gripAFrac = Math.min(frac, gripBFrac);
+    } else {
+      gripBFrac = Math.max(frac, gripAFrac);
+    }
+    updateGripUI();
+  }
+  function gripPointerUp() {
+    gripDrag = null;
+    document.removeEventListener('mousemove', gripPointerMove);
+    document.removeEventListener('mouseup', gripPointerUp);
+  }
+  gripA.addEventListener('mousedown', (e) => gripPointerDown(e, 'a'));
+  gripB.addEventListener('mousedown', (e) => gripPointerDown(e, 'b'));
+
+  // —— 裁剪区域 ——
+  // 计算视频在 canvas-wrap 内的实际渲染矩形（object-fit: contain）
+  function getVideoRect() {
+    const wrapW = canvasWrap.clientWidth;
+    const wrapH = canvasWrap.clientHeight;
+    const vw = video.videoWidth || wrapW;
+    const vh = video.videoHeight || wrapH;
+    const scale = Math.min(wrapW / vw, wrapH / vh);
+    const w = vw * scale;
+    const h = vh * scale;
+    return {
+      left: (wrapW - w) / 2,
+      top: (wrapH - h) / 2,
+      width: w,
+      height: h,
+    };
+  }
+
+  // 把鼠标事件坐标换算成视频归一化坐标 [0,1]
+  function normFromEvent(e) {
+    const r = getVideoRect();
+    const wrapRect = canvasWrap.getBoundingClientRect();
+    const x = (e.clientX - wrapRect.left - r.left) / r.width;
+    const y = (e.clientY - wrapRect.top - r.top) / r.height;
+    return {
+      x: Math.max(0, Math.min(1, x)),
+      y: Math.max(0, Math.min(1, y)),
+    };
+  }
+
+  // 把归一化选区渲染到 cropBox，并更新选区外的暗化遮罩（仅覆盖视频渲染区域）
+  function renderCropBox() {
+    if (!cropSel) {
+      cropBox.style.display = 'none';
+      maskT.style.display = 'none';
+      maskB.style.display = 'none';
+      maskL.style.display = 'none';
+      maskR.style.display = 'none';
+      return;
+    }
+    cropBox.style.display = '';
+    maskT.style.display = '';
+    maskB.style.display = '';
+    maskL.style.display = '';
+    maskR.style.display = '';
+    // 归一化坐标：支持任意拖拽方向（左→右、右→左、上→下、下→上）
+    const x0n = Math.min(cropSel.x0, cropSel.x1);
+    const x1n = Math.max(cropSel.x0, cropSel.x1);
+    const y0n = Math.min(cropSel.y0, cropSel.y1);
+    const y1n = Math.max(cropSel.y0, cropSel.y1);
+    const r = getVideoRect();
+    const bx = r.left + x0n * r.width;
+    const by = r.top + y0n * r.height;
+    const bw = (x1n - x0n) * r.width;
+    const bh = (y1n - y0n) * r.height;
+    cropBox.style.left = bx + 'px';
+    cropBox.style.top = by + 'px';
+    cropBox.style.width = bw + 'px';
+    cropBox.style.height = bh + 'px';
+    // 上遮罩
+    maskT.style.left = r.left + 'px';
+    maskT.style.top = r.top + 'px';
+    maskT.style.width = r.width + 'px';
+    maskT.style.height = (by - r.top) + 'px';
+    // 下遮罩
+    maskB.style.left = r.left + 'px';
+    maskB.style.top = (by + bh) + 'px';
+    maskB.style.width = r.width + 'px';
+    maskB.style.height = (r.top + r.height - by - bh) + 'px';
+    // 左遮罩
+    maskL.style.left = r.left + 'px';
+    maskL.style.top = by + 'px';
+    maskL.style.width = (bx - r.left) + 'px';
+    maskL.style.height = bh + 'px';
+    // 右遮罩
+    maskR.style.left = (bx + bw) + 'px';
+    maskR.style.top = by + 'px';
+    maskR.style.width = (r.left + r.width - bx - bw) + 'px';
+    maskR.style.height = bh + 'px';
+  }
+
+  cropBtn.addEventListener('click', () => {
+    cropOn = !cropOn;
+    cropOverlay.hidden = !cropOn;
+    cropBtn.classList.toggle('on', cropOn);
+    if (cropOn) renderCropBox();
+  });
+
+  cropOverlay.addEventListener('mousedown', (e) => {
+    if (!cropOn) return;
+    const target = e.target;
+    if (target.classList.contains('crop-handle')) {
+      const handle = [].find.call(target.classList, (c) => c !== 'crop-handle');
+      cropDrag = { type: 'resize', handle, startSel: { ...cropSel } };
+    } else if (target === cropBox) {
+      cropDrag = { type: 'move', startSel: { ...cropSel }, startPt: normFromEvent(e) };
+    } else {
+      const pt = normFromEvent(e);
+      cropSel = { x0: pt.x, y0: pt.y, x1: pt.x, y1: pt.y };
+      cropDrag = { type: 'create' };
+      renderCropBox();
+    }
+    e.preventDefault();
+    document.addEventListener('mousemove', cropPointerMove);
+    document.addEventListener('mouseup', cropPointerUp);
+  });
+
+  function cropPointerMove(e) {
+    if (!cropDrag) return;
+    const pt = normFromEvent(e);
+    if (cropDrag.type === 'create') {
+      cropSel.x1 = pt.x;
+      cropSel.y1 = pt.y;
+    } else if (cropDrag.type === 'move') {
+      const dx = pt.x - cropDrag.startPt.x;
+      const dy = pt.y - cropDrag.startPt.y;
+      const w = cropDrag.startSel.x1 - cropDrag.startSel.x0;
+      const h = cropDrag.startSel.y1 - cropDrag.startSel.y0;
+      let nx0 = cropDrag.startSel.x0 + dx;
+      let ny0 = cropDrag.startSel.y0 + dy;
+      nx0 = Math.max(0, Math.min(1 - w, nx0));
+      ny0 = Math.max(0, Math.min(1 - h, ny0));
+      cropSel = { x0: nx0, y0: ny0, x1: nx0 + w, y1: ny0 + h };
+    } else if (cropDrag.type === 'resize') {
+      const s = cropDrag.startSel;
+      let x0 = s.x0, y0 = s.y0, x1 = s.x1, y1 = s.y1;
+      const h = cropDrag.handle;
+      if (h.includes('w')) x0 = pt.x;
+      if (h.includes('e')) x1 = pt.x;
+      if (h.includes('n')) y0 = pt.y;
+      if (h.includes('s')) y1 = pt.y;
+      if (x0 > x1) [x0, x1] = [x1, x0];
+      if (y0 > y1) [y0, y1] = [y1, y0];
+      cropSel = { x0, y0, x1, y1 };
+    }
+    renderCropBox();
+  }
+
+  function cropPointerUp() {
+    cropDrag = null;
+    document.removeEventListener('mousemove', cropPointerMove);
+    document.removeEventListener('mouseup', cropPointerUp);
+    if (cropSel) {
+      if (cropSel.x0 > cropSel.x1) [cropSel.x0, cropSel.x1] = [cropSel.x1, cropSel.x0];
+      if (cropSel.y0 > cropSel.y1) [cropSel.y0, cropSel.y1] = [cropSel.y1, cropSel.y0];
+      renderCropBox();
+    }
+  }
 
   return {
     loadEntry,

@@ -165,6 +165,14 @@ pub struct ConvertOptions {
     pub crf: Option<u32>,
     pub preset: Option<String>,
     pub copy: Option<bool>, // 纯封装转换 -c copy
+    // 裁剪区域（源像素坐标）
+    pub crop_x: Option<u32>,
+    pub crop_y: Option<u32>,
+    pub crop_w: Option<u32>,
+    pub crop_h: Option<u32>,
+    // 导出时间区间（秒）
+    pub start_time: Option<f64>,
+    pub end_time: Option<f64>,
 }
 
 /// 解析 "HH:MM:SS.xx" 为秒数
@@ -322,7 +330,35 @@ async fn convert_video(
     let info = ffprobe_inner(&ffmpeg, &input)?;
     let total = info.duration.max(0.001);
 
-    let mut args: Vec<String> = vec!["-y".to_string(), "-i".to_string(), input.clone()];
+    // 时间区间：用 -ss（输入定位，更快）+ -t（时长）
+    let start = options.start_time.unwrap_or(0.0).max(0.0);
+    let end = options.end_time.unwrap_or(total).min(total).max(start);
+    let duration = end - start;
+
+    let mut args: Vec<String> = vec!["-y".to_string()];
+    if start > 0.0 {
+        args.push("-ss".to_string());
+        args.push(format!("{:.3}", start));
+    }
+    args.push("-i".to_string());
+    args.push(input.clone());
+    if duration < total - 0.001 {
+        args.push("-t".to_string());
+        args.push(format!("{:.3}", duration));
+    }
+
+    // 收集视频滤镜（裁剪 + 缩放），最后合并成一个 -vf
+    let mut vf_parts: Vec<String> = Vec::new();
+    if let (Some(cx), Some(cy), Some(cw), Some(ch)) = (
+        options.crop_x,
+        options.crop_y,
+        options.crop_w,
+        options.crop_h,
+    ) {
+        if cw > 0 && ch > 0 {
+            vf_parts.push(format!("crop={cw}:{ch}:{cx}:{cy}"));
+        }
+    }
 
     if options.copy.unwrap_or(false) {
         // 纯封装转换，不重编码
@@ -339,8 +375,7 @@ async fn convert_video(
         }
         if let (Some(w), Some(h)) = (options.width, options.height) {
             if w > 0 && h > 0 {
-                args.push("-vf".to_string());
-                args.push(format!("scale={w}:{h}"));
+                vf_parts.push(format!("scale={w}:{h}"));
             }
         }
         if let Some(fps) = options.fps {
@@ -365,6 +400,11 @@ async fn convert_video(
             args.push("-preset".to_string());
             args.push(preset.clone());
         }
+    }
+
+    if !vf_parts.is_empty() {
+        args.push("-vf".to_string());
+        args.push(vf_parts.join(","));
     }
 
     args.push(output.clone());
