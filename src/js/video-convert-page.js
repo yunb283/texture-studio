@@ -76,7 +76,20 @@ export function initVideoConvert() {
   const maskR = cropOverlay.querySelector('.crop-mask-r');
   const resetDefaultsBtn = $('vid-reset-defaults');
 
+  // 批量转换相关 DOM
+  const singleWrap = $('vid-single-wrap');
+  const batchWrap = $('vid-batch-wrap');
+  const batchListEl = $('vid-batch-list');
+  const batchCountEl = $('vid-batch-count');
+  const batchSummaryEl = $('vid-batch-summary');
+  const batchAddBtn = $('vid-batch-add');
+  const batchAddFolderBtn = $('vid-batch-add-folder');
+  const batchClearBtn = $('vid-batch-clear');
+  const modeSingleBtn = $('vid-mode-single');
+  const modeBatchBtn = $('vid-mode-batch');
+
   const io = createIoButtons($('vid-io'), setStatus);
+  const srcNameEl = $('vid-src-name');
   const srcSizeEl = $('vid-src-size');
   const outSizeEl = $('vid-out-size');
 
@@ -93,6 +106,13 @@ export function initVideoConvert() {
   let showPauseOverlay = true;
   // 裁剪状态
   let cropOn = false;
+
+  // ===== 批量转换状态 =====
+  let batchMode = false;           // true = 批量模式
+  let batchFiles = [];             // [{ path, name, status, percent, row, outPath }]
+  let batchIndex = -1;             // 当前正在转换的文件索引
+  let batchCancelled = false;      // 用户点了停止
+  let batchLastOutDir = null;      // 批量模式下最后一个成功输出的目录
   let cropSel = null; // 归一化选区 {x0,y0,x1,y1}，相对视频画面
   let cropDrag = null;
   // 黄色时间滑块（归一化 0-1）
@@ -324,6 +344,7 @@ export function initVideoConvert() {
     }
     const seq = ++probeSeq;
     entry = e;
+    srcNameEl.textContent = e.name;
     io.setSource(e.path);
     io.setExport(null);
     videoInfo = null;
@@ -522,6 +543,7 @@ export function initVideoConvert() {
     videoInfo = null;
     elInfo = null;
     probeSeq++;
+    srcNameEl.textContent = '';
     srcSizeEl.textContent = '';
     outSizeEl.textContent = '';
     if (srcUrl) {
@@ -595,7 +617,305 @@ export function initVideoConvert() {
   }
   applyVbrMode();
 
-  convertBtn.addEventListener('click', doConvert);
+  // ===== 批量转换辅助函数 =====
+
+  function toggleBatchMode(mode) {
+    if (converting) return; // 转换中不许切换
+    batchMode = !!mode;
+    if (batchMode) {
+      singleWrap.hidden = true;
+      batchWrap.hidden = false;
+      modeSingleBtn.classList.remove('on');
+      modeBatchBtn.classList.add('on');
+      convertBtn.textContent = batchFiles.some(f => f.status === 'run') ? '停止转换' : '全部转换';
+      convertBtn.disabled = !batchFiles.length || converting;
+    } else {
+      singleWrap.hidden = false;
+      batchWrap.hidden = true;
+      modeBatchBtn.classList.remove('on');
+      modeSingleBtn.classList.add('on');
+      convertBtn.textContent = '开始转换';
+      convertBtn.disabled = !entry;
+    }
+  }
+
+  function renderBatchList() {
+    batchListEl.innerHTML = '';
+    const frag = document.createDocumentFragment();
+    batchFiles.forEach((f, i) => {
+      const row = document.createElement('div');
+      row.className = 'batch-file-row';
+      row.dataset.idx = i;
+
+      const tagClass = f.status === 'done' ? 'tag-done' : f.status === 'fail' ? 'tag-fail' : f.status === 'run' ? 'tag-run' : 'tag-queue';
+      const tagText = f.status === 'done' ? '✓ 完成' : f.status === 'fail' ? '✗ 失败' : f.status === 'run' ? '转换中' : '等待';
+
+      row.innerHTML = `
+        <div class="batch-file-name"><span class="status-tag ${tagClass}">${tagText}</span>${f.name}</div>
+        <div class="batch-mini-bar"><div class="batch-mini-bar-fill ${tagClass.replace('tag-', '')}" style="width:${Math.round((f.percent || 0) * 100)}%;"></div></div>
+        <div class="batch-mini-pct ${tagClass === 'tag-done' ? 'done' : tagClass === 'tag-fail' ? 'fail' : ''}">${Math.round((f.percent || 0) * 100)}%</div>
+        <button class="batch-remove" title="移除">✕</button>
+      `;
+      row.querySelector('.batch-remove').addEventListener('click', () => {
+        if (converting) return;
+        batchFiles.splice(i, 1);
+        renderBatchList();
+        updateSummary();
+      });
+      frag.appendChild(row);
+    });
+    batchListEl.appendChild(frag);
+    batchCountEl.textContent = batchFiles.length ? `· ${batchFiles.length} 个` : '';
+  }
+
+  function updateSummary() {
+    const q = batchFiles.filter(f => f.status === 'queue').length;
+    const r = batchFiles.filter(f => f.status === 'run').length;
+    const d = batchFiles.filter(f => f.status === 'done').length;
+    const f = batchFiles.filter(f => f.status === 'fail').length;
+    batchSummaryEl.innerHTML = batchFiles.length
+      ? `<span><span class="dot" style="background:#39c7ed;"></span>转换中 ${r}</span>
+         <span><span class="dot" style="background:#9a9ca5;"></span>等待 ${q}</span>
+         <span><span class="dot" style="background:#2ecc71;"></span>完成 ${d}</span>
+         <span><span class="dot" style="background:#e74c3c;"></span>失败 ${f}</span>`
+      : '尚未添加文件';
+  }
+
+  function setBatchFileStatus(i, status, percent = null) {
+    if (i < 0 || i >= batchFiles.length) return;
+    batchFiles[i].status = status;
+    if (percent !== null) batchFiles[i].percent = percent;
+    const rows = batchListEl.querySelectorAll('.batch-file-row');
+    const row = rows[i];
+    if (!row) return;
+    const tagClass = status === 'done' ? 'tag-done' : status === 'fail' ? 'tag-fail' : status === 'run' ? 'tag-run' : 'tag-queue';
+    const tagText = status === 'done' ? '✓ 完成' : status === 'fail' ? '✗ 失败' : status === 'run' ? '转换中' : '等待';
+    row.querySelector('.status-tag').className = `status-tag ${tagClass}`;
+    row.querySelector('.status-tag').textContent = tagText;
+    const fill = row.querySelector('.batch-mini-bar-fill');
+    fill.className = `batch-mini-bar-fill ${tagClass.replace('tag-', '')}`;
+    if (percent !== null) fill.style.width = `${Math.round(percent * 100)}%`;
+    const pct = row.querySelector('.batch-mini-pct');
+    pct.textContent = `${Math.round((percent !== null ? percent : (batchFiles[i].percent || 0)) * 100)}%`;
+    pct.className = `batch-mini-pct ${tagClass === 'tag-done' ? 'done' : tagClass === 'tag-fail' ? 'fail' : ''}`;
+  }
+
+  function setBatchFileProgress(i, percent) {
+    if (i < 0 || i >= batchFiles.length) return;
+    batchFiles[i].percent = percent;
+    const rows = batchListEl.querySelectorAll('.batch-file-row');
+    const row = rows[i];
+    if (!row) return;
+    const fill = row.querySelector('.batch-mini-bar-fill');
+    fill.style.width = `${Math.round(percent * 100)}%`;
+    row.querySelector('.batch-mini-pct').textContent = `${Math.round(percent * 100)}%`;
+  }
+
+  // 组装转换 options（单文件 / 批量共用）
+  function buildOptionsFor(fileEntry) {
+    const useCopy = copyChk.checked;
+    const options = { copy: useCopy };
+    if (!useCopy) {
+      const vc = vcodecSel.value;
+      const ac = acodecSel.value;
+      options.video_codec = vc === 'copy' ? null : vc;
+      options.audio_codec = ac === 'copy' ? null : ac;
+      const scaleVal = scaleSel.value;
+      if (scaleVal === 'custom') {
+        const w = parseInt(wIn.value, 10);
+        const h = parseInt(hIn.value, 10);
+        if (w > 0 && h > 0) { options.width = w; options.height = h; }
+      } else if (scaleVal !== '0') {
+        const [w, h] = scaleVal.split(':').map(Number);
+        options.width = w; options.height = h;
+      }
+      const fps = parseFloat(fpsSel.value);
+      if (fps > 0) options.fps = fps;
+      const vbr = vbrIn.value.trim();
+      if (vbr) options.video_bitrate = vbr;
+      const abr = abrIn.value.trim();
+      if (abr) options.audio_bitrate = abr;
+      if (!vbr) options.crf = parseInt(crfRange.value, 10);
+      options.preset = presetSel.value;
+    }
+    // 批量不做裁剪/时间区间（单文件有 entry，可以用当前 info）
+    if (fileEntry && cropSel && currentInfo()) {
+      const ci = currentInfo();
+      const sx = cropSel.x1 - cropSel.x0, sy = cropSel.y1 - cropSel.y0;
+      if (sx > 0 && sy > 0) {
+        options.crop_x = Math.round(cropSel.x0 * ci.width);
+        options.crop_y = Math.round(cropSel.y0 * ci.height);
+        options.crop_w = Math.max(1, Math.round(cropSel.x1 * ci.width) - options.crop_x);
+        options.crop_h = Math.max(1, Math.round(cropSel.y1 * ci.height) - options.crop_y);
+      }
+    }
+    return options;
+  }
+
+  // 组装输出路径
+  async function buildOutputPath(filePath, prefix, batchIdx) {
+    const fmt = fmtSel.value;
+    const sep = filePath.includes('\\') ? '\\' : '/';
+    const dir = filePath.substring(0, filePath.lastIndexOf(sep));
+    let outName;
+    const prefixTrim = (prefix || '').trim();
+    if (prefixTrim) {
+      outName = `${prefixTrim}_${String(batchIdx + 1).padStart(2, '0')}.${fmt}`;
+    } else {
+      const base = filePath.substring(filePath.lastIndexOf(sep) + 1);
+      const stem = base.substring(0, base.lastIndexOf('.')) || base;
+      outName = `${stem}.${fmt}`;
+    }
+    const finalName = await uniqueFilename(dir, outName);
+    return dir + sep + finalName;
+  }
+
+  // ===== 批量转换主循环 =====
+  async function doBatchConvert() {
+    if (!batchFiles.length || converting) return;
+    if (!isTauri) { setStatus('批量转换需要桌面版环境'); return; }
+
+    converting = true;
+    batchCancelled = false;
+    batchIndex = -1;
+    const suffix = nameIn.value.trim(); // 批量模式：文件名输入框当作后缀
+
+    // 重置所有文件状态（重试时从 queue 开始）
+    batchFiles.forEach(f => {
+      if (f.status !== 'done') { f.status = 'queue'; f.percent = 0; }
+    });
+    renderBatchList();
+    updateSummary();
+
+    convertBtn.textContent = '停止转换';
+    setEnabled(false);
+    setStatus(`批量转换开始：共 ${batchFiles.length} 个文件`);
+
+    // 先设一个全局进度监听，批量模式里路由到当前文件行
+    const progressListener = await window.__TAURI__.event.listen('video-progress', (ev) => {
+      if (batchIndex >= 0 && batchIndex < batchFiles.length) {
+        setBatchFileProgress(batchIndex, ev.payload);
+      }
+    });
+
+    try {
+      for (let i = 0; i < batchFiles.length; i++) {
+        if (batchCancelled) break;
+        const f = batchFiles[i];
+        if (f.status === 'done') continue;
+
+        batchIndex = i;
+        setBatchFileStatus(i, 'run', 0);
+        setStatus(`正在转换 (${i + 1}/${batchFiles.length})：${f.name}`);
+
+        try {
+          const outPath = await buildOutputPath(f.path, suffix, i);
+          const options = buildOptionsFor(null); // 批量里不传单文件的裁剪信息
+          await window.__TAURI__.core.invoke('convert_video', {
+            input: f.path,
+            output: outPath,
+            options,
+          });
+          batchFiles[i].outPath = outPath;
+          setBatchFileStatus(i, 'done', 1);
+          // 记录最近一个成功的源和输出，让右侧「源目录/导出目录」按钮能用
+          batchLastOutDir = dirname(outPath);
+          io.setSource(f.path);
+          io.setExport(outPath);
+        } catch (ex) {
+          setBatchFileStatus(i, 'fail');
+        }
+        updateSummary();
+      }
+    } finally {
+      progressListener();
+      converting = false;
+      batchIndex = -1;
+      convertBtn.textContent = '全部转换';
+      setEnabled(true);
+
+      if (batchCancelled) {
+        setStatus('已停止批量转换');
+      } else {
+        const d = batchFiles.filter(f => f.status === 'done').length;
+        const fl = batchFiles.filter(f => f.status === 'fail').length;
+        setStatus(`批量转换完成：成功 ${d}，失败 ${fl}`);
+      }
+    }
+  }
+
+  applyVbrMode();
+
+  // ===== 批量：添加/清空按钮绑定 =====
+  modeSingleBtn.addEventListener('click', () => toggleBatchMode(false));
+  modeBatchBtn.addEventListener('click', () => toggleBatchMode(true));
+
+  batchAddBtn.addEventListener('click', async () => {
+    if (converting) return;
+    const entries = await pickImages(true, VIDEO_EXTS, { title: '选择视频文件' });
+    if (entries && entries.length) {
+      const existing = new Set(batchFiles.map(f => f.path));
+      for (const e of entries) {
+        if (!existing.has(e.path)) {
+          batchFiles.push({ path: e.path, name: e.name, status: 'queue', percent: 0 });
+        }
+      }
+      renderBatchList();
+      updateSummary();
+      convertBtn.disabled = !batchFiles.length || converting;
+    }
+  });
+
+  batchAddFolderBtn.addEventListener('click', async () => {
+    if (converting) return;
+    const dir = await window.__TAURI__.core.invoke('pick_dir');
+    if (!dir) return;
+    try {
+      const files = await window.__TAURI__.core.invoke('list_files', { dir });
+      const existing = new Set(batchFiles.map(f => f.path));
+      const added = files.filter(p => {
+        const ext = (p.split('.').pop() || '').toLowerCase();
+        return VIDEO_EXTS.includes(ext) && !existing.has(p);
+      }).map(p => ({
+        path: p,
+        name: p.substring(p.lastIndexOf(/[\\/]/.test(p) ? (p.includes('\\') ? '\\' : '/') : '/') + 1),
+        status: 'queue',
+        percent: 0,
+      }));
+      // 修正 name 提取
+      for (const item of added) {
+        const sepIdx = Math.max(item.path.lastIndexOf('\\'), item.path.lastIndexOf('/'));
+        item.name = sepIdx >= 0 ? item.path.substring(sepIdx + 1) : item.path;
+      }
+      batchFiles.push(...added);
+      renderBatchList();
+      updateSummary();
+      convertBtn.disabled = !batchFiles.length || converting;
+    } catch (ex) {
+      setStatus('读取文件夹失败：' + (ex?.message ?? ex));
+    }
+  });
+
+  batchClearBtn.addEventListener('click', () => {
+    if (converting) return;
+    batchFiles = [];
+    renderBatchList();
+    updateSummary();
+    convertBtn.disabled = !batchFiles.length || converting;
+  });
+
+  convertBtn.addEventListener('click', () => {
+    if (batchMode) {
+      if (converting) {
+        batchCancelled = true;
+        convertBtn.textContent = '停止中…';
+      } else {
+        doBatchConvert();
+      }
+    } else {
+      doConvert();
+    }
+  });
 
   // —— 时间轴控件 ——
   // 当前导出时间区间（秒）

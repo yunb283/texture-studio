@@ -64,8 +64,21 @@ export function initAudioConvert() {
   const status = $('aud-status');
   const resetDefaultsBtn = $('aud-reset-defaults');
 
+  // 批量转换相关 DOM
+  const singleWrap = $('aud-single-wrap');
+  const batchWrap = $('aud-batch-wrap');
+  const batchListEl = $('aud-batch-list');
+  const batchCountEl = $('aud-batch-count');
+  const batchSummaryEl = $('aud-batch-summary');
+  const batchAddBtn = $('aud-batch-add');
+  const batchAddFolderBtn = $('aud-batch-add-folder');
+  const batchClearBtn = $('aud-batch-clear');
+  const modeSingleBtn = $('aud-mode-single');
+  const modeBatchBtn = $('aud-mode-batch');
+
   const io = createIoButtons($('aud-io'), setStatus);
   const srcSizeEl = $('aud-src-size');
+  const srcNameEl = $('aud-src-name');
   const outSizeEl = $('aud-out-size');
 
   let entry = null;
@@ -74,6 +87,13 @@ export function initAudioConvert() {
   let probeSeq = 0; // 丢弃上一个文件迟到的探测结果
   let converting = false;
   let unlisten = null;
+
+  // ===== 批量转换状态 =====
+  let batchMode = false;
+  let batchFiles = [];       // [{ path, name, status, percent, outPath }]
+  let batchIndex = -1;
+  let batchCancelled = false;
+  let batchLastOutDir = null;
 
   function setStatus(msg) {
     status.textContent = msg;
@@ -133,6 +153,7 @@ export function initAudioConvert() {
     }
     const seq = ++probeSeq;
     entry = e;
+    srcNameEl.textContent = e.name;
     io.setSource(e.path);
     io.setExport(null);
     // 先放个空壳，时长等 <audio> 元数据一到就填上
@@ -264,6 +285,7 @@ export function initAudioConvert() {
     entry = null;
     audioInfo = null;
     probeSeq++;
+    srcNameEl.textContent = '';
     srcSizeEl.textContent = '';
     outSizeEl.textContent = '';
     if (srcUrl) {
@@ -280,10 +302,264 @@ export function initAudioConvert() {
     setStatus('');
   });
 
-  convertBtn.addEventListener('click', doConvert);
+  // 格式 → 编码自动同步（和 video 页的 syncCodecByFormat 一样）
+  const FMT_TO_CODEC = {
+    mp3: 'libmp3lame',
+    wav: 'pcm_s16le',
+    flac: 'flac',
+    aac: 'aac',
+    m4a: 'aac',
+    ogg: 'libvorbis',
+    opus: 'libopus',
+    alac: 'alac',
+  };
+  function syncCodecByFormat() {
+    const fmt = fmtSel.value;
+    const target = FMT_TO_CODEC[fmt];
+    if (!target) return;
+    // 选得到就选，选不到（比如 copy 不在表里）就不动
+    for (const opt of acodecSel.options) {
+      if (opt.value === target) {
+        acodecSel.value = target;
+        break;
+      }
+    }
+    acodecSel.disabled = true;
+  }
+  fmtSel.addEventListener('change', syncCodecByFormat);
+
+  convertBtn.addEventListener('click', () => {
+    if (batchMode) {
+      if (converting) { batchCancelled = true; convertBtn.textContent = '停止中…'; }
+      else { doBatchConvert(); }
+    } else {
+      doConvert();
+    }
+  });
 
   resetDefaultsBtn.addEventListener('click', () => {
     resetDefaults();
+  });
+
+  // ===== 音频批量转换辅助函数 =====
+
+  function toggleBatchMode(mode) {
+    if (converting) return;
+    batchMode = !!mode;
+    if (batchMode) {
+      singleWrap.hidden = true;
+      batchWrap.hidden = false;
+      modeSingleBtn.classList.remove('on');
+      modeBatchBtn.classList.add('on');
+      convertBtn.textContent = '全部转换';
+      convertBtn.disabled = !batchFiles.length || converting;
+    } else {
+      singleWrap.hidden = false;
+      batchWrap.hidden = true;
+      modeBatchBtn.classList.remove('on');
+      modeSingleBtn.classList.add('on');
+      convertBtn.textContent = '开始转换';
+      convertBtn.disabled = !entry;
+    }
+  }
+
+  function renderBatchList() {
+    batchListEl.innerHTML = '';
+    const frag = document.createDocumentFragment();
+    batchFiles.forEach((f, i) => {
+      const row = document.createElement('div');
+      row.className = 'batch-file-row';
+      const tagClass = f.status === 'done' ? 'tag-done' : f.status === 'fail' ? 'tag-fail' : f.status === 'run' ? 'tag-run' : 'tag-queue';
+      const tagText = f.status === 'done' ? '✓ 完成' : f.status === 'fail' ? '✗ 失败' : f.status === 'run' ? '转换中' : '等待';
+      row.innerHTML = `
+        <div class="batch-file-name"><span class="status-tag ${tagClass}">${tagText}</span>${f.name}</div>
+        <div class="batch-mini-bar"><div class="batch-mini-bar-fill ${tagClass.replace('tag-', '')}" style="width:${Math.round((f.percent || 0) * 100)}%;"></div></div>
+        <div class="batch-mini-pct ${tagClass === 'tag-done' ? 'done' : tagClass === 'tag-fail' ? 'fail' : ''}">${Math.round((f.percent || 0) * 100)}%</div>
+        <button class="batch-remove" title="移除">✕</button>
+      `;
+      row.querySelector('.batch-remove').addEventListener('click', () => {
+        if (converting) return;
+        batchFiles.splice(i, 1); renderBatchList(); updateSummary();
+      });
+      frag.appendChild(row);
+    });
+    batchListEl.appendChild(frag);
+    batchCountEl.textContent = batchFiles.length ? `· ${batchFiles.length} 个` : '';
+  }
+
+  function updateSummary() {
+    const q = batchFiles.filter(f => f.status === 'queue').length;
+    const r = batchFiles.filter(f => f.status === 'run').length;
+    const d = batchFiles.filter(f => f.status === 'done').length;
+    const f = batchFiles.filter(f => f.status === 'fail').length;
+    batchSummaryEl.innerHTML = batchFiles.length
+      ? `<span><span class="dot" style="background:#39c7ed;"></span>转换中 ${r}</span>
+         <span><span class="dot" style="background:#9a9ca5;"></span>等待 ${q}</span>
+         <span><span class="dot" style="background:#2ecc71;"></span>完成 ${d}</span>
+         <span><span class="dot" style="background:#e74c3c;"></span>失败 ${f}</span>`
+      : '尚未添加文件';
+  }
+
+  function setBatchFileStatus(i, status, percent = null) {
+    if (i < 0 || i >= batchFiles.length) return;
+    batchFiles[i].status = status;
+    if (percent !== null) batchFiles[i].percent = percent;
+    const rows = batchListEl.querySelectorAll('.batch-file-row');
+    const row = rows[i]; if (!row) return;
+    const tagClass = status === 'done' ? 'tag-done' : status === 'fail' ? 'tag-fail' : status === 'run' ? 'tag-run' : 'tag-queue';
+    const tagText = status === 'done' ? '✓ 完成' : status === 'fail' ? '✗ 失败' : status === 'run' ? '转换中' : '等待';
+    row.querySelector('.status-tag').className = `status-tag ${tagClass}`;
+    row.querySelector('.status-tag').textContent = tagText;
+    const fill = row.querySelector('.batch-mini-bar-fill');
+    fill.className = `batch-mini-bar-fill ${tagClass.replace('tag-', '')}`;
+    if (percent !== null) fill.style.width = `${Math.round(percent * 100)}%`;
+    const pct = row.querySelector('.batch-mini-pct');
+    pct.textContent = `${Math.round((percent !== null ? percent : (batchFiles[i].percent || 0)) * 100)}%`;
+    pct.className = `batch-mini-pct ${tagClass === 'tag-done' ? 'done' : tagClass === 'tag-fail' ? 'fail' : ''}`;
+  }
+
+  function setBatchFileProgress(i, percent) {
+    if (i < 0 || i >= batchFiles.length) return;
+    batchFiles[i].percent = percent;
+    const row = batchListEl.querySelectorAll('.batch-file-row')[i]; if (!row) return;
+    row.querySelector('.batch-mini-bar-fill').style.width = `${Math.round(percent * 100)}%`;
+    row.querySelector('.batch-mini-pct').textContent = `${Math.round(percent * 100)}%`;
+  }
+
+  function buildAudioOptions() {
+    const options = {};
+    options.audio_codec = acodecSel.value;
+    const br = bitrateSel.value;
+    if (br) options.audio_bitrate = br;
+    const sr = parseInt(srSel.value, 10);
+    if (sr > 0) options.sample_rate = sr;
+    const ch = parseInt(chSel.value, 10);
+    if (ch > 0) options.channels = ch;
+    return options;
+  }
+
+  async function buildAudioOutputPath(filePath, prefix, batchIdx) {
+    const fmt = fmtSel.value;
+    const sep = filePath.includes('\\') ? '\\' : '/';
+    const dir = filePath.substring(0, filePath.lastIndexOf(sep));
+    let outName;
+    const prefixTrim = (prefix || '').trim();
+    if (prefixTrim) {
+      outName = `${prefixTrim}_${String(batchIdx + 1).padStart(2, '0')}.${fmt}`;
+    } else {
+      const base = filePath.substring(filePath.lastIndexOf(sep) + 1);
+      const stem = base.substring(0, base.lastIndexOf('.')) || base;
+      outName = `${stem}.${fmt}`;
+    }
+    const finalName = await uniqueFilename(dir, outName);
+    return dir + sep + finalName;
+  }
+
+  async function doBatchConvert() {
+    if (!batchFiles.length || converting) return;
+    if (!isTauri) { setStatus('批量转换需要桌面版环境'); return; }
+
+    converting = true;
+    batchCancelled = false;
+    batchIndex = -1;
+    const suffix = nameIn.value.trim();
+
+    batchFiles.forEach(f => { if (f.status !== 'done') { f.status = 'queue'; f.percent = 0; } });
+    renderBatchList(); updateSummary();
+
+    convertBtn.textContent = '停止转换';
+    setEnabled(false);
+    setStatus(`批量转换开始：共 ${batchFiles.length} 个文件`);
+
+    const progressListener = await window.__TAURI__.event.listen('audio-progress', (ev) => {
+      if (batchIndex >= 0 && batchIndex < batchFiles.length) {
+        setBatchFileProgress(batchIndex, ev.payload);
+      }
+    });
+
+    try {
+      for (let i = 0; i < batchFiles.length; i++) {
+        if (batchCancelled) break;
+        const f = batchFiles[i];
+        if (f.status === 'done') continue;
+
+        batchIndex = i;
+        setBatchFileStatus(i, 'run', 0);
+        setStatus(`正在转换 (${i + 1}/${batchFiles.length})：${f.name}`);
+
+        try {
+          const outPath = await buildAudioOutputPath(f.path, suffix, i);
+          const options = buildAudioOptions();
+          await window.__TAURI__.core.invoke('convert_audio', { input: f.path, output: outPath, options });
+          batchFiles[i].outPath = outPath;
+          setBatchFileStatus(i, 'done', 1);
+          batchLastOutDir = dirname(outPath);
+          io.setSource(f.path);
+          io.setExport(outPath);
+        } catch (ex) {
+          setBatchFileStatus(i, 'fail');
+        }
+        updateSummary();
+      }
+    } finally {
+      progressListener();
+      converting = false;
+      batchIndex = -1;
+      convertBtn.textContent = '全部转换';
+      setEnabled(true);
+
+      if (batchCancelled) {
+        setStatus('已停止批量转换');
+      } else {
+        const d = batchFiles.filter(f => f.status === 'done').length;
+        const fl = batchFiles.filter(f => f.status === 'fail').length;
+        setStatus(`批量转换完成：成功 ${d}，失败 ${fl}`);
+      }
+    }
+  }
+
+  // ===== 批量：添加/清空按钮绑定 =====
+  modeSingleBtn.addEventListener('click', () => toggleBatchMode(false));
+  modeBatchBtn.addEventListener('click', () => toggleBatchMode(true));
+
+  batchAddBtn.addEventListener('click', async () => {
+    if (converting) return;
+    const entries = await pickImages(true, AUDIO_SOURCE_EXTS, { title: '选择音频/视频文件' });
+    if (entries?.length) {
+      const existing = new Set(batchFiles.map(f => f.path));
+      for (const e of entries) {
+        if (!existing.has(e.path)) batchFiles.push({ path: e.path, name: e.name, status: 'queue', percent: 0 });
+      }
+      renderBatchList(); updateSummary();
+      convertBtn.disabled = !batchFiles.length || converting;
+    }
+  });
+
+  batchAddFolderBtn.addEventListener('click', async () => {
+    if (converting) return;
+    const dir = await window.__TAURI__.core.invoke('pick_dir');
+    if (!dir) return;
+    try {
+      const files = await window.__TAURI__.core.invoke('list_files', { dir });
+      const existing = new Set(batchFiles.map(f => f.path));
+      for (const p of files) {
+        const sepIdx = Math.max(p.lastIndexOf('\\'), p.lastIndexOf('/'));
+        const name = sepIdx >= 0 ? p.substring(sepIdx + 1) : p;
+        if (!existing.has(p) && AUDIO_SOURCE_EXTS.includes((p.split('.').pop() || '').toLowerCase())) {
+          batchFiles.push({ path: p, name, status: 'queue', percent: 0 });
+        }
+      }
+      renderBatchList(); updateSummary();
+      convertBtn.disabled = !batchFiles.length || converting;
+    } catch (ex) {
+      setStatus('读取文件夹失败：' + (ex?.message ?? ex));
+    }
+  });
+
+  batchClearBtn.addEventListener('click', () => {
+    if (converting) return;
+    batchFiles = []; renderBatchList(); updateSummary();
+    convertBtn.disabled = !batchFiles.length || converting;
   });
 
   return {

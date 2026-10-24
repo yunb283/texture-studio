@@ -567,8 +567,10 @@
 
     <div class="page hidden" id="page-video">
       <div class="panel" style="flex: 58">
+        <!-- 单个转换模式（默认可见） -->
+        <div id="vid-single-wrap">
         <div class="panel-head">
-          <span class="panel-title">源视频</span>
+          <span class="panel-title">源视频 <span class="dim-label" id="vid-src-name" style="margin-left:6px;"></span></span>
           <span class="dim-label" id="vid-src-size"></span>
           <button class="btn small" id="vid-crop" disabled>裁剪区域</button>
           <button class="btn small" id="vid-hide" disabled>隐藏暂停按钮</button>
@@ -624,6 +626,20 @@
         <div class="help-label">
           支持导入：MP4、M4V、MOV、WebM、MKV、AVI、WMV、FLV、TS、MPEG 等常见视频格式<br />
           基于内置 FFmpeg 9，完全离线转换，无需联网
+        </div>
+        </div><!-- /vid-single-wrap -->
+        <!-- 批量转换模式（默认隐藏） -->
+        <div id="vid-batch-wrap" hidden>
+          <div class="panel-head">
+            <span class="panel-title">待转换列表 <span class="dim-label" id="vid-batch-count"></span></span>
+            <button class="btn tiny" id="vid-batch-clear" title="清空列表">清空</button>
+          </div>
+          <div class="batch-add-row">
+            <button class="btn" id="vid-batch-add" style="flex:1;">+ 添加文件</button>
+            <button class="btn" id="vid-batch-add-folder" style="flex:1;">📁 选择文件夹</button>
+          </div>
+          <div id="vid-batch-list" class="batch-file-list"></div>
+          <div class="batch-summary dim-label" id="vid-batch-summary"></div>
         </div>
       </div>
       <div class="panel" style="flex: 42">
@@ -736,13 +752,19 @@
         <div class="status" id="vid-status"></div>
         <div class="dim-label" id="vid-out-size"></div>
         <div class="io-row end" id="vid-io"></div>
+        <div class="mode-toggle" id="vid-mode-toggle">
+          <button class="btn on" id="vid-mode-single" type="button">单个转换</button>
+          <button class="btn" id="vid-mode-batch" type="button">批量转换</button>
+        </div>
       </div>
     </div>
 
     <div class="page hidden" id="page-audio">
       <div class="panel" style="flex: 50">
+        <!-- 单个转换模式（默认可见） -->
+        <div id="aud-single-wrap">
         <div class="panel-head">
-          <span class="panel-title">源音频</span>
+          <span class="panel-title">源音频 <span class="dim-label" id="aud-src-name" style="margin-left:6px;"></span></span>
           <span class="dim-label" id="aud-src-size"></span>
         </div>
         <div class="canvas-wrap" id="aud-canvas-wrap" style="display:flex;flex-direction:column;justify-content:center;align-items:center;">
@@ -754,6 +776,20 @@
         <div class="help-label">
           支持导入：MP3、WAV、FLAC、AAC、OGG、Opus、M4A、WMA、AIFF 等音频格式，也可从视频中提取音轨<br />
           基于内置 FFmpeg 9，完全离线转换，无需联网
+        </div>
+        </div><!-- /aud-single-wrap -->
+        <!-- 批量转换模式（默认隐藏） -->
+        <div id="aud-batch-wrap" hidden>
+          <div class="panel-head">
+            <span class="panel-title">待转换列表 <span class="dim-label" id="aud-batch-count"></span></span>
+            <button class="btn tiny" id="aud-batch-clear" title="清空列表">清空</button>
+          </div>
+          <div class="batch-add-row">
+            <button class="btn" id="aud-batch-add" style="flex:1;">+ 添加文件</button>
+            <button class="btn" id="aud-batch-add-folder" style="flex:1;">📁 选择文件夹</button>
+          </div>
+          <div id="aud-batch-list" class="batch-file-list"></div>
+          <div class="batch-summary dim-label" id="aud-batch-summary"></div>
         </div>
       </div>
       <div class="panel" style="flex: 50">
@@ -773,7 +809,7 @@
             <option value="opus">Opus（高质量低码率）</option>
           </select>
           <label>音频编码</label>
-          <select id="aud-acodec">
+          <select id="aud-acodec" disabled>
             <option value="libmp3lame">MP3（LAME）</option>
             <option value="aac">AAC</option>
             <option value="flac">FLAC（无损）</option>
@@ -828,6 +864,10 @@
         <div class="status" id="aud-status"></div>
         <div class="dim-label" id="aud-out-size"></div>
         <div class="io-row end" id="aud-io"></div>
+        <div class="mode-toggle" id="aud-mode-toggle">
+          <button class="btn on" id="aud-mode-single" type="button">单个转换</button>
+          <button class="btn" id="aud-mode-batch" type="button">批量转换</button>
+        </div>
       </div>
     </div>
 

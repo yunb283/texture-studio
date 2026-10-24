@@ -511,6 +511,7 @@ async fn convert_video(
             .spawn()
             .map_err(|e| format!("启动 ffmpeg 失败：{e}"))?;
 
+        let mut stderr_tail: Vec<String> = Vec::new();
         if let Some(stderr) = child.stderr.take() {
             let reader = BufReader::new(stderr);
             for line in reader.lines() {
@@ -518,15 +519,14 @@ async fn convert_video(
                     Ok(l) => l,
                     Err(_) => break,
                 };
-                // -progress 的输出是逐行 "out_time=HH:MM:SS.xxxxxx"（带换行），
-                // 以前读默认统计行，而那是用 \r 覆盖同一行的，lines() 要等到进程结束才拿到，
-                // 所以界面只在最后跳到 100%。
+                stderr_tail.push(line.clone());
+                if stderr_tail.len() > 5 {
+                    stderr_tail.remove(0);
+                }
                 let Some(rest) = line.strip_prefix("out_time=") else {
                     continue;
                 };
                 if let Some(t) = parse_time_to_seconds(rest.trim()) {
-                    // out_time 是「输出文件」的时间轴（从 0 开始），所以分母要用导出时长 duration，
-                    // 用整段 total 的话设了时间区间就永远走不到 100%
                     let progress = (t / duration.max(0.001)).min(1.0).max(0.0);
                     let _ = window_clone.emit("video-progress", progress);
                 }
@@ -535,7 +535,13 @@ async fn convert_video(
 
         let status = child.wait().map_err(|e| e.to_string())?;
         if !status.success() {
-            return Err("ffmpeg 转换失败，请检查参数或输出格式".into());
+            let tail = stderr_tail.join(" | ");
+            let msg = if tail.is_empty() {
+                "ffmpeg 转换失败".to_string()
+            } else {
+                format!("ffmpeg 转换失败：{tail}")
+            };
+            return Err(msg);
         }
         Ok(())
     })
@@ -633,6 +639,7 @@ async fn convert_audio(
             .spawn()
             .map_err(|e| format!("启动 ffmpeg 失败：{e}"))?;
 
+        let mut stderr_tail: Vec<String> = Vec::new();
         if let Some(stderr) = child.stderr.take() {
             let reader = BufReader::new(stderr);
             for line in reader.lines() {
@@ -640,12 +647,16 @@ async fn convert_audio(
                     Ok(l) => l,
                     Err(_) => break,
                 };
-                // 同视频转换：解析 -progress 的 out_time 行，才能实时刷新进度
+                // 保留最后 5 行，失败时带出来方便诊断
+                stderr_tail.push(line.clone());
+                if stderr_tail.len() > 5 {
+                    stderr_tail.remove(0);
+                }
+                // 解析 -progress 的 out_time= 行来实时刷新进度
                 let Some(rest) = line.strip_prefix("out_time=") else {
                     continue;
                 };
                 if let Some(t) = parse_time_to_seconds(rest.trim()) {
-                    // 同视频：分母用导出时长，设了区间也能走到 100%
                     let progress = (t / duration.max(0.001)).min(1.0).max(0.0);
                     let _ = window_clone.emit("audio-progress", progress);
                 }
@@ -654,7 +665,13 @@ async fn convert_audio(
 
         let status = child.wait().map_err(|e| e.to_string())?;
         if !status.success() {
-            return Err("ffmpeg 转换失败，请检查参数或输出格式".into());
+            let tail = stderr_tail.join(" | ");
+            let msg = if tail.is_empty() {
+                "ffmpeg 转换失败".to_string()
+            } else {
+                format!("ffmpeg 转换失败：{tail}")
+            };
+            return Err(msg);
         }
         Ok(())
     })
