@@ -5,7 +5,8 @@
   "version": "0.1.0",
   "identifier": "com.spritetools.seqtool",
   "build": {
-    "frontendDist": "../src"
+    "frontendDist": "../src",
+    "beforeBuildCommand": "powershell -ExecutionPolicy Bypass -File ../scripts/download-ffmpeg.ps1"
   },
   "app": {
     "withGlobalTauri": true,
@@ -37,6 +38,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "resources": ["resources/ffmpeg.exe"],
     "windows": {
       "wix": {
         "language": ["zh-CN"]

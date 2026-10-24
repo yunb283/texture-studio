@@ -22,6 +22,7 @@
       <button class="tab" id="tab-seamless">无缝贴图</button>
       <button class="tab" id="tab-gif">制作GIF</button>
       <button class="tab" id="tab-gifview">GIF动画预览</button>
+      <button class="tab" id="tab-video">视频格式转换</button>
       <button class="pin-btn" id="pin-top" title="总在最前" aria-pressed="false">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -559,6 +560,144 @@
         <button class="btn" id="gv-export-frame" disabled title="导出预览里停住的这一帧（PNG，无损，按上面的等比缩放）">导出当前帧</button>
         <div class="io-row end" id="gv-io"></div>
         <div class="status" id="gv-status"></div>
+      </div>
+    </div>
+
+    <div class="page hidden" id="page-video">
+      <div class="panel" style="flex: 58">
+        <div class="panel-head">
+          <span class="panel-title">源视频</span>
+        </div>
+        <div class="canvas-wrap">
+          <video id="vid-src" class="offscreen-video" muted playsinline preload="auto"></video>
+          <div class="vid-play-overlay" id="vid-play-overlay" hidden>
+            <svg viewBox="0 0 24 24" width="144" height="144" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </div>
+        </div>
+        <div class="vid-timeline" id="vid-timeline">
+          <div class="vid-row">
+            <button class="btn small" id="vid-play" disabled>播放</button>
+            <button class="btn small step-btn" id="vid-prev" disabled>上一帧</button>
+            <button class="btn small step-btn" id="vid-next" disabled>下一帧</button>
+            <span class="dim-label tl-time" id="vid-time">00:00 / 00:00</span>
+            <span class="spacer"></span>
+            <div class="vid-vol">
+              <button class="btn small icon-btn" id="vid-mute" disabled title="静音">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+              </button>
+              <input type="range" id="vid-vol" min="0" max="100" value="0" step="1" disabled />
+              <span class="dim-label" id="vid-vol-label">0</span>
+            </div>
+            <button class="btn small" id="vid-reset" disabled>重置</button>
+          </div>
+          <input type="range" id="vid-seek" min="0" max="1000" value="0" step="1" />
+        </div>
+        <div class="dim-label info-wrap" id="vid-info">未载入视频</div>
+        <button class="btn" id="vid-open">打开视频…（或拖入文件）</button>
+        <button class="btn" id="vid-clear" disabled>清空</button>
+        <div class="help-label">
+          支持导入：MP4、M4V、MOV、WebM、MKV、AVI、WMV、FLV、TS、MPEG 等常见视频格式<br />
+          基于内置 FFmpeg 9，完全离线转换，无需联网
+        </div>
+      </div>
+      <div class="panel" style="flex: 42">
+        <div class="panel-head">
+          <span class="panel-title">转换设置</span>
+        </div>
+        <div class="form-grid">
+          <label>输出格式</label>
+          <select id="vid-fmt">
+            <option value="mp4">MP4（通用兼容）</option>
+            <option value="webm">WebM（VP9 + Opus）</option>
+            <option value="mkv">MKV（万能容器）</option>
+            <option value="avi">AVI</option>
+            <option value="mov">MOV</option>
+            <option value="flv">FLV</option>
+            <option value="ts">TS</option>
+          </select>
+          <label>视频编码</label>
+          <select id="vid-vcodec">
+            <option value="libx264">H.264 / AVC（兼容性最好）</option>
+            <option value="libx265">H.265 / HEVC（体积更小）</option>
+            <option value="libvpx-vp9">VP9（WebM 用）</option>
+            <option value="libaom-av1">AV1（最新，压缩率最高）</option>
+            <option value="copy">直接复制（不重编码，极速）</option>
+          </select>
+          <label>音频编码</label>
+          <select id="vid-acodec">
+            <option value="aac">AAC（MP4 用）</option>
+            <option value="libopus">Opus（WebM 用，质量高）</option>
+            <option value="libmp3lame">MP3</option>
+            <option value="copy">直接复制（不重编码）</option>
+          </select>
+          <label>质量 (CRF)</label>
+          <div class="dual-row">
+            <input type="range" id="vid-crf" min="0" max="51" step="1" value="23" />
+            <span class="dim-label" id="vid-crf-label">23</span>
+          </div>
+          <label>预设</label>
+          <select id="vid-preset">
+            <option value="ultrafast">极速（体积大）</option>
+            <option value="superfast">极快</option>
+            <option value="veryfast">很快</option>
+            <option value="faster">较快</option>
+            <option value="fast">快</option>
+            <option value="medium" selected>中等（推荐）</option>
+            <option value="slow">慢</option>
+            <option value="slower">较慢</option>
+            <option value="veryslow">很慢（体积最小）</option>
+          </select>
+          <label>分辨率</label>
+          <div class="dual-row">
+            <select id="vid-scale">
+              <option value="0" selected>保持原分辨率</option>
+              <option value="3840:2160">4K (3840×2160)</option>
+              <option value="2560:1440">2K (2560×1440)</option>
+              <option value="1920:1080">1080p (1920×1080)</option>
+              <option value="1280:720">720p (1280×720)</option>
+              <option value="854:480">480p (854×480)</option>
+              <option value="custom">自定义…</option>
+            </select>
+          </div>
+          <label>自定义宽×高</label>
+          <div class="dual-row">
+            <input type="number" id="vid-w" min="16" max="7680" value="1920" disabled />
+            <span>×</span>
+            <input type="number" id="vid-h" min="16" max="4320" value="1080" disabled />
+          </div>
+          <label>帧率</label>
+          <select id="vid-fps">
+            <option value="0" selected>保持原帧率</option>
+            <option value="24">24 fps</option>
+            <option value="25">25 fps</option>
+            <option value="30">30 fps</option>
+            <option value="50">50 fps</option>
+            <option value="60">60 fps</option>
+          </select>
+          <label>视频比特率</label>
+          <input type="text" id="vid-vbr" placeholder="留空用 CRF 控制质量，例：5M、2000k" />
+          <label>音频比特率</label>
+          <input type="text" id="vid-abr" placeholder="留空用默认，例：128k、192k" />
+        </div>
+        <label class="chk">
+          <input type="checkbox" id="vid-copy" />
+          <span>纯封装转换（-c copy，极速，但格式和编码兼容性受限）</span>
+        </label>
+        <div class="form-grid">
+          <label>文件名</label>
+          <input type="text" id="vid-name" placeholder="留空则用 原名_转换" />
+        </div>
+        <label class="chk">
+          <input type="checkbox" id="vid-save-orig" checked />
+          <span>导出到源视频所在目录</span>
+        </label>
+        <button class="btn primary" id="vid-convert" disabled>开始转换</button>
+        <div class="progress-wrap">
+          <div class="progress-bar"><div class="progress-fill" id="vid-progress-fill"></div></div>
+          <span class="dim-label" id="vid-progress-text">0%</span>
+        </div>
+        <div class="status" id="vid-status"></div>
+        <div class="io-row end" id="vid-io"></div>
       </div>
     </div>
 

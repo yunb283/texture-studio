@@ -809,3 +809,153 @@ select:disabled {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* 视频转换页：进度条 */
+.progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 14px;
+  background: #2a2a33;
+  border: 1px solid #45454f;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #39c7ed, #7b5cff);
+  transition: width 0.2s ease;
+}
+
+/* 视频转换页的 video 可见（复用 offscreen-video 的位置，但显示在 canvas-wrap 内） */
+#page-video .offscreen-video {
+  position: static;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+  cursor: pointer;
+}
+
+/* 视频信息栏：自动换行，不溢出 */
+.info-wrap {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+
+/* 视频逐帧时间轴 */
+.vid-timeline {
+  margin-top: 6px;
+}
+
+.vid-timeline input[type="range"] {
+  width: 100%;
+  margin-top: 4px;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  --seek-pct: 0%;
+  background: linear-gradient(to right, #39c7ed 0%, #39c7ed var(--seek-pct), #2a2a33 var(--seek-pct), #2a2a33 100%);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+.vid-timeline input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #39c7ed;
+  border: 2px solid #fff;
+  cursor: grab;
+}
+
+.vid-timeline input[type="range"]::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.2);
+}
+
+.vid-timeline input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #39c7ed;
+  border: 2px solid #fff;
+  cursor: grab;
+}
+
+/* 暂停时视频中央的播放按钮浮层 */
+.vid-play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.vid-play-overlay svg {
+  color: #fff;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 50%;
+  padding: 30px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+/* 音量控制 */
+.vid-vol {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 6px;
+  min-width: 0;
+  line-height: 1;
+}
+
+.vid-vol input[type="range"] {
+  width: 140px;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: #2a2a33;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+#vid-vol-label {
+  min-width: 22px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  transform: translateY(1px);
+}
+
+.vid-vol input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #39c7ed;
+  border: 2px solid #fff;
+  cursor: grab;
+}

@@ -7,6 +7,7 @@ import { initNormal } from './normal-page.js';
 import { initSeamless } from './seamless-page.js';
 import { initGif } from './gif-page.js';
 import { initGifView } from './gif-view-page.js';
+import { initVideoConvert } from './video-convert-page.js';
 import {
   onGlobalDrop,
   isSupportedName,
@@ -15,6 +16,7 @@ import {
   TEXTURE_EXTS,
   GIF_SOURCE_EXTS,
   GIF_ONLY_EXTS,
+  VIDEO_EXTS,
 } from './platform.js';
 
 function makeBgButtons(container, view, modes, current) {
@@ -92,6 +94,7 @@ const tabNormal = document.getElementById('tab-normal');
 const tabSeamless = document.getElementById('tab-seamless');
 const tabGif = document.getElementById('tab-gif');
 const tabGifView = document.getElementById('tab-gifview');
+const tabVideo = document.getElementById('tab-video');
 const pageSplit = document.getElementById('page-split');
 const pageMerge = document.getElementById('page-merge');
 const pageConvert = document.getElementById('page-convert');
@@ -99,6 +102,7 @@ const pageNormal = document.getElementById('page-normal');
 const pageSeamless = document.getElementById('page-seamless');
 const pageGif = document.getElementById('page-gif');
 const pageGifView = document.getElementById('page-gifview');
+const pageVideo = document.getElementById('page-video');
 
 const srcView = new CanvasView(document.getElementById('src-canvas'), {
   clickable: true,
@@ -193,6 +197,7 @@ const nrmApi = initNormal({ srcView: nrmSrcView, outView: nrmOutView });
 const smlApi = initSeamless({ srcView: smlSrcView, outView: smlOutView });
 const gifApi = initGif({ srcView: gifSrcView });
 const gvApi = initGifView({ view: gvView });
+const videoApi = initVideoConvert();
 
 // 两行封顶的那几行（各页状态行、GIF 页信息行）只显示两行，超出省略号；
 // 完整文字挂到 title 上，鼠标悬停看全文
@@ -212,6 +217,7 @@ const tabs = [
   ['seamless', tabSeamless, pageSeamless, [smlSrcView, smlOutView]],
   ['gif', tabGif, pageGif, [gifSrcView]],
   ['gifview', tabGifView, pageGifView, [gvView]],
+  ['video', tabVideo, pageVideo, []],
 ];
 
 function showTab(which) {
@@ -232,6 +238,7 @@ tabNormal.addEventListener('click', () => showTab('normal'));
 tabSeamless.addEventListener('click', () => showTab('seamless'));
 tabGif.addEventListener('click', () => showTab('gif'));
 tabGifView.addEventListener('click', () => showTab('gifview'));
+tabVideo.addEventListener('click', () => showTab('video'));
 
 // 总在最前：默认关闭，按下启用（浏览器里没有窗口，直接隐藏）
 const pinBtn = document.getElementById('pin-top');
@@ -247,6 +254,11 @@ if (!isTauri) {
 }
 
 onGlobalDrop((entries) => {
+  // 视频转换页优先吃视频
+  if (!pageVideo.classList.contains('hidden')) {
+    videoApi.loadEntry(entries[0]);
+    return;
+  }
   // 几个动画/贴图处理页各有一份白名单，谁在前台就交给谁（白名单外也递过去，由页面给提示）
   for (const [pageEl, api, exts] of [
     [pageGifView, gvApi, GIF_ONLY_EXTS],
