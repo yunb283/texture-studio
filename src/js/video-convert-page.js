@@ -74,6 +74,7 @@ export function initVideoConvert() {
   const maskB = cropOverlay.querySelector('.crop-mask-b');
   const maskL = cropOverlay.querySelector('.crop-mask-l');
   const maskR = cropOverlay.querySelector('.crop-mask-r');
+  const resetDefaultsBtn = $('vid-reset-defaults');
 
   const io = createIoButtons($('vid-io'), setStatus);
   const srcSizeEl = $('vid-src-size');
@@ -114,6 +115,30 @@ export function initVideoConvert() {
   function setEnabled(on) {
     clearBtn.disabled = !on;
     convertBtn.disabled = !on || converting;
+  }
+
+  // 恢复转换设置为 HTML 里写死的默认值
+  function resetDefaults() {
+    fmtSel.value = 'mp4';
+    vcodecSel.value = 'libx264';
+    acodecSel.value = 'aac';
+    crfRange.value = 23;
+    crfLabel.textContent = '23';
+    presetSel.value = 'medium';
+    scaleSel.value = '0';
+    wIn.value = 1920;
+    hIn.value = 1080;
+    fpsSel.value = '0';
+    vbrModeSel.value = 'auto';
+    vbrIn.value = '';
+    abrIn.value = '';
+    copyChk.checked = false;
+    nameIn.value = '';
+    saveOrigChk.checked = true;
+    // 触发相关 change 处理，刷新 disabled 状态和码率推荐
+    syncCodecByFormat();
+    copyChk.dispatchEvent(new Event('change'));
+    scaleSel.dispatchEvent(new Event('change'));
   }
 
   function setTimelineEnabled(on) {
@@ -552,6 +577,10 @@ export function initVideoConvert() {
     fpsSel.disabled = copy;
     abrIn.disabled = copy;
     applyVbrMode();
+  });
+
+  resetDefaultsBtn.addEventListener('click', () => {
+    resetDefaults();
   });
 
   fmtSel.addEventListener('change', syncCodecByFormat);

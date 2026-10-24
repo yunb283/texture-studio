@@ -466,6 +466,14 @@ canvas.zoomable.panning,
   min-width: 60px;
 }
 
+.btn.tiny {
+  padding: 3px 10px;
+  font-size: 12px;
+  line-height: 1;
+  min-width: 0;
+  margin-left: auto;
+}
+
 /* 处于按下状态的开关按钮 */
 .btn.on {
   border-color: #39c7ed;
@@ -832,6 +840,28 @@ select:disabled {
   width: 0%;
   background: linear-gradient(90deg, #39c7ed, #7b5cff);
   transition: width 0.2s ease;
+}
+
+/* 合并阶段：indeterminate 条纹动画 */
+.progress-bar.merge-phase {
+  background: #2a2a33;
+  border-color: #7b5cff;
+}
+.progress-fill.merge-phase {
+  width: 100%;
+  background: repeating-linear-gradient(
+    45deg,
+    #7b5cff 0px,
+    #7b5cff 10px,
+    #a78bfa 10px,
+    #a78bfa 20px
+  );
+  animation: merge-stripes 1.2s linear infinite;
+  transition: none;
+}
+@keyframes merge-stripes {
+  from { background-position: 0 0; }
+  to { background-position: 40px 0; }
 }
 
 /* 视频转换页的 video 可见（复用 offscreen-video 的位置，但显示在 canvas-wrap 内） */

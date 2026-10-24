@@ -71,6 +71,7 @@ export function initVideoDownload() {
   const progressText = $('dl-progress-text');
   const progressMeta = $('dl-progress-meta');
   const statusEl = $('dl-status');
+  const clearAllBtn = $('dl-clear-all');
 
   const io = createIoButtons($('dl-io'));
 
@@ -85,14 +86,109 @@ export function initVideoDownload() {
     statusEl.textContent = msg || '';
   }
 
-  function setProgress(p, speed, eta) {
+  // 解析 "10.00MiB" / "1.23GiB" / "512.0KiB" → { num, unit }
+  function parseSize(str) {
+    if (!str) return null;
+    const m = str.trim().match(/^([\d.]+)\s*(\w+)$/);
+    if (!m) return null;
+    return { num: parseFloat(m[1]), unit: m[2] };
+  }
+
+  function formatDownloaded(totalSize, percent) {
+    const p = parseSize(totalSize);
+    if (!p) return '';
+    const downloaded = p.num * (percent || 0);
+    return `${downloaded.toFixed(2)} ${p.unit} / ${p.num.toFixed(2)} ${p.unit}`;
+  }
+
+  function setProgress(p, speed, eta, phase, totalSize) {
+    phase = phase || 'download';
     const pct = Math.round((p || 0) * 100);
-    progressFill.style.width = `${pct}%`;
-    progressText.textContent = `${pct}%`;
-    const meta = [];
-    if (speed) meta.push(speed);
-    if (eta) meta.push(`剩余 ${eta}`);
-    progressMeta.textContent = meta.join(' · ');
+    const progressBar = progressFill.parentElement;
+
+    if (phase === 'merge') {
+      // 合并阶段：进度条变成 indeterminate 条纹动画
+      progressFill.classList.add('merge-phase');
+      progressBar.classList.add('merge-phase');
+      progressFill.style.width = '0%';
+      progressText.textContent = '合并中…';
+      progressMeta.textContent = '';
+      setStatus('视频下载完成，正在合并视频与音频…');
+    } else if (phase === 'done') {
+      progressFill.classList.remove('merge-phase');
+      progressBar.classList.remove('merge-phase');
+      progressFill.style.width = '100%';
+      progressText.textContent = '100%';
+      progressMeta.textContent = '';
+      setStatus('下载完成');
+    } else {
+      // download 阶段
+      progressFill.classList.remove('merge-phase');
+      progressBar.classList.remove('merge-phase');
+      progressFill.style.width = `${pct}%`;
+      progressText.textContent = `${pct}%`;
+      const meta = [];
+      if (totalSize) {
+        const dl = formatDownloaded(totalSize, p);
+        if (dl) meta.push(dl);
+      }
+      if (speed) meta.push(speed);
+      if (eta) meta.push(`剩余 ${eta}`);
+      progressMeta.textContent = meta.join(' · ');
+    }
+  }
+
+  // 清空视频信息和下载设置（保存目录设置保持不变）
+  function clearAll() {
+    if (downloading) return;
+    ctxFormat = null;
+    currentInfo = null;
+    resChoices = [];
+    audioBest = null;
+
+    // 清空 URL
+    urlInput.value = '';
+
+    // 封面 + 信息
+    thumb.removeAttribute('src');
+    thumb.style.display = 'none';
+    thumbPh.style.display = '';
+    thumbPh.textContent = '尚未解析视频';
+    infoEl.textContent = '未解析视频';
+
+    // 格式列表
+    fmtList.innerHTML = '';
+
+    // 分辨率 / 编码下拉：回到初始空状态
+    resSel.innerHTML = '<option value="">最佳可用</option>';
+    codecSel.innerHTML = '<option value="">-</option>';
+    codecSel.value = '';
+
+    // 辅助文字
+    fmtLabel.textContent = '将下载：最佳可用（视频+音频自动合并）';
+    sizeLine.textContent = '文件大小：-';
+
+    // 文件名
+    nameInput.value = '';
+
+    // 网络代理：恢复默认（含 localStorage）
+    proxyModeSel.value = '';
+    proxyUrlIn.value = '';
+    localStorage.removeItem(PROXY_KEY);
+    syncProxyInput();
+
+    // 进度和状态
+    setProgress(0);
+    progressMeta.textContent = '';
+    setStatus('');
+
+    // 按钮
+    downloadBtn.disabled = true;
+    fetchBtn.disabled = false;
+
+    // IO 清理
+    io.clear();
+    lastOutputPath = null;
   }
 
   // 网络代理选择：'' 默认、direct 直连、system 系统代理、custom 自定义地址
@@ -508,7 +604,8 @@ export function initVideoDownload() {
           proxy: getProxyArg(),
         },
       });
-      setProgress(1);
+      // 后端会 emit phase="done" 事件，这里双重保险，确保进度条最终状态正确
+      setProgress(1, '', '', 'done');
       lastOutputPath =
         finalPath ||
         output.replace('%(title)s', currentInfo.title).replace('%(ext)s', currentInfo.ext || 'mp4');
@@ -525,6 +622,11 @@ export function initVideoDownload() {
   }
 
   fetchBtn.addEventListener('click', fetchInfo);
+
+  clearAllBtn.addEventListener('click', () => {
+    clearAll();
+  });
+
   urlInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') fetchInfo();
   });
@@ -552,8 +654,11 @@ export function initVideoDownload() {
   if (isTauri) {
     window.__TAURI__.event.listen('ytdlp-progress', (e) => {
       const d = e.payload || {};
-      if (typeof d === 'number') setProgress(d);
-      else setProgress(d.percent, d.speed, d.eta);
+      if (typeof d === 'number') {
+        setProgress(d);
+      } else {
+        setProgress(d.percent, d.speed, d.eta, d.phase, d.total_size);
+      }
     });
   }
 

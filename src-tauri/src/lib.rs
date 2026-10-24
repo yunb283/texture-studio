@@ -863,12 +863,24 @@ pub struct YtDlpDownloadOptions {
     pub proxy: Option<String>,
 }
 
-/// yt-dlp 下载进度：百分比 + 速度 + 剩余时间（后两个拿不到时是空串）
+/// yt-dlp 下载/合并进度
 #[derive(Clone, Serialize)]
 pub struct DownloadProgress {
+    /// 0~1，合并阶段和完成时分别为 0（不确定进度）和 1
     pub percent: f64,
     pub speed: String,
     pub eta: String,
+    /// "download" / "merge" / "done"
+    pub phase: String,
+    /// 当前下载段的总大小（从 "of XX at" 提取，如 "20.00MiB"）
+    pub total_size: String,
+}
+
+#[derive(Clone, Default)]
+struct ProgressState {
+    last_percent: f64,
+    phase: String,
+    total_size: String,
 }
 
 /// 从 "[download]  25.0% of 10.00MiB at 1.23MiB/s ETA 00:12" 里取速度和剩余时间
@@ -888,8 +900,35 @@ fn extract_speed_eta(line: &str) -> (String, String) {
     (token_after(" at "), token_after("ETA "))
 }
 
-/// 解析一行下载进度并发事件。进度只允许单调递增（视频、音频是分两段下的）。
-fn emit_progress(line: &str, last: &Arc<Mutex<f64>>, window: &tauri::Window) {
+/// 从 "[download] 25.0% of 10.00MiB at ..." 提取总大小 "10.00MiB"
+fn extract_total_size(line: &str) -> String {
+    if let Some(start) = line.find("of ") {
+        let after_of = &line[start + 3..];
+        let end = after_of.find(" at ").unwrap_or(after_of.len());
+        after_of[..end].trim().to_string()
+    } else {
+        String::new()
+    }
+}
+
+/// 发送指定 phase 的进度事件（合并/完成阶段用）
+fn emit_phase(window: &tauri::Window, phase: &str, percent: f64, total_size: &str) {
+    let _ = window.emit(
+        "ytdlp-progress",
+        DownloadProgress {
+            percent,
+            speed: String::new(),
+            eta: String::new(),
+            phase: phase.to_string(),
+            total_size: total_size.to_string(),
+        },
+    );
+}
+
+/// 解析一行下载进度并发事件。
+/// 检测到跨段时 percent 会从接近 1 掉到接近 0（视频流→音频流），
+/// 此时重置 last_percent，让新段进度能正常上报。
+fn emit_progress(line: &str, state: &Arc<Mutex<ProgressState>>, window: &tauri::Window) {
     if !line.starts_with("[download]") {
         return;
     }
@@ -897,13 +936,39 @@ fn emit_progress(line: &str, last: &Arc<Mutex<f64>>, window: &tauri::Window) {
         return;
     };
     let p = (pct / 100.0).clamp(0.0, 1.0);
-    let Ok(mut guard) = last.lock() else { return };
-    if p <= *guard {
+    let (speed, eta) = extract_speed_eta(line);
+    let total_size = extract_total_size(line);
+
+    let Ok(mut guard) = state.lock() else { return };
+
+    // 已经进入合并/完成阶段就别再发下载进度了
+    if guard.phase == "merge" || guard.phase == "done" {
         return;
     }
-    *guard = p;
-    let (speed, eta) = extract_speed_eta(line);
-    let _ = window.emit("ytdlp-progress", DownloadProgress { percent: p, speed, eta });
+    guard.phase = "download".to_string();
+
+    // 明显倒退 → 换了下载段（视频→音频），重置 last_percent
+    if p < guard.last_percent - 0.3 {
+        guard.last_percent = p;
+    } else if p <= guard.last_percent + 0.001 {
+        // 同段重复行，跳过
+        return;
+    } else {
+        guard.last_percent = p;
+    }
+
+    guard.total_size = total_size.clone();
+
+    let _ = window.emit(
+        "ytdlp-progress",
+        DownloadProgress {
+            percent: p,
+            speed,
+            eta,
+            phase: "download".to_string(),
+            total_size,
+        },
+    );
 }
 
 /// 调用 yt-dlp 下载视频，通过 ytdlp-progress 事件上报进度（0~1）。
@@ -990,13 +1055,13 @@ async fn ytdlp_download(
             .spawn()
             .map_err(|e| format!("启动 yt-dlp 失败：{e}"))?;
 
-        // 进度行有些站点写 stdout、有些写 stderr，两边都解析；用共享的最大值去重
-        let last_pct = Arc::new(Mutex::new(0.0_f64));
+        // 进度行有些站点写 stdout、有些写 stderr，两边都解析；共享 phase + 百分比状态
+        let progress_state = Arc::new(Mutex::new(ProgressState::default()));
 
         // stdout 里还有 --print 输出的最终文件路径
         let stdout_handle = child.stdout.take().map(|stdout| {
             let win = window_clone.clone();
-            let shared = last_pct.clone();
+            let shared = progress_state.clone();
             std::thread::spawn(move || {
                 let mut last_non_progress = String::new();
                 for line in BufReader::new(stdout).lines() {
@@ -1017,7 +1082,7 @@ async fn ytdlp_download(
             })
         });
 
-        // stderr：错误识别 + 进度（YouTube 这类站点进度走 stderr）
+        // stderr：错误识别 + 进度（YouTube 这类站点进度走 stderr）+ 合并阶段检测
         let mut risk_blocked = false;
         if let Some(stderr) = child.stderr.take() {
             for line in BufReader::new(stderr).lines() {
@@ -1025,10 +1090,26 @@ async fn ytdlp_download(
                     Ok(l) => l,
                     Err(_) => break,
                 };
-                if line.contains("412") || line.contains("Precondition Failed") {
+                let trimmed = line.trim();
+                if trimmed.contains("412") || trimmed.contains("Precondition Failed") {
                     risk_blocked = true;
                 }
-                emit_progress(line.trim(), &last_pct, &window_clone);
+                // 检测到合并阶段，切换 phase
+                if (trimmed.starts_with("[Merger]")
+                    || trimmed.starts_with("[ExtractAudio]")
+                    || trimmed.starts_with("[ExtractVideo]"))
+                    && progress_state.lock().map(|mut s| {
+                        if s.phase != "merge" && s.phase != "done" {
+                            s.phase = "merge".to_string();
+                            true
+                        } else {
+                            false
+                        }
+                    }).unwrap_or(false)
+                {
+                    emit_phase(&window_clone, "merge", 0.0, "");
+                }
+                emit_progress(trimmed, &progress_state, &window_clone);
             }
         }
 
@@ -1041,6 +1122,8 @@ async fn ytdlp_download(
                 "yt-dlp 下载失败，请检查链接或网络".into()
             });
         }
+        // 下载+合并全部完成，发 done 事件
+        emit_phase(&window_clone, "done", 1.0, "");
         Ok(final_path)
     })
     .await

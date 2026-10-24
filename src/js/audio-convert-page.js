@@ -62,6 +62,7 @@ export function initAudioConvert() {
   const progressFill = $('aud-progress-fill');
   const progressText = $('aud-progress-text');
   const status = $('aud-status');
+  const resetDefaultsBtn = $('aud-reset-defaults');
 
   const io = createIoButtons($('aud-io'), setStatus);
   const srcSizeEl = $('aud-src-size');
@@ -87,6 +88,19 @@ export function initAudioConvert() {
   function setEnabled(on) {
     clearBtn.disabled = !on;
     convertBtn.disabled = !on || converting;
+  }
+
+  // 恢复音频转换设置为默认值
+  function resetDefaults() {
+    fmtSel.value = 'mp3';
+    acodecSel.value = 'libmp3lame';
+    bitrateSel.value = '';
+    srSel.value = '0';
+    chSel.value = '0';
+    startIn.value = '';
+    endIn.value = '';
+    nameIn.value = '';
+    saveOrigChk.checked = true;
   }
 
   function fmtCh(n) {
@@ -267,6 +281,10 @@ export function initAudioConvert() {
   });
 
   convertBtn.addEventListener('click', doConvert);
+
+  resetDefaultsBtn.addEventListener('click', () => {
+    resetDefaults();
+  });
 
   return {
     loadEntry,
