@@ -782,6 +782,16 @@ fn friendly_ytdlp_error(msg: &str) -> String {
             "yt-dlp 解析失败：{msg}（HTTP 412 是站点风控：当前网络出口 IP 被判定为风险，常见于开着代理/VPN。请让 bilibili.com 走直连（或在 VPN 软件里把本程序加入直连进程），再在下方「网络代理」选「直连」或「跟随系统代理」重试）"
         );
     }
+    if msg.contains("403") && (msg.contains("Cloudflare") || msg.contains("anti-bot") || msg.contains("generic")) {
+        return format!(
+            "yt-dlp 解析失败：{msg}（被 Cloudflare 反爬拦截了。新版本已自动开启 TLS 指纹模拟，仍失败请尝试：① 换个网络出口（手机热点）；② 在下方「网络代理」选「直连」或「跟随系统代理」；③ 在浏览器登录目标网站后，选「从 Chrome/Edge 读取」带 Cookie 重试）"
+        );
+    }
+    if msg.contains("Unsupported URL") || (msg.contains("generic") && msg.contains("Falling back")) {
+        return format!(
+            "yt-dlp 不支持这个网站：{msg}（yt-dlp 支持 YouTube、Bilibili、Twitter/X、TikTok、Vimeo、Instagram 等数千个主流视频平台，但不支持 ArtStation、Behance、Dribbble 这类设计作品集站点。请换一个 yt-dlp 支持的视频链接试试）"
+        );
+    }
     format!("yt-dlp 解析失败：{msg}")
 }
 
@@ -798,6 +808,8 @@ async fn ytdlp_info(
     let mut cmd = command_no_window(&ytdlp);
     cmd.arg("-J")
         .arg("--no-playlist")
+        .arg("--extractor-args")
+        .arg("generic:impersonate")
         .arg("--user-agent")
         .arg(YTDLP_UA);
     if let Some(browser) = &cookies_from_browser {
@@ -1023,6 +1035,8 @@ async fn ytdlp_download(
         "utf-8".to_string(),
         "--user-agent".to_string(),
         YTDLP_UA.to_string(),
+        "--extractor-args".to_string(),
+        "generic:impersonate".to_string(),
     ];
     if let Some(dir) = &ffmpeg_dir {
         args.push("--ffmpeg-location".to_string());
