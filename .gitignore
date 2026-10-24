@@ -16,6 +16,9 @@ dist-ssr
 __pycache__/
 *.pyc
 
+# 本地验证用的临时副本和素材（无头浏览器 harness、GIF 测试素材）
+/tmp/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
