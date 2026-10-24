@@ -43,6 +43,8 @@ export function initVideoConvert() {
   const hIn = $('vid-h');
   const fpsSel = $('vid-fps');
   const vbrIn = $('vid-vbr');
+  const vbrModeSel = $('vid-vbr-mode');
+  const vbrHint = $('vid-vbr-hint');
   const abrIn = $('vid-abr');
   const copyChk = $('vid-copy');
   const nameIn = $('vid-name');
@@ -159,6 +161,95 @@ export function initVideoConvert() {
     return videoInfo || elInfo;
   }
 
+  // —— 码率推荐 ——
+  // H.264 常见上传码率区间（短边像素 → 低/高，Mbps），再按帧率和编码折算
+  const BITRATE_TABLE = [
+    [240, 0.3, 0.6],
+    [360, 0.6, 1.0],
+    [480, 1.5, 2.5],
+    [720, 2.5, 4],
+    [1080, 5, 8],
+    [1440, 9, 14],
+    [2160, 20, 35],
+    [4320, 40, 70],
+  ];
+  const CODEC_LABELS = {
+    libx264: 'H.264',
+    libx265: 'H.265',
+    'libvpx-vp9': 'VP9',
+    'libaom-av1': 'AV1',
+  };
+
+  // 实际输出尺寸：优先看「分辨率」选择，其次用源文件
+  function outputSize() {
+    const scaleVal = scaleSel.value;
+    if (scaleVal === 'custom') {
+      const w = parseInt(wIn.value, 10);
+      const h = parseInt(hIn.value, 10);
+      if (w > 0 && h > 0) return { w, h };
+    } else if (scaleVal !== '0') {
+      const [w, h] = scaleVal.split(':').map(Number);
+      if (w > 0 && h > 0) return { w, h };
+    }
+    const ci = currentInfo();
+    return { w: ci?.width || 1920, h: ci?.height || 1080 };
+  }
+
+  function outputFps() {
+    const fps = parseFloat(fpsSel.value);
+    if (fps > 0) return fps;
+    const ci = currentInfo();
+    return ci?.fps > 0 ? ci.fps : 30;
+  }
+
+  // 自动推荐码率：取区间中值，高帧率上调，H.265/VP9/AV1 按比例下调
+  function recommendBitrate() {
+    const { w, h } = outputSize();
+    const fps = outputFps();
+    const codec = vcodecSel.value;
+    const edge = Math.min(w, h);
+    const row =
+      BITRATE_TABLE.find(([max]) => edge <= max) || BITRATE_TABLE[BITRATE_TABLE.length - 1];
+    let mbps = (row[1] + row[2]) / 2;
+    if (fps > 45) mbps *= 1.5;
+    else if (fps > 35) mbps *= 1.2;
+    if (codec === 'libx265') mbps *= 0.6;
+    else if (codec === 'libvpx-vp9') mbps *= 0.7;
+    else if (codec === 'libaom-av1') mbps *= 0.5;
+    return {
+      w,
+      h,
+      fps,
+      mbps: Math.max(0.3, Math.round(mbps * 10) / 10),
+      codec: CODEC_LABELS[codec] || codec,
+    };
+  }
+
+  // 码率模式：用 CRF / 自动推荐 / 手动（码率和 CRF 二选一，别让人以为两个都生效）
+  function applyVbrMode() {
+    const mode = vbrModeSel.value;
+    const copy = copyChk.checked;
+    if (copy) {
+      vbrIn.disabled = true;
+      vbrHint.textContent = '';
+      return;
+    }
+    if (mode === 'auto') {
+      const r = recommendBitrate();
+      vbrIn.value = r.mbps >= 1 ? `${r.mbps}M` : `${Math.round(r.mbps * 1000)}k`;
+      vbrIn.disabled = true;
+      vbrHint.textContent = `自动推荐：${r.w}×${r.h} · ${Math.round(r.fps)}fps · ${r.codec} → ${r.mbps} Mbps`;
+    } else if (mode === 'manual') {
+      vbrIn.disabled = false;
+      vbrHint.textContent = '手填 ffmpeg 码率写法，例：5M、2000k；填了码率后上面的 CRF 不生效';
+    } else {
+      vbrIn.value = '';
+      vbrIn.disabled = true;
+      vbrHint.textContent = '用 CRF 控制质量（推荐）：数值越小越清晰、体积越大';
+    }
+    crfRange.disabled = copy || mode !== 'crf';
+  }
+
   function stepFrame(delta) {
     video.pause();
     const ci = currentInfo();
@@ -246,6 +337,7 @@ export function initVideoConvert() {
       gripBFrac = 1;
       updateGripUI();
       playOverlay.hidden = !showPauseOverlay;
+      if (vbrModeSel.value === 'auto') applyVbrMode();
       video.removeEventListener('loadedmetadata', onMeta);
     };
     video.addEventListener('loadedmetadata', onMeta);
@@ -263,6 +355,7 @@ export function initVideoConvert() {
           if (seq !== probeSeq || !info) return;
           videoInfo = info;
           updateInfo();
+          if (vbrModeSel.value === 'auto') applyVbrMode();
         })
         .catch((ex) => {
           if (seq !== probeSeq) return;
@@ -457,12 +550,21 @@ export function initVideoConvert() {
     wIn.disabled = copy || scaleSel.value !== 'custom';
     hIn.disabled = copy || scaleSel.value !== 'custom';
     fpsSel.disabled = copy;
-    vbrIn.disabled = copy;
     abrIn.disabled = copy;
+    applyVbrMode();
   });
 
   fmtSel.addEventListener('change', syncCodecByFormat);
   vcodecSel.addEventListener('change', syncCodecByFormat);
+
+  // 输出尺寸/帧率/编码一变，自动推荐的码率跟着重算
+  vbrModeSel.addEventListener('change', applyVbrMode);
+  for (const el of [scaleSel, fpsSel, vcodecSel, wIn, hIn]) {
+    el.addEventListener('change', () => {
+      if (vbrModeSel.value === 'auto') applyVbrMode();
+    });
+  }
+  applyVbrMode();
 
   convertBtn.addEventListener('click', doConvert);
 
@@ -786,6 +888,13 @@ export function initVideoConvert() {
     maskR.style.width = (r.left + r.width - bx - bw) + 'px';
     maskR.style.height = bh + 'px';
   }
+
+  // 视频是 object-fit: contain，画面渲染区域会随面板尺寸变化：
+  // 窗口拖动/最大化后必须重算裁剪框和遮罩，否则选区和画面错位
+  const cropResizeObserver = new ResizeObserver(() => {
+    if (cropOn && cropSel) renderCropBox();
+  });
+  cropResizeObserver.observe(canvasWrap);
 
   cropBtn.addEventListener('click', () => {
     cropOn = !cropOn;

@@ -701,7 +701,17 @@
             <option value="60">60 fps</option>
           </select>
           <label>视频比特率</label>
-          <input type="text" id="vid-vbr" placeholder="留空用 CRF 控制质量，例：5M、2000k" />
+          <div>
+            <div class="dual-row">
+              <input type="text" id="vid-vbr" placeholder="例：5M、2000k" />
+              <select id="vid-vbr-mode" title="码率模式">
+                <option value="crf" selected>用 CRF</option>
+                <option value="auto">自动推荐</option>
+                <option value="manual">手动</option>
+              </select>
+            </div>
+            <div class="dim-label" id="vid-vbr-hint" style="font-size:11px;margin-top:2px;"></div>
+          </div>
           <label>音频比特率</label>
           <input type="text" id="vid-abr" placeholder="留空用默认，例：128k、192k" />
         </div>
