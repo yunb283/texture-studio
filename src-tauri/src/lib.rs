@@ -762,7 +762,7 @@ fn friendly_ytdlp_error(msg: &str) -> String {
     }
     if msg.contains("412") || msg.contains("Precondition Failed") {
         return format!(
-            "yt-dlp 解析失败：{msg}（HTTP 412 是站点风控：当前网络出口 IP 被判定为风险，常见于开着代理/VPN。请让 bilibili.com 走直连（或在 FlClash 里把本程序加入直连进程），再在下方「网络代理」选「直连」或「跟随系统代理」重试）"
+            "yt-dlp 解析失败：{msg}（HTTP 412 是站点风控：当前网络出口 IP 被判定为风险，常见于开着代理/VPN。请让 bilibili.com 走直连（或在 VPN 软件里把本程序加入直连进程），再在下方「网络代理」选「直连」或「跟随系统代理」重试）"
         );
     }
     format!("yt-dlp 解析失败：{msg}")

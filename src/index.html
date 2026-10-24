@@ -705,8 +705,8 @@
             <div class="dual-row">
               <input type="text" id="vid-vbr" placeholder="例：5M、2000k" />
               <select id="vid-vbr-mode" title="码率模式">
-                <option value="crf" selected>用 CRF</option>
-                <option value="auto">自动推荐</option>
+                <option value="crf">用 CRF</option>
+                <option value="auto" selected>自动推荐</option>
                 <option value="manual">手动</option>
               </select>
             </div>
@@ -849,8 +849,8 @@
         </div>
         <div class="dim-label info-wrap" id="dl-info">未解析视频</div>
         <div class="panel-subhead">可用格式（点击选中，右键可直接下载该格式）</div>
-        <div class="dim-label" style="font-size:11px;padding:0 10px 4px;line-height:1.5;">
-          同一分辨率出现多条是不同编码：H.264 兼容性最好，H.265 压缩率高，AV1 体积通常最小；码率和体积会不一样
+        <div class="dim-label" style="font-size:11px;padding:0 10px 4px;line-height:1.5;white-space:normal;word-break:break-word;">
+          同一分辨率出现多条是不同编码：H.264 兼容性最好，H.265 压缩率高，VP9 开源免费（WebM 常用），AV1 体积通常最小；码率和体积会不一样
         </div>
         <div class="dl-fmt-list" id="dl-fmt-list"></div>
       </div>
