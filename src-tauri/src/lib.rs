@@ -702,6 +702,16 @@ pub struct YtDlpFormat {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct YtDlpPlaylistEntry {
+    pub id: String,
+    pub title: String,
+    pub duration: Option<f64>,
+    pub uploader: String,
+    pub thumbnail: String,
+    pub webpage_url: String,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct YtDlpInfo {
     pub id: String,
     pub title: String,
@@ -711,6 +721,8 @@ pub struct YtDlpInfo {
     pub webpage_url: String,
     pub ext: String,
     pub formats: Vec<YtDlpFormat>,
+    /// 如果是播放列表/合集/分 P，这里包含所有子视频
+    pub entries: Vec<YtDlpPlaylistEntry>,
 }
 
 /// 浏览器级 User-Agent，降低站点反爬拦截概率（如 B 站 HTTP 412）
@@ -770,6 +782,29 @@ fn proxy_arg(proxy: &Option<String>) -> Option<String> {
     }
 }
 
+/// B 站分 P URL 带 `?p=N` 或 `/video/xxx?p=N` 时，yt-dlp 只解析那一 P，
+/// 去掉 `p=N` 让它看到完整合集主页。其他站点原样返回。
+fn normalize_bili_part_url(url: &str) -> String {
+    let lower = url.to_ascii_lowercase();
+    if lower.contains("bilibili.com") {
+        // 先拆 query string
+        if let Some(q) = url.find('?') {
+            let base = &url[..q];
+            let qs = &url[q + 1..];
+            // 过滤掉 p=N 参数（注意要按 & 分割，不能简单字符串替换）
+            let filtered: Vec<&str> = qs
+                .split('&')
+                .filter(|kv| !kv.starts_with("p="))
+                .collect();
+            if filtered.is_empty() {
+                return base.to_string();
+            }
+            return format!("{}?{}", base, filtered.join("&"));
+        }
+    }
+    url.to_string()
+}
+
 /// 把 yt-dlp 的英文报错翻译成能直接照着做的中文提示
 fn friendly_ytdlp_error(msg: &str) -> String {
     if msg.contains("Failed to decrypt") || msg.contains("Could not copy Chrome cookie database") {
@@ -805,9 +840,10 @@ async fn ytdlp_info(
     proxy: Option<String>,
 ) -> Result<YtDlpInfo, String> {
     let ytdlp = locate_ytdlp_inner(&app)?;
+    // B 站带 p=N 参数的 URL 会被 yt-dlp 当作单 P 视频，拿不到合集 entries
+    let url = normalize_bili_part_url(&url);
     let mut cmd = command_no_window(&ytdlp);
     cmd.arg("-J")
-        .arg("--no-playlist")
         .arg("--extractor-args")
         .arg("generic:impersonate")
         .arg("--user-agent")
@@ -867,20 +903,74 @@ async fn ytdlp_info(
         });
     }
 
+    // 判断是播放列表还是单视频：type == "playlist" 或 entries 数组非空
+    let is_playlist = json
+        .get("_type")
+        .and_then(|v| v.as_str())
+        .map(|t| t == "playlist")
+        .unwrap_or(false)
+        || json
+            .get("entries")
+            .and_then(|v| v.as_array())
+            .map(|arr| !arr.is_empty())
+            .unwrap_or(false);
+
+    let mut entries: Vec<YtDlpPlaylistEntry> = Vec::new();
+    if is_playlist {
+        if let Some(arr) = json.get("entries").and_then(|v| v.as_array()) {
+            for e in arr {
+                entries.push(YtDlpPlaylistEntry {
+                    id: e.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    title: e.get("title").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    duration: e.get("duration").and_then(|v| v.as_f64()),
+                    uploader: e
+                        .get("uploader")
+                        .and_then(|v| v.as_str())
+                        .or_else(|| e.get("channel").and_then(|v| v.as_str()))
+                        .unwrap_or("")
+                        .to_string(),
+                    thumbnail: e.get("thumbnail").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    webpage_url: e
+                        .get("webpage_url")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                });
+            }
+        }
+    }
+
     Ok(YtDlpInfo {
         id: json.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-        title: json.get("title").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+        title: json
+            .get("title")
+            .and_then(|v| v.as_str())
+            .or_else(|| json.get("playlist_title").and_then(|v| v.as_str()))
+            .unwrap_or("")
+            .to_string(),
         duration: json.get("duration").and_then(|v| v.as_f64()),
         uploader: json
             .get("uploader")
             .and_then(|v| v.as_str())
             .or_else(|| json.get("channel").and_then(|v| v.as_str()))
+            .or_else(|| json.get("uploader_id").and_then(|v| v.as_str()))
             .unwrap_or("")
             .to_string(),
-        thumbnail: json.get("thumbnail").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-        webpage_url: json.get("webpage_url").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+        thumbnail: json
+            .get("thumbnail")
+            .and_then(|v| v.as_str())
+            .or_else(|| json.get("playlist_thumbnail").and_then(|v| v.as_str()))
+            .unwrap_or("")
+            .to_string(),
+        webpage_url: json
+            .get("webpage_url")
+            .and_then(|v| v.as_str())
+            .or_else(|| json.get("original_url").and_then(|v| v.as_str()))
+            .unwrap_or("")
+            .to_string(),
         ext: json.get("ext").and_then(|v| v.as_str()).unwrap_or("").to_string(),
         formats,
+        entries,
     })
 }
 
@@ -1012,6 +1102,8 @@ async fn ytdlp_download(
 ) -> Result<String, String> {
     let ytdlp = locate_ytdlp_inner(&app)?;
     let ytdlp_str = ytdlp.to_string_lossy().into_owned();
+    // 注意：这里不要调 normalize_bili_part_url！
+    // 解析合集主页时需要去掉 p=N 让 yt-dlp 拿到 entries，但下载时 entry URL 带 p=N 才是正确的单 P 链接。
 
     // 视频/音频分离的站点需要合并，告诉 yt-dlp 内置 ffmpeg 在哪
     let ffmpeg_dir = locate_ffmpeg_inner(&app)

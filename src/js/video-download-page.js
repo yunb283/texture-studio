@@ -82,6 +82,19 @@ export function initVideoDownload() {
   let downloading = false;
   let lastOutputPath = null;
 
+  // ===== 播放列表状态 =====
+  let playlistMode = false; // true = 当前是合集/播放列表
+  let playlistEntries = []; // [{ id, title, duration, webpage_url, checked }]
+  let playlistDownloading = false; // 批量下载中（用于进度路由和停止）
+  let playlistStopRequested = false;
+
+  // DOM 引用
+  const playlistWrap = $('dl-playlist-wrap');
+  const playlistListEl = $('dl-playlist-list');
+  const playlistCountEl = $('dl-pl-count');
+  const plSelectAllBtn = $('dl-pl-select-all');
+  const plSelectNoneBtn = $('dl-pl-select-none');
+
   function setStatus(msg) {
     statusEl.textContent = msg || '';
   }
@@ -140,11 +153,15 @@ export function initVideoDownload() {
 
   // 清空视频信息和下载设置（保存目录设置保持不变）
   function clearAll() {
-    if (downloading) return;
+    if (downloading || playlistDownloading) return;
     ctxFormat = null;
     currentInfo = null;
     resChoices = [];
     audioBest = null;
+    playlistMode = false;
+    playlistEntries = [];
+    playlistDownloading = false;
+    playlistStopRequested = false;
 
     // 清空 URL
     urlInput.value = '';
@@ -156,13 +173,18 @@ export function initVideoDownload() {
     thumbPh.textContent = '尚未解析视频';
     infoEl.textContent = '未解析视频';
 
-    // 格式列表
+    // 格式列表 + playlist 列表
     fmtList.innerHTML = '';
+    playlistListEl.innerHTML = '';
+    playlistWrap.hidden = true;
+    fmtList.style.display = ''; // 恢复显示
 
     // 分辨率 / 编码下拉：回到初始空状态
     resSel.innerHTML = '<option value="">最佳可用</option>';
     codecSel.innerHTML = '<option value="">-</option>';
     codecSel.value = '';
+    resSel.disabled = false;
+    codecSel.disabled = false;
 
     // 辅助文字
     fmtLabel.textContent = '将下载：最佳可用（视频+音频自动合并）';
@@ -170,6 +192,7 @@ export function initVideoDownload() {
 
     // 文件名
     nameInput.value = '';
+    nameInput.disabled = false;
 
     // 网络代理：恢复默认（含 localStorage）
     proxyModeSel.value = '';
@@ -184,6 +207,7 @@ export function initVideoDownload() {
 
     // 按钮
     downloadBtn.disabled = true;
+    downloadBtn.textContent = '开始下载';
     fetchBtn.disabled = false;
 
     // IO 清理
@@ -501,6 +525,69 @@ export function initVideoDownload() {
     return audios[0] || null;
   }
 
+  // ===== playlist 模式：分辨率/编码下拉用手动选项 =====
+  // yt-dlp 的 filter 语法：bv*[height<=1080][vcodec~=h264]+ba/b 这样的模式
+  // 这里不给每个 entry 单独解析 formats（太耗时），而是用 yt-dlp 的通用 filter
+  const PLAYLIST_RES_OPTIONS = [
+    { label: '最佳可用', height: 0 },
+    { label: '1080p', height: 1080 },
+    { label: '720p', height: 720 },
+    { label: '480p', height: 480 },
+    { label: '360p', height: 360 },
+  ];
+  const PLAYLIST_CODEC_OPTIONS = [
+    { label: '自动', vcodec: null },
+    { label: 'H.264', vcodec: 'h264' },
+    { label: 'H.265', vcodec: 'hevc' },
+    { label: 'AV1', vcodec: 'av01' },
+    { label: 'VP9', vcodec: 'vp9' },
+  ];
+
+  function fillPlaylistFormatOptions() {
+    resSel.innerHTML = '';
+    for (const o of PLAYLIST_RES_OPTIONS) {
+      const opt = document.createElement('option');
+      opt.value = String(o.height);
+      opt.textContent = o.label;
+      resSel.appendChild(opt);
+    }
+    resSel.value = '1080'; // 默认 1080p 上限
+    codecSel.innerHTML = '';
+    for (const o of PLAYLIST_CODEC_OPTIONS) {
+      const opt = document.createElement('option');
+      opt.value = o.vcodec || '';
+      opt.textContent = o.label;
+      codecSel.appendChild(opt);
+    }
+    codecSel.value = ''; // 默认自动
+  }
+
+  function updateSizeLineForPlaylist() {
+    const res = PLAYLIST_RES_OPTIONS.find((o) => String(o.height) === resSel.value);
+    const codec = PLAYLIST_CODEC_OPTIONS.find((o) => (o.vcodec || '') === codecSel.value);
+    const parts = [];
+    if (res && res.height > 0) parts.push(`≤${res.height}p`);
+    else parts.push('最佳分辨率');
+    if (codec && codec.vcodec) parts.push(codec.label);
+    else parts.push('自动编码');
+    sizeLine.textContent = `每个视频：${parts.join(' · ')}`;
+    fmtLabel.textContent = `将下载：${parts.join(' · ')}`;
+  }
+
+  // 按用户选择拼 yt-dlp format selector
+  function playlistFormatSelector() {
+    const height = parseInt(resSel.value, 10) || 0;
+    const vcodec = codecSel.value; // '' 或 'h264'/'hevc'/'av01'/'vp9'
+    // 视频流 filter
+    const videoFilter = [];
+    if (height > 0) videoFilter.push(`height<=${height}`);
+    if (vcodec) videoFilter.push(`vcodec~=${vcodec}`);
+    const vfStr = videoFilter.length ? `[${videoFilter.join('][')}]` : '';
+    const videoPart = `bv*${vfStr}`;
+    // 音频：总挑最佳，合并用
+    return `${videoPart}+bestaudio[ext=m4a]/${videoPart}+bestaudio/best`;
+  }
+
   async function fetchInfo() {
     const url = urlInput.value.trim();
     if (!url) {
@@ -522,17 +609,78 @@ export function initVideoDownload() {
         proxy: getProxyArg(),
       });
       ctxFormat = null;
-      renderInfo(info);
-      renderFormats(info.formats);
-      audioBest = bestAudioOf(info.formats);
-      renderResolutionOptions(info.formats);
-      downloadBtn.disabled = false;
-      setStatus(`解析成功，共 ${info.formats.length} 个可用格式`);
+      playlistMode = !!(info.entries && info.entries.length);
+      playlistEntries = playlistMode
+        ? info.entries.map((e) => ({ ...e, checked: true })) // 默认全选
+        : [];
+
+      if (playlistMode) {
+        // —— 播放列表模式 ——
+        fmtList.style.display = 'none'; // 单视频格式列表隐藏
+        playlistWrap.hidden = false;
+        renderPlaylistList();
+        // 右侧 UI：恢复分辨率/编码/文件名输入框可选
+        resSel.disabled = false;
+        codecSel.disabled = false;
+        nameInput.disabled = false;
+        // playlist 模式下单个 entry 的 formats 不展开（避免 N*M 次调用），
+        // 给下拉框手动填通用选项，下载时用 yt-dlp 的 filter 语法按条件选
+        fillPlaylistFormatOptions();
+        fmtLabel.textContent = '将按右侧选择下载每个视频';
+        updateSizeLineForPlaylist();
+        renderInfo(info);
+        downloadBtn.disabled = !playlistEntries.some((e) => e.checked);
+        downloadBtn.textContent = `下载选中 ${playlistEntries.filter((e) => e.checked).length} 个`;
+        setStatus(`解析成功：${playlistEntries.length} 个视频，已全选`);
+      } else {
+        // —— 单视频模式 ——
+        fmtList.style.display = '';
+        playlistWrap.hidden = true;
+        renderInfo(info);
+        renderFormats(info.formats);
+        audioBest = bestAudioOf(info.formats);
+        renderResolutionOptions(info.formats);
+        resSel.disabled = false;
+        codecSel.disabled = false;
+        nameInput.disabled = false;
+        downloadBtn.disabled = false;
+        downloadBtn.textContent = '开始下载';
+        setStatus(`解析成功，共 ${info.formats.length} 个可用格式`);
+      }
     } catch (e) {
+      playlistMode = false;
+      playlistEntries = [];
+      playlistWrap.hidden = true;
+      fmtList.style.display = '';
       setStatus(`解析失败：${e}`);
     } finally {
       fetchBtn.disabled = false;
     }
+  }
+
+  function renderPlaylistList() {
+    playlistListEl.innerHTML = '';
+    playlistCountEl.textContent = playlistEntries.length;
+    playlistEntries.forEach((e, i) => {
+      const row = document.createElement('label');
+      row.className = 'dl-playlist-item';
+      row.innerHTML = `
+        <input type="checkbox" ${e.checked ? 'checked' : ''} />
+        <span class="dl-pl-idx">${String(i + 1).padStart(2, '0')}</span>
+        <span class="dl-pl-title" title="${e.title || ''}">${e.title || '(无标题)'}</span>
+        <span class="dl-pl-dur">${formatDuration(e.duration)}</span>
+      `;
+      const cb = row.querySelector('input[type="checkbox"]');
+      cb.addEventListener('change', () => {
+        playlistEntries[i].checked = cb.checked;
+        const selected = playlistEntries.filter((x) => x.checked).length;
+        downloadBtn.disabled = selected === 0;
+        downloadBtn.textContent = selected === playlistEntries.length
+          ? `下载全部 ${selected} 个`
+          : `下载选中 ${selected} / ${playlistEntries.length} 个`;
+      });
+      playlistListEl.appendChild(row);
+    });
   }
 
   async function pickDir() {
@@ -565,6 +713,10 @@ export function initVideoDownload() {
   }
 
   async function startDownload() {
+    if (playlistMode) {
+      await startPlaylistDownload();
+      return;
+    }
     if (!currentInfo || downloading) return;
     const url = urlInput.value.trim();
     if (!url) return;
@@ -585,6 +737,9 @@ export function initVideoDownload() {
       const dir = await getSaveDir();
       if (!dir) {
         setStatus(saveCustomChk.checked ? '未选择保存文件夹' : '获取下载目录失败');
+        downloading = false;
+        downloadBtn.disabled = false;
+        fetchBtn.disabled = false;
         return;
       }
       const sep = dir.includes('\\') ? '\\' : '/';
@@ -621,10 +776,104 @@ export function initVideoDownload() {
     }
   }
 
+  // ===== 播放列表批量下载 =====
+  async function startPlaylistDownload() {
+    if (playlistDownloading) return;
+    const selected = playlistEntries.filter((e) => e.checked);
+    if (!selected.length) return;
+
+    playlistDownloading = true;
+    playlistStopRequested = false;
+    downloadBtn.disabled = true;
+    fetchBtn.disabled = true;
+    setProgress(0);
+    setStatus(`准备批量下载（${selected.length} 个视频）…`);
+
+    try {
+      const dir = await getSaveDir();
+      if (!dir) {
+        setStatus(saveCustomChk.checked ? '未选择保存文件夹' : '获取下载目录失败');
+        playlistDownloading = false;
+        downloadBtn.disabled = false;
+        fetchBtn.disabled = false;
+        return;
+      }
+      const sep = dir.includes('\\') ? '\\' : '/';
+      // 用右侧分辨率/编码选择拼 format selector，不是硬编码 bv*+ba/b
+      const selector = playlistFormatSelector();
+      let successCount = 0;
+      let failCount = 0;
+      const total = selected.length;
+
+      for (let i = 0; i < selected.length; i++) {
+        if (playlistStopRequested) {
+          setStatus(`已停止，已下载 ${successCount} 个`);
+          break;
+        }
+        const entry = selected[i];
+        const curIdx = i + 1;
+        const stem = `${String(curIdx).padStart(2, '0')}-%(title)s`;
+        const output = `${dir}${sep}${stem}.%(ext)s`;
+
+        setProgress(0);
+        setStatus(`[${curIdx}/${total}] 下载中：${entry.title || entry.id}…`);
+
+        try {
+          const finalPath = await window.__TAURI__.core.invoke('ytdlp_download', {
+            url: entry.webpage_url || entry.id,
+            output,
+            options: {
+              format: selector,
+              cookies: null,
+              cookies_from_browser: null,
+              proxy: getProxyArg(),
+            },
+          });
+          setProgress(1, '', '', 'done');
+          lastOutputPath = finalPath || `${dir}${sep}${stem}.mp4`;
+          io.setExport(lastOutputPath);
+          successCount++;
+        } catch (e) {
+          failCount++;
+          setStatus(`[${curIdx}/${total}] 失败：${entry.title || entry.id}（${e}）`);
+          // 等 1 秒让用户看到失败信息
+          await new Promise((r) => setTimeout(r, 800));
+        }
+      }
+
+      if (!playlistStopRequested) {
+        setStatus(`批量下载完成：成功 ${successCount}，失败 ${failCount}`);
+      }
+    } catch (e) {
+      setStatus(`批量下载出错：${e}`);
+    } finally {
+      playlistDownloading = false;
+      downloadBtn.disabled = !playlistEntries.some((e) => e.checked);
+      downloadBtn.textContent = '重新下载';
+      fetchBtn.disabled = false;
+    }
+  }
+
   fetchBtn.addEventListener('click', fetchInfo);
 
   clearAllBtn.addEventListener('click', () => {
     clearAll();
+  });
+
+  // 播放列表：全选/全不选
+  plSelectAllBtn.addEventListener('click', () => {
+    if (!playlistMode) return;
+    playlistEntries.forEach((e) => (e.checked = true));
+    renderPlaylistList();
+    downloadBtn.disabled = false;
+    downloadBtn.textContent = `下载全部 ${playlistEntries.length} 个`;
+  });
+  plSelectNoneBtn.addEventListener('click', () => {
+    if (!playlistMode) return;
+    playlistEntries.forEach((e) => (e.checked = false));
+    renderPlaylistList();
+    downloadBtn.disabled = true;
+    downloadBtn.textContent = '下载选中 0 个';
   });
 
   urlInput.addEventListener('keydown', (e) => {
@@ -632,10 +881,20 @@ export function initVideoDownload() {
   });
   browseBtn.addEventListener('click', pickDir);
   downloadBtn.addEventListener('click', startDownload);
-  resSel.addEventListener('change', () => renderCodecOptions());
+  resSel.addEventListener('change', () => {
+    if (playlistMode) {
+      updateSizeLineForPlaylist();
+    } else {
+      renderCodecOptions();
+    }
+  });
   codecSel.addEventListener('change', () => {
-    updateSizeLine();
-    refreshChoiceLabel();
+    if (playlistMode) {
+      updateSizeLineForPlaylist();
+    } else {
+      updateSizeLine();
+      refreshChoiceLabel();
+    }
   });
 
   // 保存位置二选一

@@ -895,6 +895,17 @@
           同一分辨率出现多条是不同编码：H.264 兼容性最好，H.265 压缩率高，VP9 开源免费（WebM 常用），AV1 体积通常最小；码率和体积会不一样
         </div>
         <div class="dl-fmt-list" id="dl-fmt-list"></div>
+        <!-- 播放列表/合集：yt-dlp 返回 entries 时显示 -->
+        <div id="dl-playlist-wrap" hidden>
+          <div class="panel-subhead">
+            <span>合集视频（<span id="dl-pl-count">0</span> 个）</span>
+            <span class="dim-label" style="margin-left:auto;">
+              <button class="btn tiny" id="dl-pl-select-all">全选</button>
+              <button class="btn tiny" id="dl-pl-select-none" style="margin-left:4px;">全不选</button>
+            </span>
+          </div>
+          <div class="dl-playlist-list" id="dl-playlist-list"></div>
+        </div>
       </div>
       <div class="panel" style="flex: 45">
         <div class="panel-head">
