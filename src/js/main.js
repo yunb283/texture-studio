@@ -9,6 +9,7 @@ import { initGif } from './gif-page.js';
 import { initGifView } from './gif-view-page.js';
 import { initVideoConvert } from './video-convert-page.js';
 import { initAudioConvert } from './audio-convert-page.js';
+import { initVideoDownload } from './video-download-page.js';
 import {
   onGlobalDrop,
   isSupportedName,
@@ -97,6 +98,7 @@ const tabGif = document.getElementById('tab-gif');
 const tabGifView = document.getElementById('tab-gifview');
 const tabVideo = document.getElementById('tab-video');
 const tabAudio = document.getElementById('tab-audio');
+const tabDl = document.getElementById('tab-dl');
 const pageSplit = document.getElementById('page-split');
 const pageMerge = document.getElementById('page-merge');
 const pageConvert = document.getElementById('page-convert');
@@ -106,6 +108,7 @@ const pageGif = document.getElementById('page-gif');
 const pageGifView = document.getElementById('page-gifview');
 const pageVideo = document.getElementById('page-video');
 const pageAudio = document.getElementById('page-audio');
+const pageDl = document.getElementById('page-dl');
 
 const srcView = new CanvasView(document.getElementById('src-canvas'), {
   clickable: true,
@@ -202,6 +205,7 @@ const gifApi = initGif({ srcView: gifSrcView });
 const gvApi = initGifView({ view: gvView });
 const videoApi = initVideoConvert();
 const audioApi = initAudioConvert();
+const dlApi = initVideoDownload();
 
 // 两行封顶的那几行（各页状态行、GIF 页信息行）只显示两行，超出省略号；
 // 完整文字挂到 title 上，鼠标悬停看全文
@@ -223,6 +227,7 @@ const tabs = [
   ['gifview', tabGifView, pageGifView, [gvView]],
   ['video', tabVideo, pageVideo, []],
   ['audio', tabAudio, pageAudio, []],
+  ['dl', tabDl, pageDl, []],
 ];
 
 function showTab(which) {
@@ -245,6 +250,7 @@ tabGif.addEventListener('click', () => showTab('gif'));
 tabGifView.addEventListener('click', () => showTab('gifview'));
 tabVideo.addEventListener('click', () => showTab('video'));
 tabAudio.addEventListener('click', () => showTab('audio'));
+tabDl.addEventListener('click', () => showTab('dl'));
 
 // 总在最前：默认关闭，按下启用（浏览器里没有窗口，直接隐藏）
 const pinBtn = document.getElementById('pin-top');

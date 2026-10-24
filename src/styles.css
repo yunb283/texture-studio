@@ -1046,3 +1046,78 @@ select:disabled {
   border: 2px solid #fff;
   cursor: grab;
 }
+
+/* ===== 视频下载页 ===== */
+.panel-subhead {
+  font-size: 12px;
+  color: #8a8a93;
+  margin: 10px 0 6px;
+  font-weight: 600;
+}
+
+.dl-fmt-list {
+  flex: 1;
+  min-height: 120px;
+  overflow-y: auto;
+  border: 1px solid #2a2a33;
+  border-radius: 6px;
+  background: #16161a;
+}
+
+.dl-fmt-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+  border-bottom: 1px solid #22222a;
+  font-size: 13px;
+  transition: background 0.12s;
+}
+
+.dl-fmt-item:hover {
+  background: #1f1f27;
+}
+
+.dl-fmt-item.selected {
+  background: #1e3a5f;
+  border-left: 3px solid #39c7ed;
+  padding-left: 7px;
+}
+
+.dl-fmt-item .fmt-id {
+  font-weight: 700;
+  color: #39c7ed;
+  min-width: 36px;
+}
+
+.dl-fmt-item .fmt-res {
+  color: #e0e0e6;
+  min-width: 90px;
+}
+
+.dl-fmt-item .fmt-ext {
+  color: #b0b0b8;
+  text-transform: uppercase;
+  font-size: 11px;
+  min-width: 42px;
+}
+
+.dl-fmt-item .fmt-note {
+  color: #8a8a93;
+  font-size: 12px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dl-fmt-item .fmt-size {
+  color: #8a8a93;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dl-fmt-item.audio-only .fmt-res {
+  color: #ffd926;
+}

@@ -218,6 +218,29 @@ fn locate_ffmpeg(app: tauri::AppHandle) -> Result<String, String> {
     locate_ffmpeg_inner(&app).map(|p| p.to_string_lossy().into_owned())
 }
 
+/// 定位内置 yt-dlp：打包后在 resource_dir 根目录，开发模式在 resource_dir/resources 下
+fn locate_ytdlp_inner(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let rd = app.path().resource_dir().map_err(|e| e.to_string())?;
+    let candidates = [
+        rd.join("yt-dlp.exe"),
+        rd.join("resources").join("yt-dlp.exe"),
+    ];
+    for c in &candidates {
+        if c.exists() {
+            return Ok(c.clone());
+        }
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            let p = dir.join("yt-dlp.exe");
+            if p.exists() {
+                return Ok(p);
+            }
+        }
+    }
+    Err("未找到内置 yt-dlp，请检查安装包".into())
+}
+
 /// 用 ffmpeg -i 解析视频信息（不依赖 ffprobe）
 fn ffprobe_inner(ffmpeg: &Path, path: &str) -> Result<VideoInfo, String> {
     let output = Command::new(ffmpeg)
@@ -588,6 +611,230 @@ async fn convert_audio(
     Ok(())
 }
 
+// ===================== yt-dlp 视频下载 =====================
+
+#[derive(Serialize, Deserialize)]
+pub struct YtDlpFormat {
+    pub format_id: String,
+    pub ext: String,
+    pub resolution: String,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub fps: Option<f64>,
+    pub vcodec: String,
+    pub acodec: String,
+    pub filesize: Option<u64>,
+    pub filesize_approx: Option<u64>,
+    pub tbr: Option<f64>,
+    pub format_note: String,
+    pub protocol: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct YtDlpInfo {
+    pub id: String,
+    pub title: String,
+    pub duration: Option<f64>,
+    pub uploader: String,
+    pub thumbnail: String,
+    pub webpage_url: String,
+    pub ext: String,
+    pub formats: Vec<YtDlpFormat>,
+}
+
+/// 浏览器级 User-Agent，降低站点反爬拦截概率（如 B 站 HTTP 412）
+const YTDLP_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+/// 调用 yt-dlp -J 获取视频信息和可用格式列表
+#[tauri::command]
+async fn ytdlp_info(
+    app: tauri::AppHandle,
+    url: String,
+    cookies: Option<String>,
+) -> Result<YtDlpInfo, String> {
+    let ytdlp = locate_ytdlp_inner(&app)?;
+    let mut cmd = Command::new(&ytdlp);
+    cmd.arg("-J")
+        .arg("--no-playlist")
+        .arg("--user-agent")
+        .arg(YTDLP_UA);
+    if let Some(cookie_file) = &cookies {
+        if !cookie_file.is_empty() {
+            cmd.arg("--cookies").arg(cookie_file);
+        }
+    }
+    cmd.arg(&url)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let output = cmd
+        .output()
+        .map_err(|e| format!("调用 yt-dlp 失败：{e}"))?;
+
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr);
+        let msg = err.trim();
+        // 针对 B 站等站点反爬给出明确指引
+        if msg.contains("412") || msg.contains("Precondition") {
+            return Err(format!(
+                "yt-dlp 解析失败：{}（可能触发了站点反爬，建议在下方导入浏览器 Cookies 文件后重试）",
+                msg
+            ));
+        }
+        return Err(format!("yt-dlp 解析失败：{}", msg));
+    }
+
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout)
+        .map_err(|e| format!("解析 yt-dlp 输出失败：{e}"))?;
+
+    let formats_val = json.get("formats").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    let mut formats: Vec<YtDlpFormat> = Vec::new();
+    for f in formats_val {
+        let fmt_id = f.get("format_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let ext = f.get("ext").and_then(|v| v.as_str()).unwrap_or("").to_string();
+        // 跳过没有媒体流的空格式
+        let vcodec = f.get("vcodec").and_then(|v| v.as_str()).unwrap_or("none").to_string();
+        let acodec = f.get("acodec").and_then(|v| v.as_str()).unwrap_or("none").to_string();
+        if vcodec == "none" && acodec == "none" {
+            continue;
+        }
+        formats.push(YtDlpFormat {
+            format_id: fmt_id,
+            ext,
+            resolution: f.get("resolution").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            width: f.get("width").and_then(|v| v.as_u64()).map(|v| v as u32),
+            height: f.get("height").and_then(|v| v.as_u64()).map(|v| v as u32),
+            fps: f.get("fps").and_then(|v| v.as_f64()),
+            vcodec,
+            acodec,
+            filesize: f.get("filesize").and_then(|v| v.as_u64()),
+            filesize_approx: f.get("filesize_approx").and_then(|v| v.as_u64()),
+            tbr: f.get("tbr").and_then(|v| v.as_f64()),
+            format_note: f.get("format_note").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            protocol: f.get("protocol").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+        });
+    }
+
+    Ok(YtDlpInfo {
+        id: json.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+        title: json.get("title").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+        duration: json.get("duration").and_then(|v| v.as_f64()),
+        uploader: json
+            .get("uploader")
+            .and_then(|v| v.as_str())
+            .or_else(|| json.get("channel").and_then(|v| v.as_str()))
+            .unwrap_or("")
+            .to_string(),
+        thumbnail: json.get("thumbnail").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+        webpage_url: json.get("webpage_url").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+        ext: json.get("ext").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+        formats,
+    })
+}
+
+#[derive(Deserialize)]
+pub struct YtDlpDownloadOptions {
+    pub format: Option<String>,
+    pub cookies: Option<String>,
+}
+
+/// 调用 yt-dlp 下载视频，通过 ytdlp-progress 事件上报进度（0~1）
+#[tauri::command]
+async fn ytdlp_download(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+    url: String,
+    output: String,
+    options: YtDlpDownloadOptions,
+) -> Result<(), String> {
+    let ytdlp = locate_ytdlp_inner(&app)?;
+    let ytdlp_str = ytdlp.to_string_lossy().into_owned();
+
+    let mut args: Vec<String> = vec![
+        "--no-playlist".to_string(),
+        "--newline".to_string(),
+        "--no-color".to_string(),
+        "--user-agent".to_string(),
+        YTDLP_UA.to_string(),
+    ];
+    if let Some(fmt) = &options.format {
+        if !fmt.is_empty() {
+            args.push("-f".to_string());
+            args.push(fmt.clone());
+        }
+    }
+    if let Some(cookie_file) = &options.cookies {
+        if !cookie_file.is_empty() {
+            args.push("--cookies".to_string());
+            args.push(cookie_file.clone());
+        }
+    }
+    args.push("-o".to_string());
+    args.push(output.clone());
+    args.push(url.clone());
+
+    let window_clone = window.clone();
+
+    let result = tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+        let mut child = Command::new(&ytdlp_str)
+            .args(&args)
+            .stderr(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("启动 yt-dlp 失败：{e}"))?;
+
+        // yt-dlp 的进度行输出到 stderr，格式如：[download]  25.0% of ~50.00MiB at ...
+        if let Some(stderr) = child.stderr.take() {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines() {
+                let line = match line {
+                    Ok(l) => l,
+                    Err(_) => break,
+                };
+                if line.contains("%") {
+                    // 提取形如 " 25.0%" 中的数字
+                    if let Some(pct) = extract_percent(&line) {
+                        let _ = window_clone.emit("ytdlp-progress", (pct / 100.0).min(1.0).max(0.0));
+                    }
+                }
+            }
+        }
+
+        let status = child.wait().map_err(|e| e.to_string())?;
+        if !status.success() {
+            return Err("yt-dlp 下载失败，请检查链接或网络".into());
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("任务执行异常：{e}"))??;
+
+    let _ = result;
+    Ok(())
+}
+
+/// 从 yt-dlp 输出行中提取百分比数值（如 " 25.0%" → 25.0）
+fn extract_percent(line: &str) -> Option<f64> {
+    let bytes = line.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' {
+            // 往前找数字
+            let mut j = i;
+            while j > 0 && (bytes[j - 1].is_ascii_digit() || bytes[j - 1] == b'.') {
+                j -= 1;
+            }
+            if j < i {
+                let num_str = &line[j..i];
+                if let Ok(v) = num_str.parse::<f64>() {
+                    return Some(v);
+                }
+            }
+        }
+        i += 1;
+    }
+    None
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -602,7 +849,9 @@ pub fn run() {
             locate_ffmpeg,
             ffprobe_video,
             convert_video,
-            convert_audio
+            convert_audio,
+            ytdlp_info,
+            ytdlp_download
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -24,6 +24,7 @@
       <button class="tab" id="tab-gifview">GIF动画预览</button>
       <button class="tab" id="tab-video">视频格式转换</button>
       <button class="tab" id="tab-audio">音频格式转换</button>
+      <button class="tab" id="tab-dl">视频下载</button>
       <button class="pin-btn" id="pin-top" title="总在最前" aria-pressed="false">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -811,6 +812,62 @@
         </div>
         <div class="status" id="aud-status"></div>
         <div class="io-row end" id="aud-io"></div>
+      </div>
+    </div>
+
+    <div class="page hidden" id="page-dl">
+      <div class="panel" style="flex: 55">
+        <div class="panel-head">
+          <span class="panel-title">视频信息</span>
+        </div>
+        <div class="size-row">
+          <input type="text" id="dl-url" placeholder="粘贴视频链接（YouTube、Bilibili 等上千个站点）" />
+          <button class="btn small" id="dl-fetch">解析</button>
+        </div>
+        <div class="canvas-wrap" id="dl-thumb-wrap" style="display:flex;align-items:center;justify-content:center;background:#000;">
+          <img id="dl-thumb" style="max-width:100%;max-height:100%;display:none;" />
+          <span class="dim-label" id="dl-thumb-placeholder">尚未解析视频</span>
+        </div>
+        <div class="dim-label info-wrap" id="dl-info">未解析视频</div>
+        <div class="panel-subhead">可用格式（点击选择，留空则下载最佳质量）</div>
+        <div class="dl-fmt-list" id="dl-fmt-list"></div>
+      </div>
+      <div class="panel" style="flex: 45">
+        <div class="panel-head">
+          <span class="panel-title">下载设置</span>
+        </div>
+        <div class="form-grid">
+          <label>已选格式</label>
+          <span class="dim-label" id="dl-fmt-label">最佳质量（自动）</span>
+          <label>文件名</label>
+          <input type="text" id="dl-name" placeholder="留空则用视频标题" />
+        </div>
+        <label class="chk">
+          <input type="checkbox" id="dl-save-default" checked />
+          <span>保存到默认下载目录</span>
+        </label>
+        <div class="dim-label">Cookies 文件（可选，B 站等站点反爬时需要）</div>
+        <div class="size-row">
+          <input type="text" id="dl-cookies" placeholder="从浏览器导出的 cookies.txt，留空则不使用" readonly />
+          <button class="btn small" id="dl-cookies-browse">浏览…</button>
+          <button class="btn small" id="dl-cookies-clear">清除</button>
+        </div>
+        <div class="dim-label">自定义保存目录</div>
+        <div class="size-row">
+          <input type="text" id="dl-dir" placeholder="不选则用默认下载目录" />
+          <button class="btn small" id="dl-browse">浏览…</button>
+        </div>
+        <button class="btn primary" id="dl-download" disabled>开始下载</button>
+        <div class="progress-wrap">
+          <div class="progress-bar"><div class="progress-fill" id="dl-progress-fill"></div></div>
+          <span class="dim-label" id="dl-progress-text">0%</span>
+        </div>
+        <div class="status" id="dl-status"></div>
+        <div class="io-row end" id="dl-io"></div>
+        <div class="help-label">
+          基于内置 yt-dlp，支持 YouTube、Bilibili、Twitter、TikTok 等上千个站点<br />
+          默认下载最佳质量；也可在左侧列表点选特定分辨率/格式
+        </div>
       </div>
     </div>
 

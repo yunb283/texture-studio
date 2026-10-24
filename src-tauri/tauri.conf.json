@@ -6,7 +6,7 @@
   "identifier": "com.spritetools.seqtool",
   "build": {
     "frontendDist": "../src",
-    "beforeBuildCommand": "powershell -ExecutionPolicy Bypass -File scripts\\download-ffmpeg.ps1"
+    "beforeBuildCommand": "powershell -ExecutionPolicy Bypass -File scripts\\download-deps.ps1"
   },
   "app": {
     "withGlobalTauri": true,
@@ -38,7 +38,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": ["resources/ffmpeg.exe"],
+    "resources": ["resources/ffmpeg.exe", "resources/yt-dlp.exe"],
     "windows": {
       "wix": {
         "language": ["zh-CN"]
