@@ -16,6 +16,12 @@ dist-ssr
 __pycache__/
 *.pyc
 
+# 本地工具/编辑器产物
+.screenshots/
+.trae-html-share-packages/
+.workbuddy/
+.dumate/
+
 # 本地验证用的临时副本和素材（无头浏览器 harness、GIF 测试素材）
 /tmp/
 
@@ -30,5 +36,6 @@ __pycache__/
 *.sln
 *.sw?
 
-# 构建资源：ffmpeg 体积大（100MB+），不入库，由构建脚本自动下载
+# 构建资源：ffmpeg / yt-dlp 体积大，不入库，由构建脚本自动下载
 src-tauri/resources/ffmpeg.exe
+src-tauri/resources/yt-dlp.exe
