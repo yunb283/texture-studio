@@ -1523,6 +1523,49 @@ select:disabled {
   transition: transform 0.15s ease, background 0.15s ease;
 }
 
+/* 源视频右下角的全屏图标：载入视频后由 JS 取消 hidden，平时隐着，鼠标进预览框才淡入 */
+.vid-fs-btn {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 5; /* 裁剪遮罩是 inset:0 + z-index:4，压过它才点得到 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none; /* 淡出期间别让人误点到一个看不见的按钮上 */
+  transition: opacity 0.25s ease, background 0.15s ease;
+}
+
+#vid-canvas-wrap:hover .vid-fs-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.vid-fs-btn:hover {
+  background: rgba(0, 0, 0, 0.78);
+}
+
+/* 全屏不走 HTML5 fullscreen API（WebView2 里 requestFullscreen 点了没反应），
+   改成把预览框铺成覆盖层，再由 JS 把 Tauri 窗口本身切全屏 */
+#vid-canvas-wrap.fs-on {
+  position: fixed;
+  inset: 0;
+  z-index: 100; /* 盖住工具提示(30)，但不盖住右键菜单(1000) */
+  width: 100vw;
+  height: 100vh;
+  border-radius: 0;
+  background: #000;
+}
+
 /* 视频时间轴容器(含黄色滑块) */
 .vid-seek-tl {
   position: relative;
@@ -1838,6 +1881,19 @@ select:disabled {
 .dl-update-wrap {
   position: relative;
   width: 100%;
+}
+
+/* 「手动更新 / 安装目录」并排放在检查更新上方，宽度跟那个大按钮对齐 */
+.dl-tool-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  width: 70%;
+  margin: 0 auto 8px;
+}
+
+.dl-tool-row .btn {
+  flex: 1;
 }
 
 /* 按钮的全宽锚点层:高度只含按钮,toast 相对它定位到按钮正下方 */

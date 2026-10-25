@@ -1579,6 +1579,14 @@ fn ytdlp_update_ui_visible() -> bool {
     detect_installed_build()
 }
 
+/// yt-dlp.exe 所在目录（也就是软件所在目录），给「安装目录」按钮用
+#[tauri::command]
+async fn ytdlp_dir(app: tauri::AppHandle) -> Result<String, String> {
+    let p = locate_ytdlp_inner(&app)?;
+    let dir = p.parent().ok_or("yt-dlp 路径没有上级目录")?;
+    Ok(dir.to_string_lossy().into_owned())
+}
+
 /// "2025.01.15" → [2025, 1, 15]，用于版本比较
 fn version_key(s: &str) -> Vec<u32> {
     s.trim()
@@ -2101,6 +2109,7 @@ pub fn run() {
             cancel_download,
             cancel_ytdlp_info,
             ytdlp_update_ui_visible,
+            ytdlp_dir,
             ytdlp_check_update,
             ytdlp_apply_update
         ])

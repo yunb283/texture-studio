@@ -68,6 +68,7 @@ export function initVideoConvert() {
   const cropOverlay = $('vid-crop-overlay');
   const cropBox = $('vid-crop-box');
   const canvasWrap = $('vid-canvas-wrap');
+  const fsBtn = $('vid-fullscreen');
   const gripA = $('vid-grip-a');
   const gripB = $('vid-grip-b');
   const maskT = cropOverlay.querySelector('.crop-mask-t');
@@ -110,6 +111,8 @@ export function initVideoConvert() {
   let showPauseOverlay = true;
   // 裁剪状态
   let cropOn = false;
+  // 全屏预览状态（预览框铺成覆盖层）
+  let fsOn = false;
 
   // ===== 批量转换状态 =====
   let batchMode = false;           // true = 批量模式
@@ -153,7 +156,7 @@ export function initVideoConvert() {
     wIn.value = 1920;
     hIn.value = 1080;
     fpsSel.value = '0';
-    vbrModeSel.value = 'auto';
+    vbrModeSel.value = 'crf';
     vbrIn.value = '';
     abrIn.value = '';
     copyChk.checked = false;
@@ -175,6 +178,8 @@ export function initVideoConvert() {
     volSlider.disabled = !on;
     hideBtn.disabled = !on;
     cropBtn.disabled = !on;
+    fsBtn.hidden = !on; // 没载入视频就没有可全屏的东西
+    if (!on) setFullscreen(false);
   }
 
   // 同步进度条的蓝色填充比例（只在两个黄色滑块之间填充）
@@ -1348,6 +1353,27 @@ export function initVideoConvert() {
       renderCropBox();
     }
   }
+
+  // —— 全屏预览 ——
+  // 不走 HTML5 fullscreen API（WebView2 里 requestFullscreen 点了没反应），
+  // 改成把预览框铺成覆盖层 + 让 Tauri 窗口本身全屏，右下角那颗图标留在原地能点回来
+  const appWindow = isTauri ? window.__TAURI__.window.getCurrentWindow() : null;
+
+  function setFullscreen(on) {
+    if (on === fsOn) return;
+    fsOn = on;
+    canvasWrap.classList.toggle('fs-on', on);
+    fsBtn.title = on ? '退出全屏,再点一次或按 Esc' : '全屏预览源视频,再点一次或 Esc 退出';
+    fsBtn.querySelector('.ic-fs').hidden = on;
+    fsBtn.querySelector('.ic-fs-exit').hidden = !on;
+    if (cropOn) renderCropBox(); // 预览框换了尺寸，选区和遮罩得跟着重算
+    if (appWindow) appWindow.setFullscreen(on).catch(() => {}); // 窗口本身也全屏，遮罩层才盖得住标题栏和任务栏
+  }
+
+  fsBtn.addEventListener('click', () => setFullscreen(!fsOn));
+  document.addEventListener('keydown', (e) => {
+    if (fsOn && e.key === 'Escape') setFullscreen(false);
+  });
 
   return {
     loadEntry,

@@ -953,6 +953,30 @@ export function initVideoDownload() {
     }
   });
 
+  // 手动更新：打开 yt-dlp 的 GitHub 发布页，自己下 exe 覆盖。
+  // 安装目录：打开本软件里 yt-dlp.exe 所在的文件夹。两个都交给系统默认程序，
+  // 所以浏览器里没有这两个能力，直接把按钮收起来。
+  const manualUpdateBtn = $('dl-ytdlp-manual');
+  const ytdlpDirBtn = $('dl-ytdlp-dir');
+  if (isTauri) {
+    manualUpdateBtn.addEventListener('click', () => {
+      window.__TAURI__.core
+        .invoke('open_path', { path: 'https://github.com/yt-dlp/yt-dlp/releases/latest' })
+        .catch((e) => showUpdateToast(`打开发布页失败：${e}`, 6000));
+    });
+    ytdlpDirBtn.addEventListener('click', async () => {
+      try {
+        const dir = await window.__TAURI__.core.invoke('ytdlp_dir');
+        await window.__TAURI__.core.invoke('open_path', { path: dir });
+      } catch (e) {
+        showUpdateToast(`打开安装目录失败：${e}`, 6000);
+      }
+    });
+  } else {
+    manualUpdateBtn.hidden = true;
+    ytdlpDirBtn.hidden = true;
+  }
+
   // 播放列表：全选/全不选
   plSelectAllBtn.addEventListener('click', () => {
     if (!playlistMode) return;

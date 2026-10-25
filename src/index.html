@@ -655,6 +655,10 @@
               <div class="crop-handle w"></div>
             </div>
           </div>
+          <button class="vid-fs-btn" id="vid-fullscreen" hidden title="全屏预览源视频,再点一次或 Esc 退出">
+            <svg class="ic-fs" viewBox="0 0 24 24" width="27" height="27" fill="currentColor" aria-hidden="true"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+            <svg class="ic-fs-exit" viewBox="0 0 24 24" width="27" height="27" fill="currentColor" aria-hidden="true" hidden><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>
+          </button>
         </div>
         <div class="vid-timeline" id="vid-timeline">
           <div class="vid-row">
@@ -780,8 +784,8 @@
             <div class="dual-row">
               <input type="text" id="vid-vbr" placeholder="例:5M、2000k" />
               <select id="vid-vbr-mode" title="码率模式">
-                <option value="crf">用 CRF</option>
-                <option value="auto" selected>自动推荐</option>
+                <option value="crf" selected>用 CRF</option>
+                <option value="auto">自动推荐</option>
                 <option value="manual">手动</option>
               </select>
             </div>
@@ -1002,12 +1006,12 @@
         <div class="dim-label" id="dl-progress-meta"></div>
         <div class="status" id="dl-status"></div>
         <div class="io-row end" id="dl-io"></div>
-        <div class="help-label">
-          基于内置 yt-dlp + FFmpeg,支持 YouTube、Bilibili、Twitter、TikTok 等上千个站点<br />
-          视频与音频分开的站点会自动下载音频并合并;左侧列表右键可直接下载该格式
-        </div>
         <div class="dl-update-row">
           <div class="dl-update-wrap">
+            <div class="dl-tool-row">
+              <button class="btn small" id="dl-ytdlp-manual" title="打开 GitHub 上 yt-dlp 的发布页,自己下 exe 覆盖到安装目录">手动更新</button>
+              <button class="btn small" id="dl-ytdlp-dir" title="打开本软件里 yt-dlp.exe 所在的文件夹">安装目录</button>
+            </div>
             <div class="dl-update-btn-anchor">
               <button class="btn small dl-update-btn" id="dl-ytdlp-update" hidden>
                 <span class="update-fill"></span>
