@@ -51,6 +51,7 @@ const CODEC_ORDER = ['H.264', 'H.265', 'AV1', 'VP9', 'VP8', 'MPEG-4'];
 export function initVideoDownload() {
   const urlInput = $('dl-url');
   const fetchBtn = $('dl-fetch');
+  const clearBtn = $('dl-clear');
   const thumb = $('dl-thumb');
   const thumbPh = $('dl-thumb-placeholder');
   const infoEl = $('dl-info');
@@ -81,6 +82,8 @@ export function initVideoDownload() {
   let ctxFormat = null; // 右键要下载的格式（一次性）
   let downloading = false;
   let lastOutputPath = null;
+  let parseToken = 0; // 解析令牌：清除链接时 +1，让进行中的解析结果失效
+  let parsing = false; // 是否有解析正在执行
 
   // ===== 播放列表状态 =====
   let playlistMode = false; // true = 当前是合集/播放列表
@@ -599,8 +602,10 @@ export function initVideoDownload() {
       return;
     }
     fetchBtn.disabled = true;
+    parsing = true;
     setStatus('正在解析视频信息…');
     setProgress(0);
+    const token = ++parseToken;
     try {
       const info = await window.__TAURI__.core.invoke('ytdlp_info', {
         url,
@@ -608,6 +613,7 @@ export function initVideoDownload() {
         cookies_from_browser: null,
         proxy: getProxyArg(),
       });
+      if (token !== parseToken) return; // 清除/取消触发的旧结果，丢弃
       ctxFormat = null;
       playlistMode = !!(info.entries && info.entries.length);
       playlistEntries = playlistMode
@@ -648,12 +654,15 @@ export function initVideoDownload() {
         setStatus(`解析成功，共 ${info.formats.length} 个可用格式`);
       }
     } catch (e) {
+      if (token !== parseToken) return; // 清除触发取消，静默返回
       playlistMode = false;
       playlistEntries = [];
       playlistWrap.hidden = true;
       fmtList.style.display = '';
-      setStatus(`解析失败：${e}`);
+      const msg = String(e);
+      setStatus(msg.includes('取消') ? '已取消解析' : `解析失败：${msg}`);
     } finally {
+      parsing = false;
       fetchBtn.disabled = false;
     }
   }
@@ -712,12 +721,25 @@ export function initVideoDownload() {
     browseBtn.disabled = !custom;
   }
 
+  async function cancelCurrentDownload() {
+    if (playlistDownloading) playlistStopRequested = true;
+    setStatus('正在取消下载…');
+    try {
+      await window.__TAURI__.core.invoke('cancel_download');
+    } catch (_) {}
+  }
+
   async function startDownload() {
+    // 下载中再点「取消下载」：取消当前所有下载
+    if (downloading || playlistDownloading) {
+      await cancelCurrentDownload();
+      return;
+    }
     if (playlistMode) {
       await startPlaylistDownload();
       return;
     }
-    if (!currentInfo || downloading) return;
+    if (!currentInfo) return;
     const url = urlInput.value.trim();
     if (!url) return;
 
@@ -728,7 +750,8 @@ export function initVideoDownload() {
     refreshChoiceLabel();
 
     downloading = true;
-    downloadBtn.disabled = true;
+    downloadBtn.disabled = false;
+    downloadBtn.textContent = '取消下载';
     fetchBtn.disabled = true;
     setProgress(0);
     setStatus('准备下载…');
@@ -739,6 +762,7 @@ export function initVideoDownload() {
         setStatus(saveCustomChk.checked ? '未选择保存文件夹' : '获取下载目录失败');
         downloading = false;
         downloadBtn.disabled = false;
+        downloadBtn.textContent = '开始下载';
         fetchBtn.disabled = false;
         return;
       }
@@ -768,10 +792,12 @@ export function initVideoDownload() {
       io.setExport(lastOutputPath);
       setStatus(`下载完成${rightClicked ? '（右键指定格式）' : ''}：${lastOutputPath}`);
     } catch (e) {
-      setStatus(`下载失败：${e}`);
+      const msg = String(e);
+      setStatus(msg.includes('取消') ? '已取消下载' : `下载失败：${msg}`);
     } finally {
       downloading = false;
       downloadBtn.disabled = false;
+      downloadBtn.textContent = '开始下载';
       fetchBtn.disabled = false;
     }
   }
@@ -784,7 +810,8 @@ export function initVideoDownload() {
 
     playlistDownloading = true;
     playlistStopRequested = false;
-    downloadBtn.disabled = true;
+    downloadBtn.disabled = false;
+    downloadBtn.textContent = '取消下载';
     fetchBtn.disabled = true;
     setProgress(0);
     setStatus(`准备批量下载（${selected.length} 个视频）…`);
@@ -795,10 +822,24 @@ export function initVideoDownload() {
         setStatus(saveCustomChk.checked ? '未选择保存文件夹' : '获取下载目录失败');
         playlistDownloading = false;
         downloadBtn.disabled = false;
+        downloadBtn.textContent = '重新下载';
         fetchBtn.disabled = false;
         return;
       }
       const sep = dir.includes('\\') ? '\\' : '/';
+      // 合集下载：在保存目录下自动建一个以合集名字命名的子文件夹
+      let outDir = dir;
+      const seasonName = (currentInfo && currentInfo.title) ? String(currentInfo.title).trim() : '';
+      if (seasonName) {
+        const safe = seasonName
+          .replace(/[\\/:*?"<>|]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .replace(/[. ]+$/, '')
+          .trim();
+        if (safe) {
+          outDir = `${dir}${sep}${safe}`;
+        }
+      }
       // 用右侧分辨率/编码选择拼 format selector，不是硬编码 bv*+ba/b
       const selector = playlistFormatSelector();
       let successCount = 0;
@@ -806,14 +847,11 @@ export function initVideoDownload() {
       const total = selected.length;
 
       for (let i = 0; i < selected.length; i++) {
-        if (playlistStopRequested) {
-          setStatus(`已停止，已下载 ${successCount} 个`);
-          break;
-        }
+        if (playlistStopRequested) break;
         const entry = selected[i];
         const curIdx = i + 1;
         const stem = `${String(curIdx).padStart(2, '0')}-%(title)s`;
-        const output = `${dir}${sep}${stem}.%(ext)s`;
+        const output = `${outDir}${sep}${stem}.%(ext)s`;
 
         setProgress(0);
         setStatus(`[${curIdx}/${total}] 下载中：${entry.title || entry.id}…`);
@@ -830,10 +868,11 @@ export function initVideoDownload() {
             },
           });
           setProgress(1, '', '', 'done');
-          lastOutputPath = finalPath || `${dir}${sep}${stem}.mp4`;
+          lastOutputPath = finalPath || `${outDir}${sep}${stem}.mp4`;
           io.setExport(lastOutputPath);
           successCount++;
         } catch (e) {
+          if (playlistStopRequested) break;
           failCount++;
           setStatus(`[${curIdx}/${total}] 失败：${entry.title || entry.id}（${e}）`);
           // 等 1 秒让用户看到失败信息
@@ -841,7 +880,9 @@ export function initVideoDownload() {
         }
       }
 
-      if (!playlistStopRequested) {
+      if (playlistStopRequested) {
+        setStatus(`已取消下载，已下载 ${successCount} 个`);
+      } else {
         setStatus(`批量下载完成：成功 ${successCount}，失败 ${failCount}`);
       }
     } catch (e) {
@@ -855,6 +896,24 @@ export function initVideoDownload() {
   }
 
   fetchBtn.addEventListener('click', fetchInfo);
+
+  // 清除链接按钮：清空链接输入框；正在解析时同时取消解析。
+  // 正在下载时不动状态提示，避免把「下载中」的信息清掉。
+  clearBtn.addEventListener('click', () => {
+    if (parsing) {
+      parseToken++; // 使进行中的解析结果失效
+      parsing = false;
+      fetchBtn.disabled = false; // 立即恢复，不必等后端 kill 完成
+      setStatus('已取消解析');
+      if (isTauri) {
+        window.__TAURI__.core.invoke('cancel_ytdlp_info').catch((e) =>
+          console.warn('cancel_ytdlp_info 失败：', e)
+        );
+      }
+    }
+    urlInput.value = '';
+    urlInput.focus();
+  });
 
   clearAllBtn.addEventListener('click', () => {
     clearAll();

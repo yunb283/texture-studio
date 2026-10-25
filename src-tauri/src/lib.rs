@@ -3,6 +3,7 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use serde::{Deserialize, Serialize};
@@ -15,6 +16,12 @@ use std::os::windows::process::CommandExt;
 /// Windows 的 CREATE_NO_WINDOW：启动控制台子进程时不要新建控制台窗口。
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+/// 全局取消标志：前端点「取消下载」时置位，ytdlp_download 在下一次进度行里检测到后 kill 子进程。
+static YTDLP_CANCEL: AtomicBool = AtomicBool::new(false);
+
+/// 全局取消标志：前端点「清除链接」时置位，ytdlp_info 检测到后 kill 正在跑的解析进程。
+static YTDLP_INFO_CANCEL: AtomicBool = AtomicBool::new(false);
 
 /// 启动子进程（ffmpeg / yt-dlp）时统一隐藏控制台。
 ///
@@ -805,6 +812,114 @@ fn normalize_bili_part_url(url: &str) -> String {
     url.to_string()
 }
 
+/// 用 B站公开 API 拉取视频所属的 ugc_season（系列/合集）里的所有 episode。
+/// 不需要 wbi 签名，只需要 User-Agent + Referer。
+///
+/// yt-dlp 的 BiliBili extractor 目前（2026.10）只能自动识别「分 P」（同 BVID 带 pages）
+/// 和「medialist 收藏夹」，但不会自动展开 UP 主创建的 ugc_season 系列。
+/// 这个函数作为兜底：当 yt-dlp 返回单视频、但 B站 API 说它属于某个系列时，
+/// 把系列里所有视频拼成 entries 返回。
+/// 返回：(season_title, season_cover_url, entries)
+fn fetch_bili_season_entries(
+    bvid: &str,
+) -> Option<(String, String, Vec<YtDlpPlaylistEntry>)> {
+    let api = format!(
+        "https://api.bilibili.com/x/web-interface/view?bvid={}",
+        bvid
+    );
+    // 用系统自带的 curl.exe（Windows 10+ 有），比引入 reqwest 依赖轻量
+    let mut cmd = command_no_window("curl.exe");
+    cmd.arg("-s")
+        .arg("-H")
+        .arg(format!("User-Agent: {}", YTDLP_UA))
+        .arg("-H")
+        .arg("Referer: https://www.bilibili.com/")
+        .arg(&api)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+
+    let output = cmd.output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let json: serde_json::Value = serde_json::from_str(&stdout).ok()?;
+
+    // ugc_season: { id, title, cover, sections: [{ episodes: [{ arc: { bvid, title, duration, pic } }] }] }
+    let ugc_season = json.get("data")?.get("ugc_season")?;
+    let season_title = ugc_season
+        .get("title")
+        .and_then(|v| v.as_str())
+        .unwrap_or("系列")
+        .to_string();
+    let season_cover = ugc_season
+        .get("cover")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let mut entries: Vec<YtDlpPlaylistEntry> = Vec::new();
+
+    if let Some(sections) = ugc_season.get("sections").and_then(|v| v.as_array()) {
+        for section in sections {
+            if let Some(eps) = section.get("episodes").and_then(|v| v.as_array()) {
+                for ep in eps {
+                    // 注意：bvid 在 episode 层（ep.bvid），不在 arc 层；arc 层只有 aid（数字）
+                    let bvid = ep
+                        .get("bvid")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    if bvid.is_empty() {
+                        continue;
+                    }
+                    let arc = ep.get("arc");
+                    let title = ep
+                        .get("title")
+                        .and_then(|v| v.as_str())
+                        .or_else(|| {
+                            arc.and_then(|a| a.get("title"))
+                                .and_then(|v| v.as_str())
+                        })
+                        .unwrap_or("")
+                        .to_string();
+                    let duration = arc
+                        .and_then(|a| a.get("duration"))
+                        .and_then(|v| v.as_f64());
+                    let pic = arc
+                        .and_then(|a| a.get("pic"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let uploader = arc
+                        .and_then(|a| a.get("author"))
+                        .and_then(|v| v.get("name"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let webpage_url = format!(
+                        "https://www.bilibili.com/video/{}/",
+                        bvid
+                    );
+                    entries.push(YtDlpPlaylistEntry {
+                        id: bvid.clone(),
+                        title,
+                        duration,
+                        uploader,
+                        thumbnail: pic,
+                        webpage_url,
+                    });
+                }
+            }
+        }
+    }
+
+    if entries.is_empty() {
+        None
+    } else {
+        Some((season_title, season_cover, entries))
+    }
+}
+
 /// 把 yt-dlp 的英文报错翻译成能直接照着做的中文提示
 fn friendly_ytdlp_error(msg: &str) -> String {
     if msg.contains("Failed to decrypt") || msg.contains("Could not copy Chrome cookie database") {
@@ -863,16 +978,56 @@ async fn ytdlp_info(
     cmd.arg(&url)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    let output = cmd
-        .output()
-        .map_err(|e| format!("调用 yt-dlp 失败：{e}"))?;
 
-    if !output.status.success() {
-        let err = String::from_utf8_lossy(&output.stderr);
+    // 每次解析前清掉上一个取消请求（比如用户之前点过清除链接）
+    YTDLP_INFO_CANCEL.store(false, Ordering::SeqCst);
+
+    let mut child = cmd.spawn().map_err(|e| format!("调用 yt-dlp 失败：{e}"))?;
+    let stdout = child.stdout.take();
+    let stderr = child.stderr.take();
+    let child = Arc::new(Mutex::new(child));
+
+    // 看门狗：清除链接触发取消时 kill 解析进程，让阻塞读取立刻返回
+    {
+        let watchdog = child.clone();
+        std::thread::spawn(move || loop {
+            if YTDLP_INFO_CANCEL.load(Ordering::SeqCst) {
+                let _ = watchdog.lock().unwrap().kill();
+                break;
+            }
+            if watchdog.lock().unwrap().try_wait().map(|s| s.is_some()).unwrap_or(true) {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        });
+    }
+
+    // stderr 单独线程读完，避免和 stdout 互相阻塞（-J 输出较大）
+    let err_thread = stderr.map(|stderr| {
+        std::thread::spawn(move || {
+            let mut buf = Vec::new();
+            let _ = std::io::Read::read_to_end(&mut BufReader::new(stderr), &mut buf);
+            buf
+        })
+    });
+
+    let mut out_bytes = Vec::new();
+    if let Some(stdout) = stdout {
+        let _ = std::io::Read::read_to_end(&mut BufReader::new(stdout), &mut out_bytes);
+    }
+    let err_bytes = err_thread.and_then(|h| h.join().ok()).unwrap_or_default();
+
+    let status = child.lock().unwrap().wait().map_err(|e| e.to_string())?;
+    if YTDLP_INFO_CANCEL.load(Ordering::SeqCst) {
+        return Err("已取消解析".into());
+    }
+
+    if !status.success() {
+        let err = String::from_utf8_lossy(&err_bytes);
         return Err(friendly_ytdlp_error(err.trim()));
     }
 
-    let json: serde_json::Value = serde_json::from_slice(&output.stdout)
+    let json: serde_json::Value = serde_json::from_slice(&out_bytes)
         .map_err(|e| format!("解析 yt-dlp 输出失败：{e}"))?;
 
     let formats_val = json.get("formats").and_then(|v| v.as_array()).cloned().unwrap_or_default();
@@ -940,14 +1095,44 @@ async fn ytdlp_info(
         }
     }
 
+    // —— B站 ugc_season 兜底 ——
+    // yt-dlp 的 BiliBili extractor 不会自动展开 UP 主创建的系列，我们自己调 API。
+    let mut playlist_title_override: Option<String> = None;
+    let mut playlist_cover_override: Option<String> = None;
+    if !is_playlist
+        && json
+            .get("extractor_key")
+            .and_then(|v| v.as_str())
+            .map(|k| k == "BiliBili")
+            .unwrap_or(false)
+    {
+        let bvid = json
+            .get("display_id")
+            .and_then(|v| v.as_str())
+            .or_else(|| json.get("id").and_then(|v| v.as_str()))
+            .unwrap_or("");
+        if !bvid.is_empty() {
+            if let Some((season_title, season_cover, season_entries)) =
+                fetch_bili_season_entries(bvid)
+            {
+                entries = season_entries;
+                playlist_title_override = Some(season_title);
+                if !season_cover.is_empty() {
+                    playlist_cover_override = Some(season_cover);
+                }
+            }
+        }
+    }
+
     Ok(YtDlpInfo {
         id: json.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-        title: json
-            .get("title")
-            .and_then(|v| v.as_str())
-            .or_else(|| json.get("playlist_title").and_then(|v| v.as_str()))
-            .unwrap_or("")
-            .to_string(),
+        title: playlist_title_override.clone().unwrap_or_else(|| {
+            json.get("title")
+                .and_then(|v| v.as_str())
+                .or_else(|| json.get("playlist_title").and_then(|v| v.as_str()))
+                .unwrap_or("")
+                .to_string()
+        }),
         duration: json.get("duration").and_then(|v| v.as_f64()),
         uploader: json
             .get("uploader")
@@ -956,12 +1141,11 @@ async fn ytdlp_info(
             .or_else(|| json.get("uploader_id").and_then(|v| v.as_str()))
             .unwrap_or("")
             .to_string(),
-        thumbnail: json
-            .get("thumbnail")
-            .and_then(|v| v.as_str())
-            .or_else(|| json.get("playlist_thumbnail").and_then(|v| v.as_str()))
-            .unwrap_or("")
-            .to_string(),
+        thumbnail: playlist_cover_override
+            .clone()
+            .or_else(|| json.get("playlist_thumbnail").and_then(|v| v.as_str()).map(|s| s.to_string()))
+            .or_else(|| json.get("thumbnail").and_then(|v| v.as_str()).map(|s| s.to_string()))
+            .unwrap_or_default(),
         webpage_url: json
             .get("webpage_url")
             .and_then(|v| v.as_str())
@@ -1090,6 +1274,18 @@ fn emit_progress(line: &str, state: &Arc<Mutex<ProgressState>>, window: &tauri::
     );
 }
 
+/// 前端点「取消下载」时调用：置位全局取消标志，ytdlp_download 会 kill 正在跑的 yt-dlp。
+#[tauri::command]
+fn cancel_download() {
+    YTDLP_CANCEL.store(true, Ordering::SeqCst);
+}
+
+/// 前端点「清除链接」时调用：置位解析取消标志，ytdlp_info 会 kill 正在跑的解析进程。
+#[tauri::command]
+fn cancel_ytdlp_info() {
+    YTDLP_INFO_CANCEL.store(true, Ordering::SeqCst);
+}
+
 /// 调用 yt-dlp 下载视频，通过 ytdlp-progress 事件上报进度（0~1）。
 /// 返回 yt-dlp 报告的最终文件路径（合并后的文件），拿不到就是空串。
 #[tauri::command]
@@ -1167,6 +1363,9 @@ async fn ytdlp_download(
 
     let window_clone = window.clone();
 
+    // 每次新下载先清掉上一个取消请求，避免残留标志影响本次
+    YTDLP_CANCEL.store(false, Ordering::SeqCst);
+
     let result = tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
         let mut child = command_no_window(&ytdlp_str)
             .args(&args)
@@ -1205,10 +1404,37 @@ async fn ytdlp_download(
             })
         });
 
+        let child = Arc::new(Mutex::new(child));
+
+        // 看门狗：即使 yt-dlp 暂时没有输出，也在检测到取消标志时立即 kill、让阻塞的读取立刻返回
+        {
+            let watchdog = child.clone();
+            std::thread::spawn(move || loop {
+                if YTDLP_CANCEL.load(Ordering::SeqCst) {
+                    let _ = watchdog.lock().unwrap().kill();
+                    break;
+                }
+                let done = watchdog
+                    .lock()
+                    .unwrap()
+                    .try_wait()
+                    .map(|s| s.is_some())
+                    .unwrap_or(true);
+                if done {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(150));
+            });
+        }
+
         // stderr：错误识别 + 进度（YouTube 这类站点进度走 stderr）+ 合并阶段检测
         let mut risk_blocked = false;
-        if let Some(stderr) = child.stderr.take() {
+        if let Some(stderr) = child.lock().unwrap().stderr.take() {
             for line in BufReader::new(stderr).lines() {
+                if YTDLP_CANCEL.load(Ordering::SeqCst) {
+                    let _ = child.lock().unwrap().kill();
+                    break;
+                }
                 let line = match line {
                     Ok(l) => l,
                     Err(_) => break,
@@ -1236,8 +1462,11 @@ async fn ytdlp_download(
             }
         }
 
-        let status = child.wait().map_err(|e| e.to_string())?;
+        let status = child.lock().unwrap().wait().map_err(|e| e.to_string())?;
         let final_path = stdout_handle.and_then(|h| h.join().ok()).unwrap_or_default();
+        if YTDLP_CANCEL.load(Ordering::SeqCst) {
+            return Err("已取消下载".into());
+        }
         if !status.success() {
             return Err(if risk_blocked {
                 "下载失败：站点返回 HTTP 412（当前网络出口被风控，常见于代理/VPN。请让 bilibili.com 直连或在「网络代理」里换一个出口后重试）".into()
@@ -1295,7 +1524,9 @@ pub fn run() {
             convert_video,
             convert_audio,
             ytdlp_info,
-            ytdlp_download
+            ytdlp_download,
+            cancel_download,
+            cancel_ytdlp_info
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
