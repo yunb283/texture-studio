@@ -1633,15 +1633,15 @@ select:disabled {
 }
 
 /* 按钮下方常显描述:初始是功能说明,更新消息出现后跟随变化,直到下一条描述出现.
-   始终只占一行,超出部分用省略号截断,保证任何窗口高度下布局都不跳变 */
+   消息(含报错)要完整显示,自动换行;长串无空格的错误信息也能在任意位置断行 */
 .dl-update-hint {
   margin-top: 14px; /* 9px + 5px:描述再下移 5px */
   font-size: 12px;
   line-height: 1.4;
   color: var(--cyan-text2); /* 与下载页状态文字(正在解析…)同色 */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   user-select: text;
 }
 
