@@ -1271,6 +1271,11 @@ select:disabled {
   width: 100%;
 }
 
+/* 按钮的全宽锚点层:高度只含按钮,toast 相对它定位到按钮正下方 */
+.dl-update-btn-anchor {
+  position: relative;
+}
+
 /* 默认态:主按钮同款青色填充、白字、加宽 */
 .dl-update-btn {
   display: block;
@@ -1286,12 +1291,16 @@ select:disabled {
   border: none;
 }
 
-/* 按钮左下角常显描述:初始是功能说明,更新消息出现后跟随变化,直到下一条描述出现 */
+/* 按钮下方常显描述:初始是功能说明,更新消息出现后跟随变化,直到下一条描述出现.
+   始终只占一行,超出部分用省略号截断,保证任何窗口高度下布局都不跳变 */
 .dl-update-hint {
   margin-top: 14px; /* 9px + 5px:描述再下移 5px */
   font-size: 12px;
+  line-height: 1.4;
   color: #6fd3f5; /* 与下载页状态文字(正在解析…)同色 */
-  word-break: break-all;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   user-select: text;
 }
 
@@ -1359,10 +1368,10 @@ select:disabled {
   overflow: hidden;
 }
 
-/* 下方弹出的提示条 */
+/* 按钮正下方弹出的提示条(浮在蓝色描述行之上,不占布局高度) */
 .dl-update-toast {
   position: absolute;
-  bottom: calc(100% + 14px); /* 悬在按钮上方,与下方蓝色描述离按钮的距离一致 */
+  top: calc(100% + 10px); /* 悬在按钮下方 10px */
   right: 0;
   max-width: 330px;
   background: #2a2f40;
@@ -1373,7 +1382,7 @@ select:disabled {
   padding: 6px 10px;
   border-radius: 4px;
   opacity: 0;
-  transform: translateY(-4px);
+  transform: translateY(4px);
   transition: opacity 0.18s ease, transform 0.18s ease;
   pointer-events: none;
   z-index: 30;
@@ -1382,17 +1391,6 @@ select:disabled {
 .dl-update-toast.show {
   opacity: 1;
   transform: translateY(0);
-}
-
-/* 窗口太小(宽度或高度不够)时:隐藏左下角描述并收窄按钮,高度和字体保持不变 */
-@media (max-width: 1100px), (max-height: 700px) {
-  .dl-update-hint {
-    display: none;
-  }
-
-  .dl-update-btn {
-    width: 87.5%;
-  }
 }
 
 /* 批量模式包裹层:必须继承 panel 的 flex 列布局,否则内容会塌成一团 */
