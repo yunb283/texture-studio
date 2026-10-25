@@ -10,10 +10,57 @@
       body {
         background: #202020;
       }
+      html.light,
+      html.light body {
+        background: #eef0f4;
+      }
     </style>
+    <!-- 样式表加载前先按上次选择套上浅色类，避免启动瞬间深底闪烁 -->
+    <script>
+      try {
+        if (localStorage.getItem('theme') === 'light') document.documentElement.classList.add('light');
+      } catch (e) {}
+    </script>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <!-- 自绘标题栏：系统标题栏已关闭（decorations: false），拖拽、最小化、最大化、关闭都在这里 -->
+    <div class="titlebar" data-tauri-drag-region="deep">
+      <img class="tb-icon" src="assets/app-icon.png" alt="" draggable="false" />
+      <span class="tb-title">图像工具箱</span>
+      <div class="tb-actions">
+        <button class="pin-btn" id="pin-top" data-tip="窗口置顶" aria-pressed="false" aria-label="窗口置顶">
+          <svg class="ic-pin-line" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 17v5" />
+            <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
+          </svg>
+          <svg class="ic-pin-solid" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="currentColor"
+            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+            <path d="M12 17v5" />
+            <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
+          </svg>
+        </button>
+        <button class="cap-btn" id="win-min" aria-label="最小化" title="最小化">
+          <svg viewBox="0 0 10 10" width="10" height="10" fill="none" stroke="currentColor"
+            stroke-width="1" aria-hidden="true"><path d="M0 5h10" /></svg>
+        </button>
+        <button class="cap-btn" id="win-max" aria-label="最大化" title="最大化">
+          <svg class="ic-max" viewBox="0 0 10 10" width="10" height="10" fill="none" stroke="currentColor"
+            stroke-width="1" aria-hidden="true"><rect x="0.5" y="0.5" width="9" height="9" rx="1" /></svg>
+          <svg class="ic-restore" viewBox="0 0 10 10" width="10" height="10" fill="none" stroke="currentColor"
+            stroke-width="1" aria-hidden="true" hidden>
+            <path d="M2.5 2.5v-2h7v7h-2" />
+            <rect x="0.5" y="2.5" width="7" height="7" rx="1" />
+          </svg>
+        </button>
+        <button class="cap-btn cap-close" id="win-close" aria-label="关闭" title="关闭">
+          <svg viewBox="0 0 10 10" width="10" height="10" fill="none" stroke="currentColor"
+            stroke-width="1" aria-hidden="true"><path d="M0.5 0.5l9 9M9.5 0.5l-9 9" /></svg>
+        </button>
+      </div>
+    </div>
+
     <div class="tabs">
       <button class="tab active" id="tab-split">序列图分割</button>
       <button class="tab" id="tab-merge">序列图合并</button>
@@ -25,11 +72,15 @@
       <button class="tab" id="tab-video">视频格式转换</button>
       <button class="tab" id="tab-audio">音频格式转换</button>
       <button class="tab" id="tab-dl">视频下载</button>
-      <button class="pin-btn" id="pin-top" title="总在最前" aria-pressed="false">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+      <button class="theme-btn" id="theme-toggle" title="切换浅色 / 深色" aria-label="切换浅色或深色">
+        <svg class="ic-moon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M12 17v5" />
-          <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
+          <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+        </svg>
+        <svg class="ic-sun" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
         </svg>
       </button>
     </div>

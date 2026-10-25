@@ -75,6 +75,11 @@ export class CanvasView {
     if (canvas.parentElement) {
       new ResizeObserver(() => this.redraw()).observe(canvas.parentElement);
     }
+    // 换肤：棋盘格和「主题底色」是画在 canvas 上的，置失效标记并重画
+    window.addEventListener('themechange', () => {
+      this._checkerSize = -1;
+      this.redraw();
+    });
     if (opts.clickable) {
       canvas.addEventListener('mousedown', (e) => this._click(e));
     }
@@ -89,14 +94,18 @@ export class CanvasView {
   // 再走双线性插值，格子边界就糊了。尺寸变了（换屏、改缩放）重建一份。
   _checkerAt(dpr) {
     const size = Math.max(2, Math.round(48 * dpr));
+    // 棋盘格颜色跟主题走：尺寸不变但换肤时 _checkerSize 会被置 -1 强制重建
     if (size === this._checkerSize) return this._checkerPattern;
+    const css = getComputedStyle(document.documentElement);
+    const colA = (css.getPropertyValue('--check-b').trim() || '#515159');
+    const colB = (css.getPropertyValue('--check-a').trim() || '#909098');
     const c = document.createElement('canvas');
     c.width = size;
     c.height = size;
     const x = c.getContext('2d');
-    x.fillStyle = '#515159';
+    x.fillStyle = colA;
     x.fillRect(0, 0, size, size);
-    x.fillStyle = '#909098';
+    x.fillStyle = colB;
     const half = Math.round(size / 2);
     // 整数边界：半格取整后剩下的那条缝别留给抗锯齿
     x.fillRect(half, 0, size - half, half);
@@ -205,7 +214,8 @@ export class CanvasView {
       ctx.fillStyle = '#D9D9D9';
       ctx.fillRect(0, 0, cw, ch);
     } else if (this.bgMode === 3) {
-      ctx.fillStyle = '#1A1A22';
+      ctx.fillStyle = getComputedStyle(document.documentElement)
+        .getPropertyValue('--bg-canvas2').trim() || '#1A1A22';
       ctx.fillRect(0, 0, cw, ch);
     } else {
       // 回到设备像素空间铺图样，1 图样像素 = 1 屏幕像素；关掉平滑避免边界插值

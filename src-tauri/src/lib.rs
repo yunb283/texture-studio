@@ -1837,10 +1837,42 @@ fn extract_percent(line: &str) -> Option<f64> {
     None
 }
 
+/// 去掉系统标题栏后，Win11 不再自动给窗口加圆角，这里显式打开 DWM 圆角。
+/// Win10 及更早版本不认这个属性，调用失败就保持直角。
+#[cfg(windows)]
+fn enable_round_corners(window: &tauri::WebviewWindow) {
+    use windows_sys::Win32::Graphics::Dwm::{
+        DwmSetWindowAttribute, DWMWCP_ROUND, DWMWA_WINDOW_CORNER_PREFERENCE,
+    };
+    let Ok(hwnd) = window.hwnd() else {
+        return;
+    };
+    let preference: u32 = DWMWCP_ROUND as u32;
+    unsafe {
+        DwmSetWindowAttribute(
+            hwnd.0 as isize,
+            DWMWA_WINDOW_CORNER_PREFERENCE as u32,
+            &preference as *const u32 as *const _,
+            std::mem::size_of::<u32>() as u32,
+        );
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            #[cfg(windows)]
+            {
+                if let Some(window) = app.get_webview_window("main") {
+                    enable_round_corners(&window);
+                }
+            }
+            #[cfg(not(windows))]
+            let _ = app;
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             pick_images,
             pick_dir,

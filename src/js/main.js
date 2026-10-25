@@ -252,18 +252,71 @@ tabVideo.addEventListener('click', () => showTab('video'));
 tabAudio.addEventListener('click', () => showTab('audio'));
 tabDl.addEventListener('click', () => showTab('dl'));
 
-// 总在最前：默认关闭，按下启用（浏览器里没有窗口，直接隐藏）
+// 标题栏：置顶 / 最小化 / 最大化 / 关闭（浏览器预览里没有窗口，整组禁用）
 const pinBtn = document.getElementById('pin-top');
-if (!isTauri) {
-  pinBtn.style.display = 'none';
+const pinLine = pinBtn.querySelector('.ic-pin-line');
+const pinSolid = pinBtn.querySelector('.ic-pin-solid');
+const winMin = document.getElementById('win-min');
+const winMax = document.getElementById('win-max');
+const winClose = document.getElementById('win-close');
+const maxIcon = winMax.querySelector('.ic-max');
+const restoreIcon = winMax.querySelector('.ic-restore');
+const currentWindow = isTauri ? window.__TAURI__.window.getCurrentWindow() : null;
+
+if (!currentWindow) {
+  for (const b of [pinBtn, winMin, winMax, winClose]) b.disabled = true;
 } else {
   pinBtn.addEventListener('click', () => {
     const on = !pinBtn.classList.contains('on');
     pinBtn.classList.toggle('on', on);
     pinBtn.setAttribute('aria-pressed', String(on));
-    window.__TAURI__.window.getCurrentWindow().setAlwaysOnTop(on);
+    pinBtn.setAttribute('aria-label', on ? '取消置顶' : '窗口置顶');
+    pinBtn.dataset.tip = on ? '取消置顶' : '窗口置顶';
+    pinLine.toggleAttribute('hidden', on);
+    pinSolid.toggleAttribute('hidden', !on);
+    currentWindow.setAlwaysOnTop(on);
   });
+
+  winMin.addEventListener('click', () => currentWindow.minimize());
+  winMax.addEventListener('click', () => currentWindow.toggleMaximize());
+  winClose.addEventListener('click', () => currentWindow.close());
+
+  // 最大化 / 还原后换图标，拖动窗口改变尺寸时也会触发
+  const syncMaxIcon = async () => {
+    const maximized = await currentWindow.isMaximized();
+    maxIcon.toggleAttribute('hidden', maximized);
+    restoreIcon.toggleAttribute('hidden', !maximized);
+    winMax.setAttribute('aria-label', maximized ? '还原' : '最大化');
+    winMax.title = maximized ? '还原' : '最大化';
+  };
+  syncMaxIcon();
+  currentWindow.onResized(() => syncMaxIcon());
 }
+
+// 浅色 / 深色主题：默认深色，选择记入 localStorage；head 内联脚本会在启动时提前恢复
+const themeBtn = document.getElementById('theme-toggle');
+const icMoon = themeBtn.querySelector('.ic-moon');
+const icSun = themeBtn.querySelector('.ic-sun');
+function applyTheme(theme) {
+  const light = theme === 'light';
+  document.documentElement.classList.toggle('light', light);
+  // 注意：SVG 元素上的 .hidden IDL 属性在 WebView2 里不会可靠反映到 content attribute，
+  // 必须直接切属性，[hidden]{display:none} 才能命中
+  icMoon.toggleAttribute('hidden', light); // 浅色下显示太阳（点一下回深色）
+  icSun.toggleAttribute('hidden', !light);
+  themeBtn.title = light ? '当前浅色，点击切换深色' : '当前深色，点击切换浅色';
+  themeBtn.setAttribute('aria-pressed', String(light));
+  // 让系统的非客户区（边框、原生对话框）也跟着换，避免浅色窗口配深色系统框
+  if (currentWindow) currentWindow.setTheme(light ? 'light' : 'dark').catch(() => {});
+}
+applyTheme(localStorage.getItem('theme') === 'light' ? 'light' : 'dark');
+themeBtn.addEventListener('click', () => {
+  const next = document.documentElement.classList.contains('light') ? 'dark' : 'light';
+  localStorage.setItem('theme', next);
+  applyTheme(next);
+  // 画布上的棋盘格/底色是 JS 绘制的，通知各 CanvasView 重画
+  window.dispatchEvent(new CustomEvent('themechange', { detail: { theme: next } }));
+});
 
 onGlobalDrop((entries) => {
   // 音频转换页优先吃音频/视频
