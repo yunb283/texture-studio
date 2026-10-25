@@ -15,8 +15,8 @@
         "title": "图像工具箱",
         "width": 1100,
         "height": 720,
-        "minWidth": 920,
-        "minHeight": 620,
+        "minWidth": 1020,
+        "minHeight": 750,
         "decorations": false,
         "shadow": true,
         "backgroundColor": "#202020"

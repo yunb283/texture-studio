@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>图像工具箱</title>
-    <!-- 先给一层底色：外链样式表还没到位的那几帧不至于白屏 -->
+    <!-- 先给一层底色:外链样式表还没到位的那几帧不至于白屏 -->
     <style>
       html,
       body {
@@ -15,7 +15,7 @@
         background: #eef0f4;
       }
     </style>
-    <!-- 样式表加载前先按上次选择套上浅色类，避免启动瞬间深底闪烁 -->
+    <!-- 样式表加载前先按上次选择套上浅色类,避免启动瞬间深底闪烁 -->
     <script>
       try {
         if (localStorage.getItem('theme') === 'light') document.documentElement.classList.add('light');
@@ -24,7 +24,7 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <!-- 自绘标题栏：系统标题栏已关闭（decorations: false），拖拽、最小化、最大化、关闭都在这里 -->
+    <!-- 自绘标题栏:系统标题栏已关闭(decorations: false),拖拽、最小化、最大化、关闭都在这里 -->
     <div class="titlebar" data-tauri-drag-region="deep">
       <img class="tb-icon" src="assets/app-icon.png" alt="" draggable="false" />
       <span class="tb-title">图像工具箱</span>
@@ -92,11 +92,11 @@
           <div class="bg-btns" id="src-bg"></div>
         </div>
         <div class="canvas-wrap"><canvas id="src-canvas"></canvas></div>
-        <div class="dim-label" id="split-info">图像尺寸：-  |  总帧数：-</div>
-        <button class="btn" id="split-open">打开图片…（或拖入序列贴图）</button>
+        <div class="dim-label" id="split-info">图像尺寸:-  |  总帧数:-</div>
+        <button class="btn" id="split-open">打开图片…(或拖入序列贴图)</button>
         <button class="btn" id="split-clear" disabled>清空图片</button>
         <div class="help-label">
-          支持导入：PNG、JPG、BMP、GIF、WEBP、TGA、TIF / TIFF
+          支持导入:PNG、JPG、BMP、GIF、WEBP、TGA、TIF / TIFF
         </div>
       </div>
       <div class="panel" style="flex: 58">
@@ -145,14 +145,14 @@
     <div class="page hidden" id="page-merge">
       <div class="panel" style="flex: 32">
         <div class="panel-head">
-          <span class="panel-title" id="merge-count">图片数：0</span>
+          <span class="panel-title" id="merge-count">图片数:0</span>
         </div>
         <div class="frame-list" id="merge-list" tabindex="0"></div>
         <div class="ctrl-row">
           <button class="btn" id="merge-add">添加图片…</button>
           <button class="btn" id="merge-clear">清空列表</button>
         </div>
-        <div class="help-label">支持导入：PNG、JPG、BMP、GIF、WEBP、TGA、TIF / TIFF</div>
+        <div class="help-label">支持导入:PNG、JPG、BMP、GIF、WEBP、TGA、TIF / TIFF</div>
       </div>
       <div class="panel" style="flex: 68">
         <div class="panel-head">
@@ -218,13 +218,13 @@
           <div class="bg-btns" id="conv-prev-bg"></div>
         </div>
         <div class="canvas-wrap"><canvas id="conv-canvas"></canvas></div>
-        <div class="dim-label" id="conv-info">图像尺寸：-  |  大小：-  |  格式：-</div>
-        <button class="btn" id="conv-open">打开图片…（或拖入图片）</button>
+        <div class="dim-label" id="conv-info">图像尺寸:-  |  大小:-  |  格式:-</div>
+        <button class="btn" id="conv-open">打开图片…(或拖入图片)</button>
         <button class="btn" id="conv-clear" disabled>清空图片</button>
         <div class="help-label">
-          支持导入：PNG、JPEG、BMP、GIF、WEBP、TGA、TIF / TIFF、HDR / RGBE、DDS、OpenEXR、PNM /
+          支持导入:PNG、JPEG、BMP、GIF、WEBP、TGA、TIF / TIFF、HDR / RGBE、DDS、OpenEXR、PNM /
           PPM / PGM / PBM / PAM<br />
-          支持导出：PNG、JPEG、TGA（HDR / EXR 等高位深图会量化为 8 位）
+          支持导出:PNG、JPEG、TGA(HDR / EXR 等高位深图会量化为 8 位)
         </div>
       </div>
       <div class="panel" style="flex: 58">
@@ -247,10 +247,10 @@
         </label>
         <label class="chk">
           <input type="checkbox" id="conv-stretch" />
-          <span>高位深图（HDR / EXR）按最大值拉伸</span>
+          <span>高位深图(HDR / EXR)按最大值拉伸</span>
         </label>
         <button class="btn primary" id="conv-export" disabled>导出</button>
-        <div class="dim-label">导出路径（可直接粘贴目录）</div>
+        <div class="dim-label">导出路径(可直接粘贴目录)</div>
         <div class="size-row">
           <input type="text" id="conv-dir" placeholder="例如 D:\Textures\out" />
           <button class="btn small" id="conv-browse" disabled>浏览…</button>
@@ -270,8 +270,8 @@
           <div class="bg-btns" id="nrm-src-bg"></div>
         </div>
         <div class="canvas-wrap"><canvas id="nrm-src-canvas"></canvas></div>
-        <div class="dim-label" id="nrm-info">图像尺寸：-  |  大小：-  |  格式：-</div>
-        <button class="btn" id="nrm-open">打开图片…（或拖入图片）</button>
+        <div class="dim-label" id="nrm-info">图像尺寸:-  |  大小:-  |  格式:-</div>
+        <button class="btn" id="nrm-open">打开图片…(或拖入图片)</button>
         <button class="btn" id="nrm-clear" disabled>清空图片</button>
         <div class="form-grid">
           <label>导出格式</label>
@@ -289,8 +289,8 @@
         <button class="btn primary" id="nrm-export" disabled>导出法线贴图</button>
         <div class="status" id="nrm-status"></div>
         <div class="help-label">
-          支持导入：PNG、JPEG、BMP、WEBP、TGA、DDS<br />
-          高度取自灰度（亮度 / 平均 / 单通道），越界边缘按 clamp 处理，法线图尺寸与原图一致、不透明
+          支持导入:PNG、JPEG、BMP、WEBP、TGA、DDS<br />
+          高度取自灰度(亮度 / 平均 / 单通道),越界边缘按 clamp 处理,法线图尺寸与原图一致、不透明
         </div>
       </div>
       <div class="panel" style="flex: 1 1 0; min-width: 0">
@@ -299,7 +299,7 @@
           <div class="bg-btns" id="nrm-out-bg"></div>
         </div>
         <div class="canvas-wrap"><canvas id="nrm-out-canvas"></canvas></div>
-        <div class="dim-label" id="nrm-out-info">法线尺寸：-  |  生成耗时：-</div>
+        <div class="dim-label" id="nrm-out-info">法线尺寸:-  |  生成耗时:-</div>
         <div class="form-grid">
           <label>高度来源</label>
           <select id="nrm-source">
@@ -312,8 +312,8 @@
           </select>
           <label>法线约定</label>
           <select id="nrm-convention">
-            <option value="dx" selected>DirectX（UE，绿通道朝下）</option>
-            <option value="og">OpenGL（Unity，绿通道朝上）</option>
+            <option value="dx" selected>DirectX(UE,绿通道朝下)</option>
+            <option value="og">OpenGL(Unity,绿通道朝上)</option>
           </select>
           <label>模糊半径</label>
           <div class="dual-row">
@@ -328,7 +328,7 @@
           <label></label>
           <label class="chk">
             <input type="checkbox" id="nrm-invert" />
-            <span>高度反转（凸起↔凹陷）</span>
+            <span>高度反转(凸起↔凹陷)</span>
           </label>
         </div>
         <div class="io-row end" id="nrm-io"></div>
@@ -342,8 +342,8 @@
           <div class="bg-btns" id="sml-src-bg"></div>
         </div>
         <div class="canvas-wrap"><canvas id="sml-src-canvas"></canvas></div>
-        <div class="dim-label" id="sml-info">图像尺寸：-  |  大小：-  |  格式：-</div>
-        <button class="btn" id="sml-open">打开图片…（或拖入图片）</button>
+        <div class="dim-label" id="sml-info">图像尺寸:-  |  大小:-  |  格式:-</div>
+        <button class="btn" id="sml-open">打开图片…(或拖入图片)</button>
         <button class="btn" id="sml-clear" disabled>清空图片</button>
         <div class="form-grid">
           <label>导出格式</label>
@@ -361,8 +361,8 @@
         <button class="btn primary" id="sml-export" disabled>导出无缝贴图</button>
         <div class="status" id="sml-status"></div>
         <div class="help-label">
-          支持导入：PNG、JPEG、BMP、WEBP、TGA、DDS<br />
-          导出尺寸与原图一致，默认文件名加后缀 _Seamless；取消上面的勾选后点导出会弹目录选择框
+          支持导入:PNG、JPEG、BMP、WEBP、TGA、DDS<br />
+          导出尺寸与原图一致,默认文件名加后缀 _Seamless;取消上面的勾选后点导出会弹目录选择框
         </div>
       </div>
       <div class="panel" style="flex: 1 1 0; min-width: 0">
@@ -371,14 +371,14 @@
           <div class="bg-btns" id="sml-out-bg"></div>
         </div>
         <div class="canvas-wrap"><canvas id="sml-out-canvas"></canvas></div>
-        <div class="dim-label" id="sml-out-info">结果尺寸：-  |  平铺 2x2  |  融合：-  |  耗时：-</div>
-        <div class="dim-label" id="sml-metric">接缝指标：-</div>
+        <div class="dim-label" id="sml-out-info">结果尺寸:-  |  平铺 2x2  |  融合:-  |  耗时:-</div>
+        <div class="dim-label" id="sml-metric">接缝指标:-</div>
         <div class="form-grid">
           <label>融合方向</label>
           <select id="sml-dir">
-            <option value="both" selected>双向（左右边 + 上下边）</option>
-            <option value="h">仅横向（只接左右边）</option>
-            <option value="v">仅纵向（只接上下边）</option>
+            <option value="both" selected>双向(左右边 + 上下边)</option>
+            <option value="h">仅横向(只接左右边)</option>
+            <option value="v">仅纵向(只接上下边)</option>
           </select>
           <label>融合宽度</label>
           <div class="dual-row">
@@ -387,22 +387,22 @@
           </div>
           <label>融合尺度</label>
           <select id="sml-levels">
-            <option value="0">0 单尺度（低频也在窄带里换，容易发虚）</option>
-            <option value="1">1（2 个频段）</option>
-            <option value="2" selected>2（3 个频段，推荐）</option>
-            <option value="3">3（4 个频段，半径常已封顶）</option>
-            <option value="4">4（5 个频段，同上）</option>
+            <option value="0">0 单尺度(低频也在窄带里换,容易发虚)</option>
+            <option value="1">1(2 个频段)</option>
+            <option value="2" selected>2(3 个频段,推荐)</option>
+            <option value="3">3(4 个频段,半径常已封顶)</option>
+            <option value="4">4(5 个频段,同上)</option>
           </select>
           <label>平铺预览</label>
           <select id="sml-tile">
-            <option value="1">1x1（单张）</option>
-            <option value="2" selected>2x2（看接缝）</option>
-            <option value="3">3x3（看重复感）</option>
+            <option value="1">1x1(单张)</option>
+            <option value="2" selected>2x2(看接缝)</option>
+            <option value="3">3x3(看重复感)</option>
           </select>
           <label></label>
           <label class="chk">
             <input type="checkbox" id="sml-keep-alpha" checked />
-            <span>在预乘空间混合，保留透明通道</span>
+            <span>在预乘空间混合,保留透明通道</span>
           </label>
         </div>
         <div class="io-row end" id="sml-io"></div>
@@ -441,13 +441,13 @@
         <div class="form-grid" id="gif-vid-grid">
           <label>GIF 范围</label>
           <div class="dual-row vid-tools">
-            <input type="text" class="time-in" id="gif-t-in" title="开始时间：可输入秒，或 分:秒 / 时:分:秒.厘秒" disabled />
-            <input type="text" class="time-in" id="gif-t-out" title="结束时间：可输入秒，或 分:秒 / 时:分:秒.厘秒" disabled />
+            <input type="text" class="time-in" id="gif-t-in" title="开始时间:可输入秒,或 分:秒 / 时:分:秒.厘秒" disabled />
+            <input type="text" class="time-in" id="gif-t-out" title="结束时间:可输入秒,或 分:秒 / 时:分:秒.厘秒" disabled />
             <button class="btn small on" id="gif-auto" title="关闭后改参数不会自动重新生成 GIF">自动生成GIF</button>
           </div>
         </div>
         <div class="dual-row btn-row">
-          <button class="btn" id="gif-open" title="支持：PNG、JPG、BMP、WEBP、TGA&#10;视频：MP4、WEBM">打开文件…（或拖入文件）</button>
+          <button class="btn" id="gif-open" title="支持:PNG、JPG、BMP、WEBP、TGA&#10;视频:MP4、WEBM">打开文件…(或拖入文件)</button>
           <button class="btn" id="gif-clear" disabled>清空</button>
         </div>
         <div class="form-grid">
@@ -469,7 +469,7 @@
         <div class="canvas-wrap" id="gif-prev-wrap">
           <canvas id="gif-frame" hidden></canvas>
         </div>
-        <div class="dim-label" id="gif-out-info">GIF：-  |  尺寸：-  |  体积：-</div>
+        <div class="dim-label" id="gif-out-info">GIF:-  |  尺寸:-  |  体积:-</div>
         <div class="form-grid">
           <label>预览</label>
           <div class="dual-row">
@@ -527,8 +527,8 @@
           </select>
           <label>质量</label>
           <select id="gif-quality">
-            <option value="normal" selected>普通（全局调色板，体积小）</option>
-            <option value="high">高质量（每帧调色板，不易串色）</option>
+            <option value="normal" selected>普通(全局调色板,体积小)</option>
+            <option value="high">高质量(每帧调色板,不易串色)</option>
           </select>
         </div>
         <div class="io-row end" id="gif-io"></div>
@@ -569,7 +569,7 @@
           <button class="btn small" id="gv-reset" disabled>重置</button>
           <button class="btn small step-btn" id="gv-prev" disabled>上一帧</button>
           <button class="btn small step-btn" id="gv-next" disabled>下一帧</button>
-          <button class="btn small" id="gv-crop" disabled title="在画面上拖拽框选一块，导出的 GIF 只留这一块；拖手柄改大小、框内拖动改位置，右键仍然拖动画面。再点一次取消选区">裁剪区域</button>
+          <button class="btn small" id="gv-crop" disabled title="在画面上拖拽框选一块,导出的 GIF 只留这一块;拖手柄改大小、框内拖动改位置,右键仍然拖动画面.再点一次取消选区">裁剪区域</button>
           <span class="spacer"></span>
           <span class="dim-label tl-time" id="gv-fps-now">-</span>
           <span class="dim-label tl-time" id="gv-time">00:00.00 / 00:00.00</span>
@@ -579,19 +579,19 @@
         <div class="panel-head">
           <span class="panel-title">导入与导出</span>
         </div>
-        <button class="btn" id="gv-open">打开 GIF…（或拖入文件）</button>
+        <button class="btn" id="gv-open">打开 GIF…(或拖入文件)</button>
         <button class="btn" id="gv-clear" disabled>清空</button>
         <div class="form-grid">
           <label>速度</label>
           <div class="dual-row">
-            <input type="range" id="gv-speed" min="0.1" max="3" step="0.1" value="1" disabled title="1 就是源文件自己的帧率；0.1 放慢到十分之一，3 加快到 3 倍。按同一个倍率缩放每帧延时，原文件里快慢不一的节奏不会被抹平" />
+            <input type="range" id="gv-speed" min="0.1" max="3" step="0.1" value="1" disabled title="1 就是源文件自己的帧率;0.1 放慢到十分之一,3 加快到 3 倍.按同一个倍率缩放每帧延时,原文件里快慢不一的节奏不会被抹平" />
             <span class="dim-label" id="gv-speed-label">1.0×</span>
           </div>
           <label>抽帧</label>
-          <select id="gv-drop" disabled title="0 不抽帧；1 从第一帧起每 2 帧留 1 帧；2 再走一遍，每 4 帧留 1 帧。抽掉的帧把时长并进后一帧，一圈总时长不变">
-            <option value="0" selected>0（不抽帧）</option>
-            <option value="1">1（每 2 帧留 1）</option>
-            <option value="2">2（每 4 帧留 1）</option>
+          <select id="gv-drop" disabled title="0 不抽帧;1 从第一帧起每 2 帧留 1 帧;2 再走一遍,每 4 帧留 1 帧.抽掉的帧把时长并进后一帧,一圈总时长不变">
+            <option value="0" selected>0(不抽帧)</option>
+            <option value="1">1(每 2 帧留 1)</option>
+            <option value="2">2(每 4 帧留 1)</option>
           </select>
           <label>等比缩放</label>
           <select id="gv-scale" disabled>
@@ -610,7 +610,7 @@
           <span>导出到源文件所在目录</span>
         </label>
         <button class="btn primary" id="gv-export" disabled>导出 GIF</button>
-        <button class="btn" id="gv-export-frame" disabled title="导出预览里停住的这一帧（PNG，无损，按上面的等比缩放）">导出当前帧</button>
+        <button class="btn" id="gv-export-frame" disabled title="导出预览里停住的这一帧(PNG,无损,按上面的等比缩放)">导出当前帧</button>
         <div class="io-row end" id="gv-io"></div>
         <div class="status" id="gv-status"></div>
       </div>
@@ -618,7 +618,7 @@
 
     <div class="page hidden" id="page-video">
       <div class="panel" style="flex: 58">
-        <!-- 单个转换模式（默认可见） -->
+        <!-- 单个转换模式(默认可见) -->
         <div id="vid-single-wrap">
         <div class="panel-head">
           <span class="panel-title">源视频 <span class="dim-label" id="vid-src-name" style="margin-left:6px;"></span></span>
@@ -672,14 +672,14 @@
           </div>
         </div>
         <div class="dim-label info-wrap" id="vid-info">未载入视频</div>
-        <button class="btn" id="vid-open">打开视频…（或拖入文件）</button>
+        <button class="btn" id="vid-open">打开视频…(或拖入文件)</button>
         <button class="btn" id="vid-clear" disabled>清空</button>
         <div class="help-label">
-          支持导入：MP4、M4V、MOV、WebM、MKV、AVI、WMV、FLV、TS、MPEG 等常见视频格式<br />
-          基于内置 FFmpeg 9，完全离线转换，无需联网
+          支持导入:MP4、M4V、MOV、WebM、MKV、AVI、WMV、FLV、TS、MPEG 等常见视频格式<br />
+          基于内置 FFmpeg 9,完全离线转换,无需联网
         </div>
         </div><!-- /vid-single-wrap -->
-        <!-- 批量转换模式（默认隐藏） -->
+        <!-- 批量转换模式(默认隐藏) -->
         <div id="vid-batch-wrap" hidden>
           <div class="panel-head">
             <span class="panel-title">待转换列表 <span class="dim-label" id="vid-batch-count"></span></span>
@@ -701,9 +701,9 @@
         <div class="form-grid">
           <label>输出格式</label>
           <select id="vid-fmt">
-            <option value="mp4">MP4（通用兼容）</option>
-            <option value="webm">WebM（VP9 + Opus）</option>
-            <option value="mkv">MKV（万能容器）</option>
+            <option value="mp4">MP4(通用兼容)</option>
+            <option value="webm">WebM(VP9 + Opus)</option>
+            <option value="mkv">MKV(万能容器)</option>
             <option value="avi">AVI</option>
             <option value="mov">MOV</option>
             <option value="flv">FLV</option>
@@ -711,18 +711,18 @@
           </select>
           <label>视频编码</label>
           <select id="vid-vcodec">
-            <option value="libx264">H.264 / AVC（兼容性最好）</option>
-            <option value="libx265">H.265 / HEVC（体积更小）</option>
-            <option value="libvpx-vp9">VP9（WebM 用）</option>
-            <option value="libaom-av1">AV1（最新，压缩率最高）</option>
-            <option value="copy">直接复制（不重编码，极速）</option>
+            <option value="libx264">H.264 / AVC(兼容性最好)</option>
+            <option value="libx265">H.265 / HEVC(体积更小)</option>
+            <option value="libvpx-vp9">VP9(WebM 用)</option>
+            <option value="libaom-av1">AV1(最新,压缩率最高)</option>
+            <option value="copy">直接复制(不重编码,极速)</option>
           </select>
           <label>音频编码</label>
           <select id="vid-acodec">
-            <option value="aac">AAC（MP4 用）</option>
-            <option value="libopus">Opus（WebM 用，质量高）</option>
+            <option value="aac">AAC(MP4 用)</option>
+            <option value="libopus">Opus(WebM 用,质量高)</option>
             <option value="libmp3lame">MP3</option>
-            <option value="copy">直接复制（不重编码）</option>
+            <option value="copy">直接复制(不重编码)</option>
           </select>
           <label>质量 (CRF)</label>
           <div class="dual-row">
@@ -731,15 +731,15 @@
           </div>
           <label>预设</label>
           <select id="vid-preset">
-            <option value="ultrafast">极速（体积大）</option>
+            <option value="ultrafast">极速(体积大)</option>
             <option value="superfast">极快</option>
             <option value="veryfast">很快</option>
             <option value="faster">较快</option>
             <option value="fast">快</option>
-            <option value="medium" selected>中等（推荐）</option>
+            <option value="medium" selected>中等(推荐)</option>
             <option value="slow">慢</option>
             <option value="slower">较慢</option>
-            <option value="veryslow">很慢（体积最小）</option>
+            <option value="veryslow">很慢(体积最小)</option>
           </select>
           <label>分辨率</label>
           <div class="dual-row">
@@ -771,7 +771,7 @@
           <label>视频比特率</label>
           <div>
             <div class="dual-row">
-              <input type="text" id="vid-vbr" placeholder="例：5M、2000k" />
+              <input type="text" id="vid-vbr" placeholder="例:5M、2000k" />
               <select id="vid-vbr-mode" title="码率模式">
                 <option value="crf">用 CRF</option>
                 <option value="auto" selected>自动推荐</option>
@@ -781,11 +781,11 @@
             <div class="dim-label" id="vid-vbr-hint" style="font-size:11px;margin-top:2px;"></div>
           </div>
           <label>音频比特率</label>
-          <input type="text" id="vid-abr" placeholder="留空用默认，例：128k、192k" />
+          <input type="text" id="vid-abr" placeholder="留空用默认,例:128k、192k" />
         </div>
         <label class="chk">
           <input type="checkbox" id="vid-copy" />
-          <span>纯封装转换（-c copy，极速，但格式和编码兼容性受限）</span>
+          <span>纯封装转换(-c copy,极速,但格式和编码兼容性受限)</span>
         </label>
         <div class="form-grid">
           <label>文件名</label>
@@ -812,7 +812,7 @@
 
     <div class="page hidden" id="page-audio">
       <div class="panel" style="flex: 50">
-        <!-- 单个转换模式（默认可见） -->
+        <!-- 单个转换模式(默认可见) -->
         <div id="aud-single-wrap">
         <div class="panel-head">
           <span class="panel-title">源音频 <span class="dim-label" id="aud-src-name" style="margin-left:6px;"></span></span>
@@ -822,14 +822,14 @@
           <audio id="aud-src" controls style="width:100%;max-width:480px;"></audio>
         </div>
         <div class="dim-label info-wrap" id="aud-info">未载入音频</div>
-        <button class="btn" id="aud-open">打开音频…（或拖入文件）</button>
+        <button class="btn" id="aud-open">打开音频…(或拖入文件)</button>
         <button class="btn" id="aud-clear" disabled>清空</button>
         <div class="help-label">
-          支持导入：MP3、WAV、FLAC、AAC、OGG、Opus、M4A、WMA、AIFF 等音频格式，也可从视频中提取音轨<br />
-          基于内置 FFmpeg 9，完全离线转换，无需联网
+          支持导入:MP3、WAV、FLAC、AAC、OGG、Opus、M4A、WMA、AIFF 等音频格式,也可从视频中提取音轨<br />
+          基于内置 FFmpeg 9,完全离线转换,无需联网
         </div>
         </div><!-- /aud-single-wrap -->
-        <!-- 批量转换模式（默认隐藏） -->
+        <!-- 批量转换模式(默认隐藏) -->
         <div id="aud-batch-wrap" hidden>
           <div class="panel-head">
             <span class="panel-title">待转换列表 <span class="dim-label" id="aud-batch-count"></span></span>
@@ -851,28 +851,28 @@
         <div class="form-grid">
           <label>输出格式</label>
           <select id="aud-fmt">
-            <option value="mp3">MP3（通用兼容）</option>
-            <option value="wav">WAV（无损，体积大）</option>
-            <option value="flac">FLAC（无损压缩）</option>
-            <option value="aac">AAC（MP4/M4A 用）</option>
-            <option value="m4a">M4A（AAC 容器）</option>
-            <option value="ogg">OGG（Vorbis）</option>
-            <option value="opus">Opus（高质量低码率）</option>
+            <option value="mp3">MP3(通用兼容)</option>
+            <option value="wav">WAV(无损,体积大)</option>
+            <option value="flac">FLAC(无损压缩)</option>
+            <option value="aac">AAC(MP4/M4A 用)</option>
+            <option value="m4a">M4A(AAC 容器)</option>
+            <option value="ogg">OGG(Vorbis)</option>
+            <option value="opus">Opus(高质量低码率)</option>
           </select>
           <label>音频编码</label>
           <select id="aud-acodec" disabled>
-            <option value="libmp3lame">MP3（LAME）</option>
+            <option value="libmp3lame">MP3(LAME)</option>
             <option value="aac">AAC</option>
-            <option value="flac">FLAC（无损）</option>
-            <option value="pcm_s16le">PCM 16-bit（WAV 无损）</option>
-            <option value="libvorbis">Vorbis（OGG）</option>
+            <option value="flac">FLAC(无损)</option>
+            <option value="pcm_s16le">PCM 16-bit(WAV 无损)</option>
+            <option value="libvorbis">Vorbis(OGG)</option>
             <option value="libopus">Opus</option>
-            <option value="alac">ALAC（Apple 无损）</option>
-            <option value="copy">直接复制（不重编码，极速）</option>
+            <option value="alac">ALAC(Apple 无损)</option>
+            <option value="copy">直接复制(不重编码,极速)</option>
           </select>
           <label>比特率</label>
           <select id="aud-bitrate">
-            <option value="">默认（自动）</option>
+            <option value="">默认(自动)</option>
             <option value="64k">64 kbps</option>
             <option value="96k">96 kbps</option>
             <option value="128k">128 kbps</option>
@@ -891,13 +891,13 @@
           <label>声道</label>
           <select id="aud-ch">
             <option value="0">保持原始</option>
-            <option value="1">单声道（Mono）</option>
-            <option value="2">立体声（Stereo）</option>
+            <option value="1">单声道(Mono)</option>
+            <option value="2">立体声(Stereo)</option>
           </select>
           <label>起始时间</label>
-          <input type="text" id="aud-start" placeholder="留空从头开始，例：00:01:30" />
+          <input type="text" id="aud-start" placeholder="留空从头开始,例:00:01:30" />
           <label>结束时间</label>
-          <input type="text" id="aud-end" placeholder="留空到结尾，例：00:02:30" />
+          <input type="text" id="aud-end" placeholder="留空到结尾,例:00:02:30" />
           <label>输出文件名</label>
           <input type="text" id="aud-name" placeholder="留空则用 原名_转换" />
           <label>保存位置</label>
@@ -929,7 +929,7 @@
           <button class="btn small" id="dl-clear">清除链接</button>
         </div>
         <div class="size-row">
-          <input type="text" id="dl-url" placeholder="粘贴视频链接（YouTube、Bilibili 等上千个站点）" />
+          <input type="text" id="dl-url" placeholder="粘贴视频链接(YouTube、Bilibili 等上千个站点)" />
           <button class="btn small" id="dl-fetch">解析</button>
         </div>
         <div class="canvas-wrap" id="dl-thumb-wrap" style="display:flex;align-items:center;justify-content:center;background:#000;">
@@ -942,15 +942,15 @@
           <span class="dim-label" id="dl-thumb-placeholder">尚未解析视频</span>
         </div>
         <div class="dim-label info-wrap" id="dl-info">未解析视频</div>
-        <div class="panel-subhead">可用格式（点击选中，右键可直接下载该格式）</div>
+        <div class="panel-subhead">可用格式(点击选中,右键可直接下载该格式)</div>
         <div class="dim-label" style="font-size:11px;padding:0 10px 4px;line-height:1.5;white-space:normal;word-break:break-word;">
-          同一分辨率出现多条是不同编码：H.264 兼容性最好，H.265 压缩率高，VP9 开源免费（WebM 常用），AV1 体积通常最小；码率和体积会不一样
+          同一分辨率出现多条是不同编码:H.264 兼容性最好,H.265 压缩率高,VP9 开源免费(WebM 常用),AV1 体积通常最小;码率和体积会不一样
         </div>
         <div class="dl-fmt-list" id="dl-fmt-list"></div>
-        <!-- 播放列表/合集：yt-dlp 返回 entries 时显示 -->
+        <!-- 播放列表/合集:yt-dlp 返回 entries 时显示 -->
         <div id="dl-playlist-wrap" hidden>
           <div class="panel-subhead">
-            <span>合集视频（<span id="dl-pl-count">0</span> 个）</span>
+            <span>合集视频(<span id="dl-pl-count">0</span> 个)</span>
             <span class="dim-label" style="margin-left:auto;">
               <button class="btn tiny" id="dl-pl-select-all">全选</button>
               <button class="btn tiny" id="dl-pl-select-none" style="margin-left:4px;">全不选</button>
@@ -962,7 +962,7 @@
       <div class="panel" style="flex: 45">
         <div class="panel-head">
           <span class="panel-title">下载设置</span>
-          <button class="btn tiny" id="dl-clear-all" title="清空视频信息和下载设置（保存目录保持不变）">清空</button>
+          <button class="btn tiny" id="dl-clear-all" title="清空视频信息和下载设置(保存目录保持不变)">清空</button>
         </div>
         <div class="form-grid">
           <label>文件名</label>
@@ -973,11 +973,11 @@
             <select id="dl-codec" title="编码格式"></select>
           </div>
         </div>
-        <div class="dim-label" id="dl-size-line" style="padding:2px 0 2px;">文件大小：-</div>
-        <div class="dim-label" id="dl-fmt-label" style="padding:0 0 6px;">将下载：-</div>
+        <div class="dim-label" id="dl-size-line" style="padding:2px 0 2px;">文件大小:-</div>
+        <div class="dim-label" id="dl-fmt-label" style="padding:0 0 6px;">将下载:-</div>
         <label class="chk">
           <input type="checkbox" id="dl-save-default" checked />
-          <span>保存到默认下载目录（下载\图像工具箱）</span>
+          <span>保存到默认下载目录(下载\图像工具箱)</span>
         </label>
         <label class="chk">
           <input type="checkbox" id="dl-save-custom" />
@@ -996,8 +996,8 @@
         <div class="status" id="dl-status"></div>
         <div class="io-row end" id="dl-io"></div>
         <div class="help-label">
-          基于内置 yt-dlp + FFmpeg，支持 YouTube、Bilibili、Twitter、TikTok 等上千个站点<br />
-          视频与音频分开的站点会自动下载音频并合并；左侧列表右键可直接下载该格式
+          基于内置 yt-dlp + FFmpeg,支持 YouTube、Bilibili、Twitter、TikTok 等上千个站点<br />
+          视频与音频分开的站点会自动下载音频并合并;左侧列表右键可直接下载该格式
         </div>
         <div class="dl-update-row">
           <div class="dl-update-wrap">

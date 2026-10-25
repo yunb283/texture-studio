@@ -1,4 +1,4 @@
-/* ===== 主题变量：:root 为默认深色，html.light 覆盖为浅色 ===== */
+/* ===== 主题变量::root 为默认深色,html.light 覆盖为浅色 ===== */
 :root {
   --bg-app: #202020;
   --bg-tab: #1a1d29;
@@ -77,7 +77,7 @@
   --playhead: #ffffff;
   --playhead-line: rgba(255, 255, 255, 0.45);
 
-  /* 文字次要灰阶（深色原值各不同，浅色统一为可读的深灰） */
+  /* 文字次要灰阶(深色原值各不同,浅色统一为可读的深灰) */
   --muted-a6: #a6aab4;
   --muted-9a3: #9a9ba3;
   --muted-9a5: #9a9ca5;
@@ -90,7 +90,7 @@
   /* 强调色 */
   --cyan: #39c7ed;
   --cyan-hover: #4fd0f2;
-  --cyan-text: #39c7ed; /* 浅底下文字用，深色值与 --cyan 相同 */
+  --cyan-text: #39c7ed; /* 浅底下文字用,深色值与 --cyan 相同 */
   --cyan-text2: #6fd3f5;
   --cyan-text3: #7fe3fb;
   --cyan-text4: #9ad1ff;
@@ -193,7 +193,7 @@ html.light {
   --muted-8a: #777e8e;
   --muted-b0: #666d7c;
 
-  /* 浅底上的彩色文字统一加深，保证对比度 */
+  /* 浅底上的彩色文字统一加深,保证对比度 */
   --cyan-text: #0b83a9;
   --cyan-text2: #0b83a9;
   --cyan-text3: #0b83a9;
@@ -230,8 +230,9 @@ body {
 
 .tabs {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   padding: 8px 8px 0;
+  flex-wrap: nowrap;
 }
 
 .tab {
@@ -239,9 +240,10 @@ body {
   color: var(--text-tab);
   border: 1px solid var(--border-tab);
   border-radius: 3px;
-  padding: 7px 12px;
+  padding: 7px 8px;
   cursor: pointer;
   font-size: 13px;
+  white-space: nowrap;
 }
 
 .tab:hover {
@@ -256,7 +258,7 @@ body {
   font-weight: 600;
 }
 
-/* ===== 自绘标题栏（系统标题栏已关闭） ===== */
+/* ===== 自绘标题栏(系统标题栏已关闭) ===== */
 .titlebar {
   flex: 0 0 auto;
   height: 36px;
@@ -280,7 +282,7 @@ body {
   letter-spacing: 0.2px;
 }
 
-/* 右侧按钮组：先把整组顶到最右，再让关闭钮贴住窗口右边缘 */
+/* 右侧按钮组:先把整组顶到最右,再让关闭钮贴住窗口右边缘 */
 .tb-actions {
   margin-left: auto;
   height: 100%;
@@ -288,7 +290,7 @@ body {
   align-items: center;
 }
 
-/* 置顶钮：参考图的圆形悬停背景，比 caption 按钮靠左一些 */
+/* 置顶钮:参考图的圆形悬停背景,比 caption 按钮靠左一些 */
 .pin-btn {
   position: relative;
   display: flex;
@@ -308,7 +310,7 @@ body {
   background: var(--pin-hover);
 }
 
-/* 自定义提示框：深灰圆角，悬停一会儿才出现，文字由 data-tip 提供 */
+/* 自定义提示框:深灰圆角,悬停一会儿才出现,文字由 data-tip 提供 */
 .pin-btn::after {
   content: attr(data-tip);
   position: absolute;
@@ -336,7 +338,7 @@ body {
   transition-delay: 0.35s;
 }
 
-/* 最小化 / 最大化 / 关闭：46px 宽、满高，和系统标题栏一致 */
+/* 最小化 / 最大化 / 关闭:46px 宽、满高,和系统标题栏一致 */
 .cap-btn {
   width: 46px;
   height: 100%;
@@ -828,7 +830,7 @@ canvas.zoomable.panning,
   white-space: nowrap;
 }
 
-/* 原生 range 会跟随系统深/浅色方案（轨道可能发黑），整体接管样式并跟主题走 */
+/* 原生 range 会跟随系统深/浅色方案(轨道可能发黑),整体接管样式并跟主题走 */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
@@ -856,12 +858,12 @@ input[type="range"]::-webkit-slider-thumb {
   height: 14px;
   border-radius: 50%;
   background: var(--cyan);
-  /* (轨道 4 - 手柄 14) / 2，让手柄在轨道垂直居中 */
+  /* (轨道 4 - 手柄 14) / 2,让手柄在轨道垂直居中 */
   margin-top: -5px;
   border: none;
 }
 
-/* 视频时间轴：渐变底画在 input 自己身上（见下方 .vid-timeline 原规则），轨道透明即可 */
+/* 视频时间轴:渐变底画在 input 自己身上(见下方 .vid-timeline 原规则),轨道透明即可 */
 .vid-timeline input[type="range"]::-webkit-slider-runnable-track {
   height: 6px;
   background: transparent;
@@ -1892,9 +1894,13 @@ select:disabled {
 }
 
 .batch-summary {
-  padding: 7px 12px;
+  /* 固定成有文字时的高度:列表为空时不缩成一条窄缝,两条横线间距不跳变 */
+  height: 28px;
+  flex-shrink: 0;
+  padding: 0 12px;
   font-size: 11px;
   display: flex;
+  align-items: center;
   gap: 10px;
   border-top: 1px solid var(--bg-track);
 }
