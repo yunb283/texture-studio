@@ -98,6 +98,10 @@ export function initVideoConvert() {
   let videoInfo = null; // ffprobe 的准确结果
   let elInfo = null; // <video> 自带元数据，导入瞬间就有
   let probeSeq = 0; // 丢弃上一个文件迟到的探测结果
+  // 关键帧时间戳（秒，升序）。导入后由后台 ffmpeg 扫描填充，填充前拖动退回普通精确 seek。
+  // 拖动预览吸附到关键帧：seek 到 I 帧不用解码中间帧，高码率文件也能即时出画面。
+  // 裁剪起止点由黄色滑块的归一化值决定，与预览位置无关，所以吸附不影响导出精度。
+  let keyframes = null;
   let converting = false;
   let unlisten = null;
   let isSeeking = false;
@@ -395,6 +399,7 @@ export function initVideoConvert() {
     setStatus('已载入：' + e.name);
 
     if (isTauri) {
+      keyframes = null;
       window.__TAURI__.core
         .invoke('ffprobe_video', { path: e.path })
         .then((info) => {
@@ -407,6 +412,14 @@ export function initVideoConvert() {
           if (seq !== probeSeq) return;
           setStatus('已载入：' + e.name + '（读取编码信息失败：' + (ex?.message ?? ex) + '）');
         });
+      // 后台扫关键帧（大文件约 1~4 秒）。扫好前拖动是普通精确 seek，扫好后自动变顺滑
+      window.__TAURI__.core
+        .invoke('keyframe_times', { path: e.path })
+        .then((times) => {
+          if (seq !== probeSeq) return;
+          if (Array.isArray(times) && times.length > 1) keyframes = times;
+        })
+        .catch(() => {}); // 扫不出来就退回原行为，不打扰用户
     }
   }
 
@@ -542,6 +555,7 @@ export function initVideoConvert() {
     entry = null;
     videoInfo = null;
     elInfo = null;
+    keyframes = null;
     probeSeq++;
     srcNameEl.textContent = '';
     srcSizeEl.textContent = '';
@@ -1054,6 +1068,26 @@ export function initVideoConvert() {
   let seekTarget = null;
   let seekWatchdog = null;
 
+  // 二分查找 ≤t 的最近关键帧。高码率录制文件的关键帧间隔往往 2~4 秒，
+  // seek 到非关键帧要从上一个关键帧逐帧解码过来（这是拖动卡顿的根源）；
+  // 吸附到关键帧后拖动预览即时出画面。关键帧列表没就绪时原样返回。
+  function snapToKeyframe(t) {
+    if (!keyframes || !keyframes.length) return t;
+    let lo = 0;
+    let hi = keyframes.length - 1;
+    let ans = keyframes[0];
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (keyframes[mid] <= t) {
+        ans = keyframes[mid];
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return t < keyframes[0] ? keyframes[0] : ans;
+  }
+
   function clearSeekWatchdog() {
     if (seekWatchdog !== null) {
       clearTimeout(seekWatchdog);
@@ -1114,12 +1148,14 @@ export function initVideoConvert() {
     // 立即更新时间显示（不依赖 seek 完成），让时间数字跟手
     timeLabel.textContent = `${fmtTime(t)} / ${fmtTime(dur)}`;
     updateSeekFill();
-    requestSeek(t);
+    // 拖动预览吸附到最近关键帧：相同关键帧的重复 seek 会被 issueSeek 的 0.03s 阈值短路，
+    // 所以连续拖过一个关键帧区间时根本不会发新 seek，画面在跨过下一个关键帧时瞬时切换
+    requestSeek(snapToKeyframe(t));
   });
 
   seek.addEventListener('change', () => {
     const dur = isFinite(video.duration) ? video.duration : 0;
-    // 松开时补一次最终位置，保证落点精确
+    // 松开时补一次最终位置（精确目标，不吸附），保证落点精确
     if (dur > 0) requestSeek((seek.value / 1000) * dur);
     isSeeking = false;
     if (resumeAfterSeek) {

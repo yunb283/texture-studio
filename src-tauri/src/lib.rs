@@ -1,11 +1,13 @@
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::{DialogExt, FilePath};
@@ -222,37 +224,50 @@ async fn write_file(request: tauri::ipc::Request<'_>) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn open_path(path: String) -> Result<(), String> {
+async fn open_path(path: String) -> Result<(), String> {
     // 用系统默认方式打开文件或文件夹。explorer 即使成功也常常返回非 0，
     // 所以只看 spawn 成没成，不去判退出码。
-    std::process::Command::new("explorer")
-        .arg(&path)
-        .spawn()
-        .map_err(|e| format!("打开失败：{e}"))?;
-    Ok(())
+    // explorer 冷启动可能要几百毫秒，同步命令会占住主线程让窗口变灰，放后台线程跑。
+    tauri::async_runtime::spawn_blocking(move || {
+        std::process::Command::new("explorer")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("打开失败：{e}"))?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("任务执行异常：{e}"))?
 }
 
 #[tauri::command]
-fn file_size(path: String) -> Result<u64, String> {
-    fs::metadata(&path).map(|m| m.len()).map_err(|e| e.to_string())
+async fn file_size(path: String) -> Result<u64, String> {
+    fs::metadata(&path)
+        .map(|m| m.len())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn list_files(dir: String) -> Result<Vec<String>, String> {
-    let mut out = Vec::new();
-    for entry in fs::read_dir(&dir).map_err(|e| e.to_string())? {
-        let entry = entry.map_err(|e| e.to_string())?;
-        let p = entry.path();
-        if p.is_file() {
-            out.push(p.to_string_lossy().into_owned());
+async fn list_files(dir: String) -> Result<Vec<String>, String> {
+    // 同步命令跑在主线程上：读网络盘或几千个文件的目录会直接卡住界面，
+    // 丢到阻塞线程池里就没这个问题了。
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut out = Vec::new();
+        for entry in fs::read_dir(&dir).map_err(|e| e.to_string())? {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let p = entry.path();
+            if p.is_file() {
+                out.push(p.to_string_lossy().into_owned());
+            }
         }
-    }
-    Ok(out)
+        Ok(out)
+    })
+    .await
+    .map_err(|e| format!("任务执行异常：{e}"))?
 }
 
 // ===================== 视频转换（内置 ffmpeg） =====================
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct VideoInfo {
     pub duration: f64,
     pub width: u32,
@@ -300,7 +315,187 @@ fn parse_time_to_seconds(s: &str) -> Option<f64> {
 }
 
 /// 定位内置 ffmpeg：打包后在 resource_dir 根目录，开发模式在 resource_dir/resources 下
+// ===== 视频/音频导入提速：路径缓存 + 探测结果缓存 + 启动预热 =====
+
+/// 内置 ffmpeg 的实际路径。定位成功后一直复用。
+///
+/// 原来每次探测都要重算一遍 resource_dir 再做 2~3 次 exists 检查，虽然单次只有微秒级，
+/// 但一次导入到转换的链路上会重复走三四趟，白白的多余逻辑。
+static FFMPEG_PATH: OnceLock<PathBuf> = OnceLock::new();
+
+/// 探测结果缓存：绝对路径 -> (文件指纹, 探测结果)。
+///
+/// 为什么需要：一次「导入 → 开始转换」会把 ffmpeg -i 跑两遍 —— 页面填信息一遍、
+/// 转换命令算总时长一遍。ffmpeg.exe 有 100MB，每跑一遍都要重新映射映像，实测
+/// 170~320ms。命中缓存后第二趟直接从内存拿，用户点「开始转换」就少一次等待。
+/// 键除路径外还带文件指纹，源文件被替换/改动过就拿不到过期结果。
+static FFPROBE_CACHE: OnceLock<Mutex<HashMap<String, (u64, VideoInfo)>>> = OnceLock::new();
+
+/// 缓存条目上限。单条只有几十字节，给个宽松容量，超了整体清空重来。
+const FFPROBE_CACHE_MAX: usize = 256;
+
+fn ffprobe_cache() -> &'static Mutex<HashMap<String, (u64, VideoInfo)>> {
+    FFPROBE_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// 文件大小 + 修改时间混成一个指纹，用来判断缓存是不是还对应磁盘上的这份内容。
+fn file_stamp(path: &str) -> u64 {
+    let Ok(md) = fs::metadata(path) else {
+        return 0; // 0 表示拿不到元数据，走不缓存分支
+    };
+    let mtime = md
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    md.len().wrapping_add(mtime.wrapping_mul(0x9E37_79B9_7F4A_7C15))
+}
+
+/// 带缓存的探测入口：命中缓存直接返回，否则起一次 ffmpeg 并把结果记下来。
+fn probe_video(app: &tauri::AppHandle, path: &str) -> Result<VideoInfo, String> {
+    let stamp = file_stamp(path);
+    if stamp != 0 {
+        if let Ok(cache) = ffprobe_cache().lock() {
+            if let Some((s, info)) = cache.get(path) {
+                if *s == stamp {
+                    return Ok(info.clone());
+                }
+            }
+        }
+    }
+
+    let ffmpeg = locate_ffmpeg_inner(app)?;
+    let info = ffprobe_inner(&ffmpeg, path)?;
+
+    if stamp != 0 {
+        if let Ok(mut cache) = ffprobe_cache().lock() {
+            if cache.len() >= FFPROBE_CACHE_MAX {
+                cache.clear();
+            }
+            cache.insert(path.to_string(), (stamp, info.clone()));
+        }
+    }
+    Ok(info)
+}
+
+/// 关键帧时间戳缓存：路径 -> (文件指纹, 秒列表)。
+/// 拖动预览要用它做吸附，一个文件只扫一遍；文件被替换会拿到不同的指纹，不会误用旧数据。
+static KEYFRAME_CACHE: OnceLock<Mutex<HashMap<String, (u64, Arc<Vec<f64>>)>>> = OnceLock::new();
+
+const KEYFRAME_CACHE_MAX: usize = 64;
+
+fn keyframe_cache() -> &'static Mutex<HashMap<String, (u64, Arc<Vec<f64>>)>> {
+    KEYFRAME_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// 扫出视频的所有关键帧（I 帧）时间戳，供前端拖动时间轴时吸附预览。
+///
+/// 原理：seek 到非关键帧时解码器要从最近的上一个关键帧逐帧解码到目标位置 ——
+/// 高码率录制文件的关键帧间隔往往 2~4 秒（60fps 下就是 120~240 帧），这就是拖动后
+/// 要等一会儿才出画面的原因。而 seek 到关键帧本身不需要解码任何中间帧，几乎即时。
+///
+/// `-skip_frame nokey` 让解码器整帧跳过 P/B 帧，只解关键帧；showinfo 把每个关键帧的
+/// pts_time 打到 stderr。大文件的开销主要是顺序读盘（700MB 实测约 1~4 秒），
+/// 全程在阻塞线程池里跑，不占 UI。
+#[tauri::command]
+async fn keyframe_times(app: tauri::AppHandle, path: String) -> Result<Vec<f64>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let stamp = file_stamp(&path);
+        if stamp != 0 {
+            if let Ok(cache) = keyframe_cache().lock() {
+                if let Some((s, times)) = cache.get(&path) {
+                    if *s == stamp {
+                        return Ok(times.as_ref().clone());
+                    }
+                }
+            }
+        }
+
+        let ffmpeg = locate_ffmpeg_inner(&app)?;
+        let output = command_no_window(ffmpeg)
+            .arg("-hide_banner")
+            .arg("-nostdin")
+            .arg("-skip_frame")
+            .arg("nokey")
+            .arg("-i")
+            .arg(&path)
+            .arg("-an")
+            .arg("-sn")
+            .arg("-vf")
+            .arg("showinfo")
+            .arg("-f")
+            .arg("null")
+            .arg("-")
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .output()
+            .map_err(|e| format!("调用 ffmpeg 失败：{e}"))?;
+
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let mut times: Vec<f64> = Vec::new();
+        for line in stderr.lines() {
+            // showinfo 每个关键帧一行：... n: 12 pts: 12288 pts_time:1.28 ...
+            if !line.contains("showinfo") {
+                continue;
+            }
+            if let Some(i) = line.find("pts_time:") {
+                let rest = &line[i + "pts_time:".len()..];
+                let num: String = rest
+                    .chars()
+                    .take_while(|c| c.is_ascii_digit() || *c == '.' || *c == '-')
+                    .collect();
+                if let Ok(t) = num.parse::<f64>() {
+                    times.push(t);
+                }
+            }
+        }
+        // 保险：排序去重，并保证 0 在表里（个别封装会漏掉第一帧）
+        times.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        times.dedup();
+        if times.first().map(|t| *t > 0.0).unwrap_or(true) {
+            times.insert(0, 0.0);
+        }
+
+        if stamp != 0 && !times.is_empty() {
+            if let Ok(mut cache) = keyframe_cache().lock() {
+                if cache.len() >= KEYFRAME_CACHE_MAX {
+                    cache.clear();
+                }
+                cache.insert(path.clone(), (stamp, Arc::new(times.clone())));
+            }
+        }
+        Ok(times)
+    })
+    .await
+    .map_err(|e| format!("任务执行异常：{e}"))?
+}
+
+/// 启动时把 ffmpeg.exe 的映像预热到系统缓存里。
+///
+/// ffmpeg.exe 有 100MB，Windows 每新建一次进程都要重新映射这份映像，第一次还得等
+/// 安全软件扫一遍 —— 实测同一份二进制首次执行约 320ms、预热后约 170ms。放到启动后
+/// 空闲的一小段时间里跑一次 -version（几毫秒的活），把这笔开销挪出用户点导入的等待区间。
+fn warm_up_ffmpeg(app: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        // 等首屏渲染完再动，别跟界面加载抢资源
+        std::thread::sleep(Duration::from_millis(800));
+        let Ok(ffmpeg) = locate_ffmpeg_inner(&app) else {
+            return;
+        };
+        let _ = command_no_window(ffmpeg)
+            .arg("-hide_banner")
+            .arg("-version")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    });
+}
+
 fn locate_ffmpeg_inner(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    if let Some(cached) = FFMPEG_PATH.get() {
+        return Ok(cached.clone());
+    }
     let rd = app.path().resource_dir().map_err(|e| e.to_string())?;
     let candidates = [
         rd.join("ffmpeg.exe"),
@@ -308,6 +503,7 @@ fn locate_ffmpeg_inner(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     ];
     for c in &candidates {
         if c.exists() {
+            let _ = FFMPEG_PATH.set(c.clone());
             return Ok(c.clone());
         }
     }
@@ -316,6 +512,7 @@ fn locate_ffmpeg_inner(app: &tauri::AppHandle) -> Result<PathBuf, String> {
         if let Some(dir) = exe.parent() {
             let p = dir.join("ffmpeg.exe");
             if p.exists() {
+                let _ = FFMPEG_PATH.set(p.clone());
                 return Ok(p);
             }
         }
@@ -473,9 +670,8 @@ fn ffprobe_inner(ffmpeg: &Path, path: &str) -> Result<VideoInfo, String> {
 
 #[tauri::command]
 async fn ffprobe_video(app: tauri::AppHandle, path: String) -> Result<VideoInfo, String> {
-    let ffmpeg = locate_ffmpeg_inner(&app)?;
     // 探测要起子进程、读文件头，放到阻塞线程池，别让 UI 线程等它
-    tauri::async_runtime::spawn_blocking(move || ffprobe_inner(&ffmpeg, &path))
+    tauri::async_runtime::spawn_blocking(move || probe_video(&app, &path))
         .await
         .map_err(|e| format!("任务执行异常：{e}"))?
 }
@@ -488,8 +684,8 @@ async fn convert_video(
     output: String,
     options: ConvertOptions,
 ) -> Result<(), String> {
-    let ffmpeg = locate_ffmpeg_inner(&app)?;
-    let info = ffprobe_inner(&ffmpeg, &input)?;
+    // 走缓存：导入时已经探测过同一个文件的话，这里不再重复起一遍 ffmpeg
+    let info = probe_video(&app, &input)?;
     let total = info.duration.max(0.001);
 
     // 时间区间：用 -ss（输入定位，更快）+ -t（时长）
@@ -578,6 +774,7 @@ async fn convert_video(
     args.push(output.clone());
 
     let window_clone = window.clone();
+    let ffmpeg = locate_ffmpeg_inner(&app)?;
     let ffmpeg_str = ffmpeg.to_string_lossy().into_owned();
 
     let result = tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
@@ -649,8 +846,8 @@ async fn convert_audio(
     output: String,
     options: AudioConvertOptions,
 ) -> Result<(), String> {
-    let ffmpeg = locate_ffmpeg_inner(&app)?;
-    let info = ffprobe_inner(&ffmpeg, &input)?;
+    // 走缓存：导入时已经探测过同一个文件的话，这里不再重复起一遍 ffmpeg
+    let info = probe_video(&app, &input)?;
     let total = info.duration.max(0.001);
 
     let start = options.start_time.unwrap_or(0.0).max(0.0);
@@ -706,6 +903,7 @@ async fn convert_audio(
     args.push(output.clone());
 
     let window_clone = window.clone();
+    let ffmpeg = locate_ffmpeg_inner(&app)?;
     let ffmpeg_str = ffmpeg.to_string_lossy().into_owned();
 
     let result = tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
@@ -1399,8 +1597,17 @@ struct YtDlpUpdateCheck {
 
 /// 检查 yt-dlp 是否有新版本：本地 --version 对比 GitHub latest release 的 tag_name。
 #[tauri::command]
-fn ytdlp_check_update(app: tauri::AppHandle) -> Result<YtDlpUpdateCheck, String> {
-    let ytdlp = locate_ytdlp_inner(&app)?;
+async fn ytdlp_check_update(app: tauri::AppHandle) -> Result<YtDlpUpdateCheck, String> {
+    // 同步命令会把整段逻辑跑在主线程上：本地 yt-dlp --version 要解压 PyInstaller 包
+    // （通常 1~3 秒），GitHub 请求最长还会等到 20 秒超时 —— 期间窗口走不了任何动画、
+    // 甚至变灰无响应。丢到阻塞线程池里，界面该转圈转圈。
+    tauri::async_runtime::spawn_blocking(move || ytdlp_check_update_inner(&app))
+        .await
+        .map_err(|e| format!("任务执行异常：{e}"))?
+}
+
+fn ytdlp_check_update_inner(app: &tauri::AppHandle) -> Result<YtDlpUpdateCheck, String> {
+    let ytdlp = locate_ytdlp_inner(app)?;
 
     // 本地版本
     let out = command_no_window(&ytdlp)
@@ -1869,6 +2076,9 @@ pub fn run() {
                     enable_round_corners(&window);
                 }
             }
+            // ffmpeg.exe 有 100MB，第一次调用要现映射映像 + 过安全软件。后台先跑一次
+            // 把它热起来，用户点导入时就只需要付热启动的那部分时间。
+            warm_up_ffmpeg(app.handle().clone());
             #[cfg(not(windows))]
             let _ = app;
             Ok(())
@@ -1883,6 +2093,7 @@ pub fn run() {
             open_path,
             locate_ffmpeg,
             ffprobe_video,
+            keyframe_times,
             convert_video,
             convert_audio,
             ytdlp_info,
