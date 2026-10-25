@@ -735,60 +735,6 @@ pub struct YtDlpInfo {
 /// 浏览器级 User-Agent，降低站点反爬拦截概率（如 B 站 HTTP 412）
 const YTDLP_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
-/// 读取 Windows「系统代理」设置（设置 → 网络 → 代理里的那一项）
-#[cfg(windows)]
-fn system_proxy() -> Option<String> {
-    use winreg::enums::HKEY_CURRENT_USER;
-    let key = winreg::RegKey::predef(HKEY_CURRENT_USER)
-        .open_subkey("Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings")
-        .ok()?;
-    let enabled: u32 = key.get_value("ProxyEnable").ok()?;
-    if enabled == 0 {
-        return None;
-    }
-    let server: String = key.get_value("ProxyServer").ok()?;
-    let server = server.trim();
-    if server.is_empty() {
-        return None;
-    }
-    // 可能是 "127.0.0.1:7890"，也可能是 "http=127.0.0.1:7890;https=127.0.0.1:7890"
-    let host = server
-        .split(';')
-        .find_map(|p| p.strip_prefix("http=").or_else(|| p.strip_prefix("https=")))
-        .unwrap_or(server);
-    let host = host.trim();
-    if host.is_empty() {
-        None
-    } else if host.contains("://") {
-        Some(host.to_string())
-    } else {
-        Some(format!("http://{host}"))
-    }
-}
-
-#[cfg(not(windows))]
-fn system_proxy() -> Option<String> {
-    None
-}
-
-/// 把界面上的「网络代理」选择换成 yt-dlp 的 --proxy 参数。
-/// None = 不传（保持 yt-dlp 默认）；Some("") = 强制直连（yt-dlp 的约定写法）。
-fn proxy_arg(proxy: &Option<String>) -> Option<String> {
-    let raw = proxy.as_deref().unwrap_or("").trim();
-    match raw {
-        "" => None,
-        "direct" => Some(String::new()),
-        "system" => Some(system_proxy().unwrap_or_default()),
-        url => {
-            if url.contains("://") {
-                Some(url.to_string())
-            } else {
-                Some(format!("http://{url}"))
-            }
-        }
-    }
-}
-
 /// B 站分 P URL 带 `?p=N` 或 `/video/xxx?p=N` 时，yt-dlp 只解析那一 P，
 /// 去掉 `p=N` 让它看到完整合集主页。其他站点原样返回。
 fn normalize_bili_part_url(url: &str) -> String {
@@ -952,7 +898,6 @@ async fn ytdlp_info(
     url: String,
     cookies: Option<String>,
     cookies_from_browser: Option<String>,
-    proxy: Option<String>,
 ) -> Result<YtDlpInfo, String> {
     let ytdlp = locate_ytdlp_inner(&app)?;
     // B 站带 p=N 参数的 URL 会被 yt-dlp 当作单 P 视频，拿不到合集 entries
@@ -971,9 +916,6 @@ async fn ytdlp_info(
         if !cookie_file.is_empty() {
             cmd.arg("--cookies").arg(cookie_file);
         }
-    }
-    if let Some(p) = proxy_arg(&proxy) {
-        cmd.arg("--proxy").arg(p);
     }
     cmd.arg(&url)
         .stdout(Stdio::piped())
@@ -1163,7 +1105,6 @@ pub struct YtDlpDownloadOptions {
     pub format: Option<String>,
     pub cookies: Option<String>,
     pub cookies_from_browser: Option<String>,
-    pub proxy: Option<String>,
 }
 
 /// yt-dlp 下载/合并进度
@@ -1286,6 +1227,300 @@ fn cancel_ytdlp_info() {
     YTDLP_INFO_CANCEL.store(true, Ordering::SeqCst);
 }
 
+// ===================== yt-dlp 检查更新（仅安装版显示） =====================
+
+/// 是否以「安装版」运行：MSI 安装包安装后返回 true（前端显示「检查更新yt-dlp」按钮），
+/// 免安装/绿色版返回 false（隐藏按钮）。dev 构建恒为 true，便于调试。
+fn detect_installed_build() -> bool {
+    use std::sync::OnceLock;
+    static CACHE: OnceLock<bool> = OnceLock::new();
+    *CACHE.get_or_init(|| {
+        if cfg!(debug_assertions) {
+            return true;
+        }
+        // 1) MSI 安装包会在注册表写卸载项（...Uninstall），免安装版没有
+        if installed_in_registry() {
+            return true;
+        }
+        // 2) 兜底：exe 目录不可写（如 Program Files）也视为安装版
+        !exe_dir_writable()
+    })
+}
+
+fn exe_dir_writable() -> bool {
+    let Ok(exe) = std::env::current_exe() else {
+        return false;
+    };
+    let Some(dir) = exe.parent() else {
+        return false;
+    };
+    let probe = dir.join(".write-probe");
+    let ok = fs::write(&probe, b"ok").is_ok();
+    if ok {
+        let _ = fs::remove_file(&probe);
+    }
+    ok
+}
+
+#[cfg(windows)]
+fn installed_in_registry() -> bool {
+    use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
+    use winreg::RegKey;
+    const APP_NAME: &str = "图像工具箱";
+    let roots = [
+        (HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+        (HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
+        (HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+    ];
+    for (root, path) in roots {
+        let Ok(uninst) = RegKey::predef(root).open_subkey(path) else {
+            continue;
+        };
+        for key in uninst.enum_keys().flatten() {
+            let Ok(sk) = uninst.open_subkey(&key) else {
+                continue;
+            };
+            if let Ok(name) = sk.get_value::<String, _>("DisplayName") {
+                if name.contains(APP_NAME) {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+#[cfg(not(windows))]
+fn installed_in_registry() -> bool {
+    false
+}
+
+#[tauri::command]
+fn ytdlp_update_ui_visible() -> bool {
+    detect_installed_build()
+}
+
+/// "2025.01.15" → [2025, 1, 15]，用于版本比较
+fn version_key(s: &str) -> Vec<u32> {
+    s.trim()
+        .trim_start_matches('v')
+        .split('.')
+        .map(|p| p.parse::<u32>().unwrap_or(0))
+        .collect()
+}
+
+#[derive(Serialize)]
+struct YtDlpUpdateCheck {
+    local_version: String,
+    remote_version: String,
+    latest: bool,
+}
+
+/// 检查 yt-dlp 是否有新版本：本地 --version 对比 GitHub latest release 的 tag_name。
+#[tauri::command]
+fn ytdlp_check_update(app: tauri::AppHandle) -> Result<YtDlpUpdateCheck, String> {
+    let ytdlp = locate_ytdlp_inner(&app)?;
+
+    // 本地版本
+    let out = command_no_window(&ytdlp)
+        .arg("--version")
+        .output()
+        .map_err(|e| format!("无法运行本地 yt-dlp：{e}"))?;
+    let local = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if !out.status.success() || local.is_empty() {
+        return Err("无法获取本地 yt-dlp 版本，可能文件损坏，请重新安装本程序".into());
+    }
+
+    // 远端版本：GitHub API（用系统自带 curl.exe，Windows 10+ 自带）
+    let out2 = command_no_window("curl.exe")
+        .args([
+            "-s",
+            "--max-time",
+            "20",
+            "-H",
+            "User-Agent: texture-studio",
+            "-H",
+            "Accept: application/vnd.github+json",
+            "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest",
+        ])
+        .output()
+        .map_err(|_| "无法连接 GitHub，请检查网络连接后重试".to_string())?;
+    if !out2.status.success() {
+        return Err(
+            "无法连接 GitHub（请求超时或被拦截）。解决方案：检查网络连接，或在下载页「网络代理」里配置可用代理后重试".into(),
+        );
+    }
+    let json: serde_json::Value = serde_json::from_slice(&out2.stdout)
+        .map_err(|_| "GitHub 返回内容异常，请稍后重试".to_string())?;
+    if let Some(msg) = json.get("message").and_then(|v| v.as_str()) {
+        return Err(format!("GitHub 接口返回错误：{msg}（可能是限流，请稍后重试）"));
+    }
+    let remote = json
+        .get("tag_name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim_start_matches('v')
+        .to_string();
+    if remote.is_empty() {
+        return Err("未能从 GitHub 获取到最新版本号，请稍后重试".into());
+    }
+
+    let latest = version_key(&local) >= version_key(&remote);
+    Ok(YtDlpUpdateCheck {
+        local_version: local,
+        remote_version: remote,
+        latest,
+    })
+}
+
+/// 下载最新 yt-dlp.exe 并替换内置文件。通过 ytdlp-update-progress 事件上报下载进度（0~100）。
+#[tauri::command]
+async fn ytdlp_apply_update(
+    app: tauri::AppHandle,
+    window: tauri::Window,
+) -> Result<String, String> {
+    let ytdlp = locate_ytdlp_inner(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let dir = ytdlp
+            .parent()
+            .map(|d| d.to_path_buf())
+            .ok_or("无法定位 yt-dlp 所在目录")?;
+        let tmp = dir.join("yt-dlp.exe.new");
+        let bak = dir.join("yt-dlp.exe.bak");
+        let url = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe";
+
+        let emit = |percent: f64| {
+            let _ = window.emit(
+                "ytdlp-update-progress",
+                serde_json::json!({ "percent": percent }),
+            );
+        };
+
+        // 清掉上次失败的残留
+        let _ = fs::remove_file(&tmp);
+
+        // Program Files 等受保护目录普通权限写不进去：提前探测，别让下载报出误导性的网络错误
+        let probe = dir.join(".update-probe");
+        match fs::write(&probe, b"ok") {
+            Ok(_) => {
+                let _ = fs::remove_file(&probe);
+            }
+            Err(_) => {
+                return Err(
+                    "更新失败：当前没有写入安装目录的权限。解决方案：右键「以管理员身份运行」本程序后再检查更新，或手动下载新版覆盖 resources 下的 yt-dlp.exe".into(),
+                );
+            }
+        }
+
+        // 先 HEAD 拿文件总大小，用于计算进度百分比（拿不到就只上报已完成）
+        let head = command_no_window("curl.exe")
+            .args(["-sIL", "--max-time", "20", url])
+            .output();
+        let total: u64 = head
+            .ok()
+            .map(|h| {
+                String::from_utf8_lossy(&h.stdout)
+                    .lines()
+                    .rev()
+                    .find_map(|l| {
+                        let l = l.trim();
+                        if l.len() > 15 && l[..15].eq_ignore_ascii_case("content-length:") {
+                            l[15..].trim().parse::<u64>().ok()
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap_or(0)
+            })
+            .unwrap_or(0);
+
+        emit(0.0);
+
+        // 后台下载到同目录临时文件（同分区 rename 才能原子替换）
+        let mut child = command_no_window("curl.exe")
+            .args(["-L", "--fail", "--max-time", "600", "-o"])
+            .arg(&tmp)
+            .arg(url)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|e| format!("启动下载失败：{e}"))?;
+
+        // 轮询临时文件大小上报进度，直到 curl 退出
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(200));
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    let size = fs::metadata(&tmp).map(|m| m.len()).unwrap_or(0);
+                    if !status.success() || size < 1_000_000 {
+                        let _ = fs::remove_file(&tmp);
+                        return Err(
+                            "下载失败：网络中断或 GitHub 不可达。解决方案：检查网络连接，或在下载页「网络代理」里配置可用代理后重试".into(),
+                        );
+                    }
+                    break;
+                }
+                Ok(None) => {
+                    if let Ok(m) = fs::metadata(&tmp) {
+                        if total > 0 {
+                            emit((m.len() as f64 / total as f64 * 100.0).min(99.0));
+                        }
+                    }
+                }
+                Err(e) => {
+                    let _ = child.kill();
+                    let _ = fs::remove_file(&tmp);
+                    return Err(format!("下载进程异常：{e}"));
+                }
+            }
+        }
+
+        let size = fs::metadata(&tmp).map(|m| m.len()).unwrap_or(0);
+        if total > 0 && size != total {
+            let _ = fs::remove_file(&tmp);
+            return Err("下载不完整，已中止更新。解决方案：请重试；多次失败请检查网络或代理".into());
+        }
+
+        // 校验新文件能正常运行且版本更新
+        emit(100.0);
+        let ver_out = command_no_window(&tmp).arg("--version").output();
+        let new_ver = ver_out
+            .as_ref()
+            .map(|v| String::from_utf8_lossy(&v.stdout).trim().to_string())
+            .unwrap_or_default();
+        let ver_ok = ver_out.as_ref().map(|v| v.status.success()).unwrap_or(false);
+        if !ver_ok || new_ver.is_empty() {
+            let _ = fs::remove_file(&tmp);
+            return Err(
+                "新版本文件校验失败：下载的 yt-dlp 无法运行（可能被杀毒软件误报拦截）。解决方案：将本程序加入杀软白名单后重试".into(),
+            );
+        }
+
+        // 替换：旧文件先挪到 .bak，新文件改名上位，成功后删 .bak；失败则回滚
+        let replace_err = |e: std::io::Error| {
+            let _ = fs::remove_file(&tmp);
+            let reason = if e.kind() == std::io::ErrorKind::PermissionDenied {
+                "权限不足或文件被占用"
+            } else {
+                "文件替换失败"
+            };
+            format!(
+                "更新失败：{reason}。解决方案：① 等待正在进行的下载/解析结束或取消后重试；② 右键「以管理员身份运行」本程序后重试；③ 或手动下载新版覆盖安装目录 resources 下的 yt-dlp.exe"
+            )
+        };
+        let _ = fs::remove_file(&bak);
+        fs::rename(&ytdlp, &bak).map_err(replace_err)?;
+        if let Err(e) = fs::rename(&tmp, &ytdlp) {
+            let _ = fs::rename(&bak, &ytdlp); // 回滚，保住旧版本可用
+            return Err(replace_err(e));
+        }
+        let _ = fs::remove_file(&bak);
+        Ok(new_ver)
+    })
+    .await
+    .map_err(|e| format!("任务执行异常：{e}"))?
+}
+
 /// 调用 yt-dlp 下载视频，通过 ytdlp-progress 事件上报进度（0~1）。
 /// 返回 yt-dlp 报告的最终文件路径（合并后的文件），拿不到就是空串。
 #[tauri::command]
@@ -1347,10 +1582,6 @@ async fn ytdlp_download(
             args.push("--cookies-from-browser".to_string());
             args.push(browser.clone());
         }
-    }
-    if let Some(p) = proxy_arg(&options.proxy) {
-        args.push("--proxy".to_string());
-        args.push(p);
     }
     args.push("-o".to_string());
     args.push(output.clone());
@@ -1526,7 +1757,10 @@ pub fn run() {
             ytdlp_info,
             ytdlp_download,
             cancel_download,
-            cancel_ytdlp_info
+            cancel_ytdlp_info,
+            ytdlp_update_ui_visible,
+            ytdlp_check_update,
+            ytdlp_apply_update
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

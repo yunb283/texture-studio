@@ -65,8 +65,6 @@ export function initVideoDownload() {
   const saveCustomChk = $('dl-save-custom');
   const dirInput = $('dl-dir');
   const browseBtn = $('dl-browse');
-  const proxyModeSel = $('dl-proxy-mode');
-  const proxyUrlIn = $('dl-proxy-url');
   const downloadBtn = $('dl-download');
   const progressFill = $('dl-progress-fill');
   const progressText = $('dl-progress-text');
@@ -197,12 +195,6 @@ export function initVideoDownload() {
     nameInput.value = '';
     nameInput.disabled = false;
 
-    // 网络代理：恢复默认（含 localStorage）
-    proxyModeSel.value = '';
-    proxyUrlIn.value = '';
-    localStorage.removeItem(PROXY_KEY);
-    syncProxyInput();
-
     // 进度和状态
     setProgress(0);
     progressMeta.textContent = '';
@@ -217,39 +209,6 @@ export function initVideoDownload() {
     io.clear();
     lastOutputPath = null;
   }
-
-  // 网络代理选择：'' 默认、direct 直连、system 系统代理、custom 自定义地址
-  function getProxyArg() {
-    const mode = proxyModeSel.value;
-    if (mode === 'custom') return proxyUrlIn.value.trim() || null;
-    return mode || null;
-  }
-
-  const PROXY_KEY = 'texture-studio.dl.proxy';
-  function saveProxyChoice() {
-    try {
-      localStorage.setItem(
-        PROXY_KEY,
-        JSON.stringify({ mode: proxyModeSel.value, url: proxyUrlIn.value.trim() })
-      );
-    } catch (_) {}
-  }
-  try {
-    const saved = JSON.parse(localStorage.getItem(PROXY_KEY) || 'null');
-    if (saved) {
-      proxyModeSel.value = saved.mode || '';
-      proxyUrlIn.value = saved.url || '';
-    }
-  } catch (_) {}
-  function syncProxyInput() {
-    proxyUrlIn.style.display = proxyModeSel.value === 'custom' ? '' : 'none';
-  }
-  syncProxyInput();
-  proxyModeSel.addEventListener('change', () => {
-    syncProxyInput();
-    saveProxyChoice();
-  });
-  proxyUrlIn.addEventListener('change', saveProxyChoice);
 
   // —— 分辨率 / 编码选择 ——
   function collectResChoices(formats) {
@@ -611,7 +570,6 @@ export function initVideoDownload() {
         url,
         cookies: null,
         cookies_from_browser: null,
-        proxy: getProxyArg(),
       });
       if (token !== parseToken) return; // 清除/取消触发的旧结果，丢弃
       ctxFormat = null;
@@ -780,7 +738,6 @@ export function initVideoDownload() {
           format: selector,
           cookies: null,
           cookies_from_browser: null,
-          proxy: getProxyArg(),
         },
       });
       // 后端会 emit phase="done" 事件，这里双重保险，确保进度条最终状态正确
@@ -864,7 +821,6 @@ export function initVideoDownload() {
               format: selector,
               cookies: null,
               cookies_from_browser: null,
-              proxy: getProxyArg(),
             },
           });
           setProgress(1, '', '', 'done');
@@ -917,6 +873,84 @@ export function initVideoDownload() {
 
   clearAllBtn.addEventListener('click', () => {
     clearAll();
+  });
+
+  // ===== yt-dlp 检查更新（仅安装版显示） =====
+  const updateBtn = $('dl-ytdlp-update');
+  const updateText = updateBtn.querySelector('.update-text');
+  const updateFill = updateBtn.querySelector('.update-fill');
+  const updateToast = $('dl-update-toast');
+  const updateHint = $('dl-update-hint');
+  const UPDATE_HINT_DEFAULT = updateHint.textContent;
+  let updateState = 'idle'; // idle | checking | updating
+  let updateToastTimer = null;
+
+  function showUpdateToast(msg, ms = 2500) { // 存在时间 5s → 2.5s
+    // 左下角常显描述跟随消息变化，直到下一条描述出现
+    updateHint.textContent = msg || UPDATE_HINT_DEFAULT;
+    updateToast.textContent = msg;
+    updateToast.classList.add('show');
+    clearTimeout(updateToastTimer);
+    if (ms > 0) updateToastTimer = setTimeout(() => updateToast.classList.remove('show'), ms);
+  }
+
+  function resetUpdateBtn() {
+    updateState = 'idle';
+    updateBtn.classList.remove('checking', 'updating');
+    updateBtn.disabled = false;
+    updateText.textContent = '检查更新yt-dlp';
+    updateFill.style.width = '0%';
+  }
+
+  if (isTauri) {
+    // 安装版才显示按钮；免安装版保持 hidden
+    window.__TAURI__.core
+      .invoke('ytdlp_update_ui_visible')
+      .then((v) => {
+        if (v) updateBtn.hidden = false;
+      })
+      .catch(() => {});
+    window.__TAURI__.event.listen('ytdlp-update-progress', (e) => {
+      const p = e.payload && e.payload.percent;
+      if (updateState === 'updating' && typeof p === 'number' && p >= 0) {
+        updateFill.style.width = `${Math.min(100, Math.round(p))}%`;
+      }
+    });
+  }
+
+  updateBtn.addEventListener('click', async () => {
+    if (updateState !== 'idle') return;
+    if (downloading || playlistDownloading || parsing) {
+      showUpdateToast('请先等待或取消当前的下载/解析任务，再检查更新');
+      return;
+    }
+    updateState = 'checking';
+    updateBtn.disabled = true;
+    updateBtn.classList.add('checking');
+    updateText.textContent = '检查更新中';
+    try {
+      const res = await window.__TAURI__.core.invoke('ytdlp_check_update');
+      if (res.latest) {
+        showUpdateToast('当前已经是最新版');
+        resetUpdateBtn();
+        return;
+      }
+      showUpdateToast(
+        `检查到新版 v${res.remote_version}（当前 v${res.local_version}），开始更新…`,
+        0
+      );
+      updateState = 'updating';
+      updateBtn.classList.remove('checking');
+      updateBtn.classList.add('updating');
+      updateText.textContent = '更新中';
+      const newVer = await window.__TAURI__.core.invoke('ytdlp_apply_update');
+      showUpdateToast(`yt-dlp 已更新到 v${newVer}`);
+    } catch (e) {
+      // 失败原因与解决方案由后端给出，提示条停留久一点方便阅读
+      showUpdateToast(String(e), 12000);
+    } finally {
+      resetUpdateBtn();
+    }
   });
 
   // 播放列表：全选/全不选

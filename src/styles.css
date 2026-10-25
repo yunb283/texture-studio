@@ -85,7 +85,7 @@ body {
 }
 
 /* 作者写的 .vid-row{display:flex} / .form-grid{display:grid} 优先级高于 UA 的
-   [hidden]{display:none}，导致加 hidden 属性也不生效，这里补回来 */
+   [hidden]{display:none},导致加 hidden 属性也不生效,这里补回来 */
 [hidden] {
   display: none !important;
 }
@@ -113,7 +113,7 @@ body {
   color: #fff;
   font-weight: 600;
   font-size: 14px;
-  margin-right: auto; /* 把视图工具和色块一起顶到右边，两者挨着 */
+  margin-right: auto; /* 把视图工具和色块一起顶到右边,两者挨着 */
 }
 
 .canvas-wrap {
@@ -122,13 +122,13 @@ body {
   position: relative;
 }
 
-/* 只有 GIF 结果预览需要裁边：它是被 CSS transform 放大的那张图。
-   画布自己会裁掉画到 bitmap 外的部分，而 .canvas-wrap 里还藏着 offscreen 的 video，别加 overflow */
+/* 只有 GIF 结果预览需要裁边:它是被 CSS transform 放大的那张图.
+   画布自己会裁掉画到 bitmap 外的部分,而 .canvas-wrap 里还藏着 offscreen 的 video,别加 overflow */
 #gif-prev-wrap {
   overflow: hidden;
 }
 
-/* 可缩放平移的预览：光标提示可拖 */
+/* 可缩放平移的预览:光标提示可拖 */
 canvas.zoomable,
 #gif-prev-wrap {
   cursor: grab;
@@ -174,12 +174,12 @@ canvas.zoomable.panning,
   border-radius: 4px;
 }
 
-/* GIF 结果预览的底板：底色由下面几条 .bg-* 决定，canvas 的透明处透出它 */
+/* GIF 结果预览的底板:底色由下面几条 .bg-* 决定,canvas 的透明处透出它 */
 #gif-prev-wrap {
   border-radius: 4px;
 }
 
-/* GIF 预览的棋盘格和 CanvasView 画的完全一致：48px 一循环、24px 一格，左上角从暗格起 */
+/* GIF 预览的棋盘格和 CanvasView 画的完全一致:48px 一循环、24px 一格,左上角从暗格起 */
 #gif-prev-wrap.bg-checker {
   background: repeating-conic-gradient(#909098 0% 25%, #515159 0% 50%);
   background-size: 48px 48px;
@@ -196,11 +196,11 @@ canvas.zoomable.panning,
 #gif-prev-wrap canvas {
   object-fit: scale-down;
   object-position: center;
-  /* 缩放平移由 main.js 写进这三个变量；元素铺满 wrap，所以原点正好是图中心 */
+  /* 缩放平移由 main.js 写进这三个变量;元素铺满 wrap,所以原点正好是图中心 */
   transform: translate(var(--zpx, 0px), var(--zpy, 0px)) scale(var(--zz, 1));
 }
 
-/* 视频源不直接显示，画进 CanvasView；但仍要保持已渲染状态，否则 WebView2 不解帧 */
+/* 视频源不直接显示,画进 CanvasView;但仍要保持已渲染状态,否则 WebView2 不解帧 */
 .offscreen-video {
   position: absolute;
   left: -9999px;
@@ -215,15 +215,15 @@ canvas.zoomable.panning,
   gap: 8px;
 }
 
-/* 时间轴独占一行：白色倒三角悬在轨道上方要留 12px，黄色旗帜下探 8px 所以要给下面一行多点间距 */
+/* 时间轴独占一行:白色倒三角悬在轨道上方要留 12px,黄色旗帜下探 8px 所以要给下面一行多点间距 */
 .tl-row {
   padding-top: 12px;
   margin-bottom: 4px;
 }
 
-/* GIF 预览的帧区间轴：定位靠上面那根逐帧滑块，轨道上没有倒三角，所以不留 .tl-row 的 12px。
-   轨道在行里居中，行高由同排的按钮撑到 30px，上下各有 5px 余量；
-   手柄旗帜下探 8px，所以只补 3px 就够，再多就是把预览画面往下压 */
+/* GIF 预览的帧区间轴:定位靠上面那根逐帧滑块,轨道上没有倒三角,所以不留 .tl-row 的 12px.
+   轨道在行里居中,行高由同排的按钮撑到 30px,上下各有 5px 余量;
+   手柄旗帜下探 8px,所以只补 3px 就够,再多就是把预览画面往下压 */
 .fr-row {
   padding-bottom: 3px;
 }
@@ -233,7 +233,7 @@ canvas.zoomable.panning,
   font-variant-numeric: tabular-nums;
 }
 
-/* 自绘时间轴：保持原来的深色填充轨道，只有两种滑块是特殊造型 */
+/* 自绘时间轴:保持原来的深色填充轨道,只有两种滑块是特殊造型 */
 .tl {
   position: relative;
   flex: 1;
@@ -245,8 +245,8 @@ canvas.zoomable.panning,
   cursor: pointer;
 }
 
-/* 自绘时间轴：没载入视频是深色底，载入后整条变蓝。蓝色表示「整段视频」，
-   长度固定，不随手柄变；选区由下面那条半透明黄带表示 */
+/* 自绘时间轴:没载入视频是深色底,载入后整条变蓝.蓝色表示「整段视频」,
+   长度固定,不随手柄变;选区由下面那条半透明黄带表示 */
 .tl {
   position: relative;
   flex: 1;
@@ -263,9 +263,9 @@ canvas.zoomable.panning,
   border-color: #2f5566;
 }
 
-/* 选区：两个黄色滑块中间填满半透明黄，整块可拖着平移；
-   区间超出 1000 帧上限时底色藏掉（.over），但带子本身还在，仍可点可拖。
-   层级最低：半透明黄底压在白色竖线下面，只有黄色滑块盖住竖线 */
+/* 选区:两个黄色滑块中间填满半透明黄,整块可拖着平移;
+   区间超出 1000 帧上限时底色藏掉(.over),但带子本身还在,仍可点可拖.
+   层级最低:半透明黄底压在白色竖线下面,只有黄色滑块盖住竖线 */
 .tl-band {
   position: absolute;
   top: 0;
@@ -279,7 +279,7 @@ canvas.zoomable.panning,
   background: transparent;
 }
 
-/* 端点标记：竖线一直顶到轨道上沿，底部挂小旗帜；不透明，压在白色播放头竖线之上 */
+/* 端点标记:竖线一直顶到轨道上沿,底部挂小旗帜;不透明,压在白色播放头竖线之上 */
 .tl-grip {
   position: absolute;
   top: -2px;
@@ -321,7 +321,7 @@ canvas.zoomable.panning,
   clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
 }
 
-/* 播放头：白色倒三角悬在轨道上方，尖头正好对着当前位置，轨道内留一根细线便于读准 */
+/* 播放头:白色倒三角悬在轨道上方,尖头正好对着当前位置,轨道内留一根细线便于读准 */
 .tl-head {
   position: absolute;
   top: 0;
@@ -377,10 +377,10 @@ canvas.zoomable.panning,
   user-select: text;
 }
 
-/* 状态行 / GIF 页信息行：固定两行高（不随文字撑高面板），超出用省略号，
-   全文挂在 title 上悬停看。
-   flex: 0 0 auto 是必需的：overflow:hidden 让 flex 自动最小尺寸变成 0，
-   面板（flex 列）挤不下时会把这一行压成只剩 padding */
+/* 状态行 / GIF 页信息行:固定两行高(不随文字撑高面板),超出用省略号,
+   全文挂在 title 上悬停看.
+   flex: 0 0 auto 是必需的:overflow:hidden 让 flex 自动最小尺寸变成 0,
+   面板(flex 列)挤不下时会把这一行压成只剩 padding */
 .status,
 #gif-info {
   font-size: 12px;
@@ -400,7 +400,7 @@ canvas.zoomable.panning,
   user-select: text;
 }
 
-/* GIF 页信息行：第一行源信息、第二行抽帧结果，用 \n 分行；两行装不下就截断 + 悬停看全文 */
+/* GIF 页信息行:第一行源信息、第二行抽帧结果,用 \n 分行;两行装不下就截断 + 悬停看全文 */
 #gif-info {
   height: 32px;
   white-space: pre-line;
@@ -454,7 +454,7 @@ canvas.zoomable.panning,
   color: #6a6c75;
 }
 
-/* 导出按钮兼作进度条：--p 控制蓝色填充到哪，抽帧和编码各从 0 填到满。
+/* 导出按钮兼作进度条:--p 控制蓝色填充到哪,抽帧和编码各从 0 填到满.
    放在 .btn.primary:disabled 之后才能盖掉它的底色 */
 .btn.primary.busy {
   background: linear-gradient(90deg, #39c7ed 0 var(--p, 0%), #2a2c38 var(--p, 0%) 100%);
@@ -481,15 +481,15 @@ canvas.zoomable.panning,
   color: #7fe3fb;
 }
 
-/* 禁掉时别留着按下的蓝：换文件/清空的瞬间状态可能还没归位，蓝着又点不动 */
+/* 禁掉时别留着按下的蓝:换文件/清空的瞬间状态可能还没归位,蓝着又点不动 */
 .btn.on:disabled {
   color: #6a6c75;
   background: #24262e;
   border-color: #34363e;
 }
 
-/* 一行放两个动作：左边的撑开，右边按内容宽度。
-   放在 .btn.primary 之后，否则它的 width:100% 会把同排的复选框挤成 0 宽 */
+/* 一行放两个动作:左边的撑开,右边按内容宽度.
+   放在 .btn.primary 之后,否则它的 width:100% 会把同排的复选框挤成 0 宽 */
 .btn-row > :first-child {
   flex: 1 1 auto;
   min-width: 0;
@@ -579,7 +579,7 @@ select:focus {
   flex: 0 0 auto;
 }
 
-/* 滑块 + 数字框同排：滑块吃满剩余宽度，数字框固定窄列 */
+/* 滑块 + 数字框同排:滑块吃满剩余宽度,数字框固定窄列 */
 .dual-row {
   display: flex;
   align-items: center;
@@ -595,24 +595,24 @@ select:focus {
   width: 62px;
 }
 
-/* 帧率滑条的读数位数会变，定宽否则拖动手柄会跟着跳 */
+/* 帧率滑条的读数位数会变,定宽否则拖动手柄会跟着跳 */
 #gif-fps-label {
   min-width: 22px;
   text-align: right;
 }
 
-/* GIF 预览三个按钮挤同一行：步进按钮缩窄内边距，窄面板下也不会把「播放动画」挤变形 */
+/* GIF 预览三个按钮挤同一行:步进按钮缩窄内边距,窄面板下也不会把「播放动画」挤变形 */
 .dual-row .step-btn {
   flex: 0 0 auto;
   padding: 6px 8px;
 }
 
-/* GIF 页工具行控件多，面板窄时换行而不是把按钮挤扁 */
+/* GIF 页工具行控件多,面板窄时换行而不是把按钮挤扁 */
 .vid-tools {
   flex-wrap: wrap;
 }
 
-/* 拆分/合并的播放行加了逐帧按钮，窄面板下宁可换行，别让帧率输入框溢出到面板外 */
+/* 拆分/合并的播放行加了逐帧按钮,窄面板下宁可换行,别让帧率输入框溢出到面板外 */
 .ctrl-row.wrap {
   flex-wrap: wrap;
 }
@@ -632,13 +632,13 @@ select:focus {
   flex: 0 0 auto;
 }
 
-/* 面板里没有状态行的那几页（法线/无缝/GIF）：链接单独一行，贴右下角，
+/* 面板里没有状态行的那几页(法线/无缝/GIF):链接单独一行,贴右下角,
    和拆分/合并/转换挂在状态行右端时落在同一个角 */
 .io-row.end {
   align-self: flex-end;
 }
 
-/* 「打开…」文字链所在的那一行：左边是信息/状态文本，右边是链 */
+/* 「打开…」文字链所在的那一行:左边是信息/状态文本,右边是链 */
 .io-line {
   display: flex;
   align-items: center;
@@ -679,7 +679,7 @@ select:disabled {
   cursor: default;
 }
 
-/* 贴图处理页两侧预览等大后，内容较少的一侧把说明文字压到面板底部 */
+/* 贴图处理页两侧预览等大后,内容较少的一侧把说明文字压到面板底部 */
 #page-normal .help-label,
 #page-seamless .help-label {
   margin-top: auto;
@@ -818,7 +818,7 @@ select:disabled {
   background: transparent;
 }
 
-/* 视频转换页：进度条 */
+/* 视频转换页:进度条 */
 .progress-wrap {
   display: flex;
   align-items: center;
@@ -842,7 +842,7 @@ select:disabled {
   transition: width 0.2s ease;
 }
 
-/* 合并阶段：indeterminate 条纹动画 */
+/* 合并阶段:indeterminate 条纹动画 */
 .progress-bar.merge-phase {
   background: #2a2a33;
   border-color: #7b5cff;
@@ -864,7 +864,7 @@ select:disabled {
   to { background-position: 40px 0; }
 }
 
-/* 视频转换页的 video 可见（复用 offscreen-video 的位置，但显示在 canvas-wrap 内） */
+/* 视频转换页的 video 可见(复用 offscreen-video 的位置,但显示在 canvas-wrap 内) */
 #page-video .offscreen-video {
   position: static;
   width: 100%;
@@ -874,7 +874,7 @@ select:disabled {
   cursor: pointer;
 }
 
-/* 视频信息栏：自动换行，不溢出 */
+/* 视频信息栏:自动换行,不溢出 */
 .info-wrap {
   white-space: normal;
   word-break: break-word;
@@ -954,7 +954,7 @@ select:disabled {
   transition: transform 0.15s ease, background 0.15s ease;
 }
 
-/* 视频时间轴容器（含黄色滑块） */
+/* 视频时间轴容器(含黄色滑块) */
 .vid-seek-tl {
   position: relative;
   margin-top: 6px;
@@ -964,7 +964,7 @@ select:disabled {
   width: 100%;
 }
 
-/* 视频页黄色滑块：复用 GIF 页 .tl-grip 造型，但单独定位左右两端 */
+/* 视频页黄色滑块:复用 GIF 页 .tl-grip 造型,但单独定位左右两端 */
 .vid-grip {
   position: absolute;
   top: -2px;
@@ -1005,7 +1005,7 @@ select:disabled {
   cursor: move;
 }
 
-/* 裁剪选区外的暗化遮罩：只覆盖视频渲染区域内、选区外的部分 */
+/* 裁剪选区外的暗化遮罩:只覆盖视频渲染区域内、选区外的部分 */
 .crop-mask {
   position: absolute;
   background: rgba(0, 0, 0, 0.5);
@@ -1094,7 +1094,7 @@ select:disabled {
   background: #16161a;
 }
 
-/* 下载页：分辨率 + 编码两个下拉同排 */
+/* 下载页:分辨率 + 编码两个下拉同排 */
 .dl-pick-row {
   display: flex;
   gap: 6px;
@@ -1177,7 +1177,7 @@ select:disabled {
   min-width: 42px;
 }
 
-/* 同一分辨率会有 H.264 / H.265 / AV1 多条，用编码标签区分 */
+/* 同一分辨率会有 H.264 / H.265 / AV1 多条,用编码标签区分 */
 .dl-fmt-item .fmt-codec {
   color: #9ad1ff;
   background: rgba(57, 199, 237, 0.12);
@@ -1258,7 +1258,144 @@ select:disabled {
   flex-shrink: 0;
 }
 
-/* 批量模式包裹层：必须继承 panel 的 flex 列布局，否则内容会塌成一团 */
+/* ===== yt-dlp 检查更新(下载设置面板底部居中,仅安装版显示) ===== */
+.dl-update-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 9px; /* 改这个值调按钮上下位置:越大越靠下(px 单位,别用 ch) */
+  margin-bottom: 9px; /* 按钮下方留的空隙,一般不用动 */
+}
+
+.dl-update-wrap {
+  position: relative;
+  width: 100%;
+}
+
+/* 默认态:主按钮同款青色填充、白字、加宽 */
+.dl-update-btn {
+  display: block;
+  margin: 0 auto; /* 在 wrap 内水平居中 */
+  position: relative;
+  overflow: visible;
+  width: 70%; /* 87.5% × 0.8:再缩小 0.2 */
+  min-height: 50px; /* 38px 的 1.5 倍 */
+  background: #39c7ed;
+  color: #fff;
+  font-weight: 600;
+  font-size: 21px; /* 14px 的 1.5 倍 */
+  border: none;
+}
+
+/* 按钮左下角常显描述:初始是功能说明,更新消息出现后跟随变化,直到下一条描述出现 */
+.dl-update-hint {
+  margin-top: 14px; /* 9px + 5px:描述再下移 5px */
+  font-size: 12px;
+  color: #6fd3f5; /* 与下载页状态文字(正在解析…)同色 */
+  word-break: break-all;
+  user-select: text;
+}
+
+.dl-update-btn:hover {
+  background: #4fd0f2;
+}
+
+/* 按下(检查中/更新中):回到描边样式 */
+.dl-update-btn.checking,
+.dl-update-btn.updating {
+  background: #34333c;
+  color: #39c7ed;
+  border: 1px solid #2b6b7d;
+}
+
+/* 更新中的进度填充:从左往右铺满按钮 */
+.dl-update-btn .update-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0%;
+  background: rgba(57, 199, 237, 0.32);
+  border-radius: inherit;
+  transition: width 0.25s ease;
+  pointer-events: none;
+}
+
+.dl-update-btn .update-text {
+  position: relative;
+  z-index: 1;
+}
+
+/* 检查中:按钮外轮廓描边持续向外扩散 */
+.dl-update-btn.checking {
+  pointer-events: none;
+}
+
+.dl-update-btn.checking::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 6px;
+  border: 2px solid #39c7ed;
+  animation: dl-update-ripple 1.1s ease-out infinite;
+  pointer-events: none;
+}
+
+/* 四边等量向外扩(动画 inset 而不是 scale),保证任意时刻
+   外框上边距按钮上边的距离 == 左边距按钮左边的距离 */
+@keyframes dl-update-ripple {
+  0% {
+    opacity: 0.9;
+    inset: -2px;
+  }
+  100% {
+    opacity: 0;
+    inset: -12px;
+  }
+}
+
+/* 更新中:裁掉填充超出圆角的部分 */
+.dl-update-btn.updating {
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* 下方弹出的提示条 */
+.dl-update-toast {
+  position: absolute;
+  bottom: calc(100% + 14px); /* 悬在按钮上方,与下方蓝色描述离按钮的距离一致 */
+  right: 0;
+  max-width: 330px;
+  background: #2a2f40;
+  border: 1px solid #3a4156;
+  color: #d9dae0;
+  font-size: 12px;
+  line-height: 1.55;
+  padding: 6px 10px;
+  border-radius: 4px;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  pointer-events: none;
+  z-index: 30;
+}
+
+.dl-update-toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 窗口太小(宽度或高度不够)时:隐藏左下角描述并收窄按钮,高度和字体保持不变 */
+@media (max-width: 1100px), (max-height: 700px) {
+  .dl-update-hint {
+    display: none;
+  }
+
+  .dl-update-btn {
+    width: 87.5%;
+  }
+}
+
+/* 批量模式包裹层:必须继承 panel 的 flex 列布局,否则内容会塌成一团 */
 #vid-single-wrap, #vid-batch-wrap,
 #aud-single-wrap, #aud-batch-wrap {
   display: flex;
@@ -1268,7 +1405,7 @@ select:disabled {
   flex: 1;
 }
 
-/* ===== 模式切换按钮（单个/批量） ===== */
+/* ===== 模式切换按钮(单个/批量) ===== */
 .mode-toggle {
   display: flex;
   gap: 8px;

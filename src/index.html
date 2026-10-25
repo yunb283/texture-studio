@@ -924,16 +924,6 @@
         </div>
         <div class="dim-label" id="dl-size-line" style="padding:2px 0 2px;">文件大小：-</div>
         <div class="dim-label" id="dl-fmt-label" style="padding:0 0 6px;">将下载：-</div>
-        <div class="dim-label">网络代理</div>
-        <div class="size-row">
-          <select id="dl-proxy-mode">
-            <option value="">跟随 yt-dlp 默认</option>
-            <option value="direct">直连（不使用代理）</option>
-            <option value="system">跟随系统代理</option>
-            <option value="custom">自定义…</option>
-          </select>
-          <input type="text" id="dl-proxy-url" placeholder="http://127.0.0.1:7890" style="display: none" />
-        </div>
         <label class="chk">
           <input type="checkbox" id="dl-save-default" checked />
           <span>保存到默认下载目录（下载\图像工具箱）</span>
@@ -957,6 +947,16 @@
         <div class="help-label">
           基于内置 yt-dlp + FFmpeg，支持 YouTube、Bilibili、Twitter、TikTok 等上千个站点<br />
           视频与音频分开的站点会自动下载音频并合并；左侧列表右键可直接下载该格式
+        </div>
+        <div class="dl-update-row">
+          <div class="dl-update-wrap">
+            <button class="btn small dl-update-btn" id="dl-ytdlp-update" hidden>
+              <span class="update-fill"></span>
+              <span class="update-text">检查更新yt-dlp</span>
+            </button>
+            <div class="dl-update-hint" id="dl-update-hint">检测 GitHub 最新版并自动更新内置 yt-dlp</div>
+            <div class="dl-update-toast" id="dl-update-toast"></div>
+          </div>
         </div>
       </div>
     </div>
