@@ -36,6 +36,76 @@ fn command_no_window<P: AsRef<std::ffi::OsStr>>(program: P) -> Command {
     cmd
 }
 
+/// Windows 作业对象：把子进程整棵进程树装进来。
+///
+/// 为什么需要它：yt-dlp.exe 是 PyInstaller 单文件包，运行时会先解压、再派生一个
+/// 真正干活的 Python 子进程。`Child::kill()` 只杀直接子进程（bootloader 父进程），
+/// 子进程会变成孤儿继续下载，并且还占着 stdout/stderr 管道，导致：
+///   1. 进度条照涨、流量照跑；
+///   2. 读取管道的线程等不到 EOF，invoke 永不返回，按钮一直停在「正在取消下载…」。
+/// 装进作业对象后，`TerminateJobObject` 一次杀掉作业里的全部进程；
+/// 同时设置 KILL_ON_JOB_CLOSE，哪怕本程序异常退出，句柄关闭时子进程也会被一并收走。
+#[cfg(windows)]
+mod kill_tree_job {
+    use std::os::windows::io::AsRawHandle;
+    use std::process::Child;
+    use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
+    use windows_sys::Win32::System::JobObjects::{
+        AssignProcessToJobObject, CreateJobObjectW, SetInformationJobObject, TerminateJobObject,
+        JobObjectExtendedLimitInformation, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    };
+
+    pub(crate) struct KillTreeJob(HANDLE);
+
+    impl KillTreeJob {
+        /// 创建作业对象并设置「句柄关闭时杀光全部进程」。失败返回 None（调用方退化为普通 kill）。
+        pub(crate) fn new() -> Option<Self> {
+            unsafe {
+                let job = CreateJobObjectW(std::ptr::null(), std::ptr::null());
+                if job == 0 {
+                    return None;
+                }
+                let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
+                info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+                let ok = SetInformationJobObject(
+                    job,
+                    JobObjectExtendedLimitInformation,
+                    &info as *const _ as *const _,
+                    std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+                );
+                if ok == 0 {
+                    let _ = CloseHandle(job);
+                    return None;
+                }
+                Some(Self(job))
+            }
+        }
+
+        /// spawn 成功后立刻把子进程装入作业；它之后派生的所有子孙进程也都在作业里。
+        pub(crate) fn assign(&self, child: &Child) {
+            unsafe {
+                let _ = AssignProcessToJobObject(self.0, child.as_raw_handle() as HANDLE);
+            }
+        }
+
+        /// 终止作业内的全部进程（整棵树）。
+        pub(crate) fn kill(&self) {
+            unsafe {
+                let _ = TerminateJobObject(self.0, 1);
+            }
+        }
+    }
+
+    impl Drop for KillTreeJob {
+        fn drop(&mut self) {
+            unsafe {
+                let _ = CloseHandle(self.0);
+            }
+        }
+    }
+}
+
 fn file_path_to_string(fp: FilePath) -> String {
     match fp {
         FilePath::Path(p) => p.to_string_lossy().into_owned(),
@@ -925,15 +995,26 @@ async fn ytdlp_info(
     YTDLP_INFO_CANCEL.store(false, Ordering::SeqCst);
 
     let mut child = cmd.spawn().map_err(|e| format!("调用 yt-dlp 失败：{e}"))?;
+
+    // 装进作业对象：取消时杀整棵进程树，PyInstaller 子进程不会变孤儿（同下载侧）
+    let job = Arc::new(kill_tree_job::KillTreeJob::new());
+    if let Some(job) = &*job {
+        job.assign(&child);
+    }
+
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
     let child = Arc::new(Mutex::new(child));
 
-    // 看门狗：清除链接触发取消时 kill 解析进程，让阻塞读取立刻返回
+    // 看门狗：清除链接触发取消时 kill 解析进程整棵树，让阻塞读取立刻返回
     {
         let watchdog = child.clone();
+        let watchdog_job = job.clone();
         std::thread::spawn(move || loop {
             if YTDLP_INFO_CANCEL.load(Ordering::SeqCst) {
+                if let Some(job) = &*watchdog_job {
+                    job.kill();
+                }
                 let _ = watchdog.lock().unwrap().kill();
                 break;
             }
@@ -1608,6 +1689,13 @@ async fn ytdlp_download(
             .spawn()
             .map_err(|e| format!("启动 yt-dlp 失败：{e}"))?;
 
+        // 装进作业对象：取消时 TerminateJobObject 杀整棵进程树（PyInstaller 会派生子进程，
+        // 只 kill 直接子进程会留下孤儿继续下载）。必须在子进程开始派生活儿之前装入。
+        let job = Arc::new(kill_tree_job::KillTreeJob::new());
+        if let Some(job) = &*job {
+            job.assign(&child);
+        }
+
         // 进度行有些站点写 stdout、有些写 stderr，两边都解析；共享 phase + 百分比状态
         let progress_state = Arc::new(Mutex::new(ProgressState::default()));
 
@@ -1637,11 +1725,16 @@ async fn ytdlp_download(
 
         let child = Arc::new(Mutex::new(child));
 
-        // 看门狗：即使 yt-dlp 暂时没有输出，也在检测到取消标志时立即 kill、让阻塞的读取立刻返回
+        // 看门狗：即使 yt-dlp 暂时没有输出，也在检测到取消标志时立即 kill 整棵进程树、让阻塞的读取立刻返回
         {
             let watchdog = child.clone();
+            let watchdog_job = job.clone();
             std::thread::spawn(move || loop {
                 if YTDLP_CANCEL.load(Ordering::SeqCst) {
+                    // 先杀作业里的整棵树（真正下载的 PyInstaller 子进程），再 kill 直接子进程双保险
+                    if let Some(job) = &*watchdog_job {
+                        job.kill();
+                    }
                     let _ = watchdog.lock().unwrap().kill();
                     break;
                 }
@@ -1660,9 +1753,15 @@ async fn ytdlp_download(
 
         // stderr：错误识别 + 进度（YouTube 这类站点进度走 stderr）+ 合并阶段检测
         let mut risk_blocked = false;
-        if let Some(stderr) = child.lock().unwrap().stderr.take() {
+        // 必须先 take 再 if let：把 child.lock() 写在 if let 条件里的话，
+        // MutexGuard 临时值会活到整个 if let 结束，看门狗抢不到锁、永远 kill 不了
+        let stderr = child.lock().unwrap().stderr.take();
+        if let Some(stderr) = stderr {
             for line in BufReader::new(stderr).lines() {
                 if YTDLP_CANCEL.load(Ordering::SeqCst) {
+                    if let Some(job) = &*job {
+                        job.kill();
+                    }
                     let _ = child.lock().unwrap().kill();
                     break;
                 }
