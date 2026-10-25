@@ -20,6 +20,7 @@ import {
   GIF_ONLY_EXTS,
   VIDEO_EXTS,
 } from './platform.js';
+import { ripple, placePill, popOnce, prefersReduced } from './ui-motion.js';
 
 function makeBgButtons(container, view, modes, current) {
   const names = ['黑', '亮', '棋盘格', '暗'];
@@ -230,6 +231,19 @@ const tabs = [
   ['dl', tabDl, pageDl, []],
 ];
 
+// 页签行的两块「药丸」:.tab-ind 标当前页签,.tab-hover 跟手做悬停底色
+const tabsRow = document.querySelector('.tabs');
+const tabInd = document.getElementById('tab-ind');
+const tabHover = document.getElementById('tab-hover');
+
+// 指示块跟着当前页签走。位置一次性读成整数 px,剩下的补间交给 CSS
+function syncTabIndicator() {
+  const el = tabsRow && tabsRow.querySelector('.tab.active');
+  if (!el) return;
+  placePill(tabInd, el);
+  tabInd.classList.add('on');
+}
+
 function showTab(which) {
   let active = tabs[0];
   for (const t of tabs) {
@@ -238,6 +252,7 @@ function showTab(which) {
     t[2].classList.toggle('hidden', !on);
     if (on) active = t;
   }
+  syncTabIndicator();
   requestAnimationFrame(() => active[3].forEach((v) => v.redraw()));
 }
 
@@ -252,10 +267,37 @@ tabVideo.addEventListener('click', () => showTab('video'));
 tabAudio.addEventListener('click', () => showTab('audio'));
 tabDl.addEventListener('click', () => showTab('dl'));
 
+// 页签微交互:悬停时半透明块跟手、点击出涟漪、按下回弹(回弹在 CSS 的 :active 里)
+for (const [, tabEl] of tabs) {
+  tabEl.addEventListener('mouseenter', () => {
+    // 当前页签已经有 .tab-ind 打底了,别再叠一层悬停块
+    if (tabEl.classList.contains('active')) {
+      tabHover.classList.remove('on');
+      return;
+    }
+    placePill(tabHover, tabEl);
+    tabHover.classList.add('on');
+  });
+  tabEl.addEventListener('click', (ev) => ripple(tabEl, ev));
+}
+tabsRow.addEventListener('mouseleave', () => tabHover.classList.remove('on'));
+
+// 窗口尺寸变了、字体加载完了都重新量一次位置
+addEventListener('resize', syncTabIndicator);
+new ResizeObserver(syncTabIndicator).observe(tabsRow);
+if (document.fonts) document.fonts.ready.then(syncTabIndicator).catch(() => {});
+
+// 首帧先无动画地就位,再加上 .ready 打开过渡:否则启动瞬间指示块会从左上角滑过来
+requestAnimationFrame(() => {
+  syncTabIndicator();
+  tabsRow.classList.add('ready');
+});
+
 // 标题栏：置顶 / 最小化 / 最大化 / 关闭（浏览器预览里没有窗口，整组禁用）
 const pinBtn = document.getElementById('pin-top');
 const pinLine = pinBtn.querySelector('.ic-pin-line');
 const pinSolid = pinBtn.querySelector('.ic-pin-solid');
+const pinIcon = pinBtn.querySelector('.pin-ic');
 const winMin = document.getElementById('win-min');
 const winMax = document.getElementById('win-max');
 const winClose = document.getElementById('win-close');
@@ -266,7 +308,7 @@ const currentWindow = isTauri ? window.__TAURI__.window.getCurrentWindow() : nul
 if (!currentWindow) {
   for (const b of [pinBtn, winMin, winMax, winClose]) b.disabled = true;
 } else {
-  pinBtn.addEventListener('click', () => {
+  pinBtn.addEventListener('click', (ev) => {
     const on = !pinBtn.classList.contains('on');
     pinBtn.classList.toggle('on', on);
     pinBtn.setAttribute('aria-pressed', String(on));
@@ -274,6 +316,8 @@ if (!currentWindow) {
     pinBtn.dataset.tip = on ? '取消置顶' : '窗口置顶';
     pinLine.toggleAttribute('hidden', on);
     pinSolid.toggleAttribute('hidden', !on);
+    popOnce(pinIcon, 'pop');
+    ripple(pinBtn, ev);
     currentWindow.setAlwaysOnTop(on);
   });
 
@@ -297,24 +341,40 @@ if (!currentWindow) {
 const themeBtn = document.getElementById('theme-toggle');
 const icMoon = themeBtn.querySelector('.ic-moon');
 const icSun = themeBtn.querySelector('.ic-sun');
-function applyTheme(theme) {
+function swapThemeIcon(light) {
+  // 注意:SVG 元素上的 .hidden IDL 属性在 WebView2 里不会可靠反映到 content attribute,
+  // 必须直接切属性,[hidden]{display:none} 才能命中
+  icMoon.toggleAttribute('hidden', light); // 浅色下显示太阳(点一下回深色)
+  icSun.toggleAttribute('hidden', !light);
+}
+
+// syncIcon=false 时只换底色不换图标,用于「旋钮转到一半再翻面」的节奏
+function applyTheme(theme, syncIcon = true) {
   const light = theme === 'light';
   document.documentElement.classList.toggle('light', light);
-  // 注意：SVG 元素上的 .hidden IDL 属性在 WebView2 里不会可靠反映到 content attribute，
-  // 必须直接切属性，[hidden]{display:none} 才能命中
-  icMoon.toggleAttribute('hidden', light); // 浅色下显示太阳（点一下回深色）
-  icSun.toggleAttribute('hidden', !light);
   themeBtn.title = light ? '当前浅色，点击切换深色' : '当前深色，点击切换浅色';
   themeBtn.setAttribute('aria-pressed', String(light));
-  // 让系统的非客户区（边框、原生对话框）也跟着换，避免浅色窗口配深色系统框
+  // 让系统的非客户区(边框、原生对话框)也跟着换,避免浅色窗口配深色系统框
   if (currentWindow) currentWindow.setTheme(light ? 'light' : 'dark').catch(() => {});
+  if (syncIcon) swapThemeIcon(light);
 }
 applyTheme(localStorage.getItem('theme') === 'light' ? 'light' : 'dark');
-themeBtn.addEventListener('click', () => {
+
+let themeIconTimer = 0;
+themeBtn.addEventListener('click', (ev) => {
   const next = document.documentElement.classList.contains('light') ? 'dark' : 'light';
   localStorage.setItem('theme', next);
-  applyTheme(next);
-  // 画布上的棋盘格/底色是 JS 绘制的，通知各 CanvasView 重画
+  popOnce(themeBtn, 'spin');
+  ripple(themeBtn, ev);
+  if (prefersReduced()) {
+    applyTheme(next);
+  } else {
+    // 底色立刻跟着换,图标推迟到旋钮转到一半时再翻面,看着像同一只在转
+    applyTheme(next, false);
+    clearTimeout(themeIconTimer);
+    themeIconTimer = setTimeout(() => swapThemeIcon(next === 'light'), 300);
+  }
+  // 画布上的棋盘格/底色是 JS 绘制的,通知各 CanvasView 重画
   window.dispatchEvent(new CustomEvent('themechange', { detail: { theme: next } }));
 });
 

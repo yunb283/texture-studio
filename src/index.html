@@ -4,11 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>图像工具箱</title>
-    <!-- 先给一层底色:外链样式表还没到位的那几帧不至于白屏 -->
+    <!-- 先给一层底色:外链样式表还没到位的那几帧不至于白屏(与 --bg-app 保持一致) -->
     <style>
       html,
       body {
-        background: #202020;
+        background: #101114;
       }
       html.light,
       html.light body {
@@ -28,19 +28,22 @@
     <div class="titlebar" data-tauri-drag-region="deep">
       <img class="tb-icon" src="assets/app-icon.png" alt="" draggable="false" />
       <span class="tb-title">图像工具箱</span>
-      <div class="tb-actions">
-        <button class="pin-btn" id="pin-top" data-tip="窗口置顶" aria-pressed="false" aria-label="窗口置顶">
-          <svg class="ic-pin-line" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M12 17v5" />
-            <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
-          </svg>
-          <svg class="ic-pin-solid" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="currentColor"
-            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
-            <path d="M12 17v5" />
-            <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
-          </svg>
-        </button>
+        <div class="tb-actions">
+          <button class="pin-btn" id="pin-top" data-tip="窗口置顶" aria-pressed="false" aria-label="窗口置顶">
+            <span class="ripple-clip" aria-hidden="true"></span>
+            <span class="pin-ic">
+                  <svg class="ic-pin-line" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 17v5" />
+                <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
+              </svg>
+              <svg class="ic-pin-solid" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="currentColor"
+                stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+                <path d="M12 17v5" />
+                <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
+              </svg>
+            </span>
+          </button>
         <button class="cap-btn" id="win-min" aria-label="最小化" title="最小化">
           <svg viewBox="0 0 10 10" width="10" height="10" fill="none" stroke="currentColor"
             stroke-width="1" aria-hidden="true"><path d="M0 5h10" /></svg>
@@ -62,6 +65,8 @@
     </div>
 
     <div class="tabs">
+      <span class="tab-ind" id="tab-ind" aria-hidden="true"></span>
+      <span class="tab-hover" id="tab-hover" aria-hidden="true"></span>
       <button class="tab active" id="tab-split">序列图分割</button>
       <button class="tab" id="tab-merge">序列图合并</button>
       <button class="tab" id="tab-convert">图片格式转换</button>
@@ -73,15 +78,17 @@
       <button class="tab" id="tab-audio">音频格式转换</button>
       <button class="tab" id="tab-dl">视频下载</button>
       <button class="theme-btn" id="theme-toggle" title="切换浅色 / 深色" aria-label="切换浅色或深色">
-        <svg class="ic-moon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
-          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
-        </svg>
-        <svg class="ic-sun" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
-          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
-          <circle cx="12" cy="12" r="4" />
-          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
-        </svg>
+        <span class="ic-wrap">
+          <svg class="ic-moon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+          </svg>
+          <svg class="ic-sun" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+          </svg>
+        </span>
       </button>
     </div>
 
