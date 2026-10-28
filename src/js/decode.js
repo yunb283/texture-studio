@@ -23,6 +23,8 @@ export const FORMAT_NAME = {
   pgm: 'PGM',
   pbm: 'PBM',
   pam: 'PAM',
+  heic: 'HEIC',
+  heif: 'HEIF',
 };
 
 export const extOf = (name) => (name.split('.').pop() || '').toLowerCase();
@@ -75,6 +77,19 @@ export async function decodeToCanvas(name, bytes, stretch = false) {
     const { decodeTiff } = await import('./tiff.js');
     const img = await decodeTiff(bytes);
     return rgbaCanvas(img.width, img.height, img.data);
+  }
+  if (ext === 'heic' || ext === 'heif') {
+    // HEIC / HEIF 走 Rust 端 zune-heic 解码（WebView2 对 HEIC 的支持依赖系统 HEVC 扩展，不可靠）
+    const { isTauri, decodeHeif } = await import('./platform.js');
+    if (!isTauri) throw new Error('HEIC / HEIF 解码需要桌面版环境');
+    const { width, height, rgba } = await decodeHeif(bytes);
+    // ImageData 直接引用响应缓冲区（零拷贝），只有 putImageData 进 canvas 那一次复制
+    const data = new Uint8ClampedArray(rgba.buffer, rgba.byteOffset, rgba.byteLength);
+    const c = document.createElement('canvas');
+    c.width = width;
+    c.height = height;
+    c.getContext('2d').putImageData(new ImageData(data, width, height), 0, 0);
+    return c;
   }
   try {
     return bitmapToCanvas(await createImageBitmap(new Blob([bytes])));

@@ -56,6 +56,8 @@ export const CONVERT_EXTS = [
   'pgm',
   'pbm',
   'pam',
+  'heic',
+  'heif',
 ];
 export function isSupportedName(name, exts = SUPPORTED_EXTS) {
   return exts.includes((name.split('.').pop() || '').toLowerCase());
@@ -176,6 +178,15 @@ export async function readEntryBytes(entry) {
   const buf = await window.__TAURI__.core.invoke('read_file', { path: entry.path });
   // 走 ipc:// 自定义协议时是 ArrayBuffer；协议被拦截退化为 postMessage 时是数字数组
   return buf instanceof ArrayBuffer ? new Uint8Array(buf) : Uint8Array.from(buf);
+}
+
+// HEIC / HEIF：解码在 Rust 端（zune-heic）。原始字节进出（同 write_file / read_file 的模式），
+// 无 base64。返回 { width, height, rgba }，rgba 为响应 ArrayBuffer 的零拷贝视图。
+export async function decodeHeif(bytes) {
+  const resp = await window.__TAURI__.core.invoke('decode_heif', bytes);
+  const buf = resp instanceof ArrayBuffer ? new Uint8Array(resp) : Uint8Array.from(resp);
+  const dv = new DataView(buf.buffer, buf.byteOffset, 8);
+  return { width: dv.getUint32(0, true), height: dv.getUint32(4, true), rgba: buf.subarray(8) };
 }
 
 export async function readImageBitmap(entry) {

@@ -223,6 +223,87 @@ async fn write_file(request: tauri::ipc::Request<'_>) -> Result<(), String> {
     fs::write(path, bytes).map_err(|e| e.to_string())
 }
 
+/// 像素预算上限：RGBA8 每像素 4 字节，6000 万像素约 240MB，再大直接拒绝。
+/// iPhone 48MP 直出约 4900 万像素，在此预算内；防止异常/恶意文件把内存打爆。
+const HEIF_MAX_PIXELS: usize = 60_000_000;
+
+fn decode_heif_inner(bytes: &[u8]) -> Result<tauri::ipc::Response, String> {
+    use zune_heic::zune_core::bytestream::ZCursor;
+    use zune_heic::zune_core::colorspace::ColorSpace;
+    use zune_heic::zune_core::options::DecoderOptions;
+    use zune_heic::HeifDecoder;
+
+    let options = DecoderOptions::default()
+        .set_max_width(16384)
+        .set_max_height(16384)
+        .set_hevc_max_mdat_size(256 << 20);
+    let mut decoder = HeifDecoder::new_with_options(ZCursor::new(bytes), options);
+    decoder
+        .decode_headers()
+        .map_err(|e| format!("不是有效的 HEIC / HEIF 文件：{e}"))?;
+    let width = decoder.width().ok_or("读取 HEIC 宽度失败（文件结构不完整）")?;
+    let height = decoder.height().ok_or("读取 HEIC 高度失败（文件结构不完整）")?;
+    if width == 0 || height == 0 || width * height > HEIF_MAX_PIXELS {
+        return Err(format!("图片尺寸过大（{width}x{height}），无法解码"));
+    }
+    let cs = decoder.colorspace().ok_or("读取 HEIC 色彩模式失败")?;
+    let mut buf = vec![0u8; decoder.output_buffer_size().ok_or("计算 HEIC 输出缓冲失败")?];
+    decoder
+        .decode_into(&mut buf)
+        .map_err(|e| format!("HEIC 像素解码失败：{e}"))?;
+
+    // 统一成 RGBA：文件记录的裁剪(clap)/旋转(irot)/翻转(imir) zune-heic 解码时已应用；
+    // 透明通道（auxiliary alpha）以 RGBA / LumaA 形式给出
+    let rgba = match cs {
+        ColorSpace::RGBA => buf,
+        ColorSpace::RGB => {
+            let mut out = Vec::with_capacity(width * height * 4);
+            for px in buf.chunks_exact(3) {
+                out.extend_from_slice(&[px[0], px[1], px[2], 255]);
+            }
+            out
+        }
+        ColorSpace::Luma => {
+            let mut out = Vec::with_capacity(width * height * 4);
+            for &g in &buf {
+                out.extend_from_slice(&[g, g, g, 255]);
+            }
+            out
+        }
+        ColorSpace::LumaA => {
+            let mut out = Vec::with_capacity(width * height * 4);
+            for px in buf.chunks_exact(2) {
+                out.extend_from_slice(&[px[0], px[0], px[0], px[1]]);
+            }
+            out
+        }
+        other => {
+            return Err(format!(
+                "暂不支持该 HEIC 的色彩模式 {other:?}（10-bit / 4:2:2 / 4:4:4 文件请先用其它工具转成 PNG）"
+            ));
+        }
+    };
+
+    // 响应布局：[u32 小端 宽][u32 小端 高][RGBA 像素]，原始字节直传，无 base64
+    let mut resp = Vec::with_capacity(8 + rgba.len());
+    resp.extend_from_slice(&(width as u32).to_le_bytes());
+    resp.extend_from_slice(&(height as u32).to_le_bytes());
+    resp.extend_from_slice(&rgba);
+    Ok(tauri::ipc::Response::new(resp))
+}
+
+// HEIC / HEIF 解码：请求体为文件原始字节（同 write_file 的收法），解码在阻塞线程池跑
+#[tauri::command]
+async fn decode_heif(request: tauri::ipc::Request<'_>) -> Result<tauri::ipc::Response, String> {
+    let bytes = match request.body() {
+        tauri::ipc::InvokeBody::Raw(b) => b.clone(),
+        _ => return Err("decode_heif 需要二进制载荷".into()),
+    };
+    tauri::async_runtime::spawn_blocking(move || decode_heif_inner(&bytes))
+        .await
+        .map_err(|e| format!("解码任务异常：{e}"))?
+}
+
 #[tauri::command]
 async fn open_path(path: String) -> Result<(), String> {
     // 用系统默认方式打开文件或文件夹。explorer 即使成功也常常返回非 0，
@@ -2096,6 +2177,7 @@ pub fn run() {
             pick_dir,
             read_file,
             write_file,
+            decode_heif,
             file_size,
             list_files,
             open_path,
@@ -2115,4 +2197,92 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod heif_tests {
+    use super::*;
+
+    fn fixture(name: &str) -> Vec<u8> {
+        let p = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("testdata")
+            .join(name);
+        fs::read(&p).unwrap_or_else(|e| panic!("缺少测试样本 {}：{e}", p.display()))
+    }
+
+    /// 解码并解析响应布局 [u32 宽][u32 高][RGBA]，同时校验长度
+    fn decode(name: &str) -> (usize, usize, Vec<u8>) {
+        use tauri::ipc::{IpcResponse, InvokeResponseBody};
+        let resp = decode_heif_inner(&fixture(name)).unwrap_or_else(|e| panic!("{name} 解码失败：{e}"));
+        let InvokeResponseBody::Raw(b) = resp.body().unwrap() else {
+            panic!("{name} 响应不是原始字节");
+        };
+        let w = u32::from_le_bytes(b[0..4].try_into().unwrap()) as usize;
+        let h = u32::from_le_bytes(b[4..8].try_into().unwrap()) as usize;
+        assert_eq!(b.len(), 8 + w * h * 4, "{name} 输出长度与尺寸不符");
+        (w, h, b[8..].to_vec())
+    }
+
+    #[test]
+    fn grey_heic_expands_to_opaque_rgba() {
+        let (w, h, px) = decode("grey.heic");
+        assert!(w > 0 && h > 0);
+        for i in (0..px.len()).step_by(4) {
+            assert_eq!(px[i], px[i + 1], "灰度图 R≠G");
+            assert_eq!(px[i + 1], px[i + 2], "灰度图 G≠B");
+            assert_eq!(px[i + 3], 255, "灰度图应完全不透明");
+        }
+    }
+
+    #[test]
+    fn alpha_heic_has_transparency() {
+        let (w, h, px) = decode("alpha.heic");
+        let transparent = (0..w * h).filter(|i| px[i * 4 + 3] < 255).count();
+        assert!(transparent > 0, "alpha.heic 应含半透明/透明像素");
+    }
+
+    #[test]
+    fn transforms_applied_and_odd_size_ok() {
+        let (w, h, _px) = decode("transforms-odd.heic");
+        assert!(w > 0 && h > 0);
+        assert!(w % 2 == 1 || h % 2 == 1, "样本本应是奇数尺寸");
+    }
+
+    #[test]
+    fn transforms_alpha_combo_ok() {
+        let (_w, _h, px) = decode("transforms-alpha.heic");
+        assert!(px.iter().skip(3).step_by(4).any(|&a| a < 255), "应含透明像素");
+    }
+
+    #[test]
+    fn sample_heif_square_ok() {
+        let (w, h, _px) = decode("sample1.heif");
+        assert!(w > 0 && h > 0);
+    }
+
+    #[test]
+    fn iphone_grid_photo() {
+        // 4284x5712 的 49 格 iPhone 照片：验证 grid 并行解码与方向应用后的最终尺寸
+        let (w, h, px) = decode("IMG_4862.HEIC");
+        assert_eq!(w * h, 4284 * 5712, "grid 图尺寸不符");
+        let distinct = {
+            let mut set = std::collections::HashSet::new();
+            for i in (0..px.len()).step_by(4 * 997) {
+                set.insert((px[i], px[i + 1], px[i + 2]));
+                if set.len() > 3 {
+                    break;
+                }
+            }
+            set.len()
+        };
+        assert!(distinct > 3, "照片像素应丰富多样");
+    }
+
+    #[test]
+    fn invalid_bytes_give_chinese_error() {
+        match decode_heif_inner(b"definitely not a heic file") {
+            Ok(_) => panic!("非法字节不应解码成功"),
+            Err(e) => assert!(e.contains("不是有效的 HEIC"), "错误信息应为中文：{e}"),
+        }
+    }
 }
