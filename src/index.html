@@ -18,7 +18,8 @@
     <!-- 样式表加载前先按上次选择套上浅色类,避免启动瞬间深底闪烁 -->
     <script>
       try {
-        if (localStorage.getItem('theme') === 'light') document.documentElement.classList.add('light');
+        if (localStorage.getItem("theme") === "light")
+          document.documentElement.classList.add("light");
       } catch (e) {}
     </script>
     <link rel="stylesheet" href="styles.css" />
@@ -28,38 +29,203 @@
     <div class="titlebar" data-tauri-drag-region="deep">
       <img class="tb-icon" src="assets/app-icon.png" alt="" draggable="false" />
       <span class="tb-title">图像工具箱</span>
-        <div class="tb-actions">
-          <button class="pin-btn" id="pin-top" data-tip="窗口置顶" aria-pressed="false" aria-label="窗口置顶">
-            <span class="ripple-clip" aria-hidden="true"></span>
-            <span class="pin-ic">
-                  <svg class="ic-pin-line" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
-                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M12 17v5" />
-                <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
-              </svg>
-              <svg class="ic-pin-solid" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" stroke="currentColor"
-                stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
-                <path d="M12 17v5" />
-                <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
-              </svg>
-            </span>
-          </button>
+      <!-- 工具列表:只管页签显示与否,勾掉哪个就从这一行拿走,不动各页自己的功能 -->
+      <div class="tlist-wrap">
+        <button
+          class="pin-btn tlist-btn"
+          id="tool-list"
+          type="button"
+          data-tip="工具列表:显示 / 隐藏页签"
+          aria-label="工具列表"
+          aria-expanded="false"
+          aria-haspopup="true"
+        >
+          <span class="ripple-clip" aria-hidden="true"></span>
+          <span class="pin-ic">
+            <svg
+              viewBox="0 0 24 24"
+              width="15"
+              height="15"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="m3 7 2 2 4-4" />
+              <path d="m3 17 2 2 4-4" />
+              <path d="M13 6h8" />
+              <path d="M13 12h8" />
+              <path d="M13 18h8" />
+            </svg>
+          </span>
+        </button>
+        <!-- 挂在 deep 拖拽区里,但面板自己要把拖拽关掉:点到空白处就拖着窗口跑了 -->
+        <div
+          class="tlist-pop"
+          id="tool-list-pop"
+          hidden
+          data-tauri-drag-region="false"
+        >
+          <div class="tlist-head">
+            <span class="tlist-title">显示的页签</span>
+            <button class="btn small" id="tlist-show-all" type="button">
+              全部显示
+            </button>
+          </div>
+          <div class="tlist-list" id="tlist-list"></div>
+          <div class="tlist-note" id="tlist-note"></div>
+        </div>
+      </div>
+      <div class="tb-actions">
+        <!-- 换肤钮和置顶钮并排，共用 .pin-btn 那套圆形悬停（.ripple-clip 裁涟漪，::after 画提示） -->
+        <button
+          class="pin-btn theme-btn"
+          id="theme-toggle"
+          data-tip="切换浅色 / 深色"
+          aria-label="切换浅色或深色"
+        >
+          <span class="ripple-clip" aria-hidden="true"></span>
+          <span class="ic-wrap">
+            <svg
+              class="ic-moon"
+              viewBox="0 0 24 24"
+              width="15"
+              height="15"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+            </svg>
+            <svg
+              class="ic-sun"
+              viewBox="0 0 24 24"
+              width="15"
+              height="15"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+              hidden
+            >
+              <circle cx="12" cy="12" r="4" />
+              <path
+                d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"
+              />
+            </svg>
+          </span>
+        </button>
+        <button
+          class="pin-btn"
+          id="pin-top"
+          data-tip="窗口置顶"
+          aria-pressed="false"
+          aria-label="窗口置顶"
+        >
+          <span class="ripple-clip" aria-hidden="true"></span>
+          <span class="pin-ic">
+            <svg
+              class="ic-pin-line"
+              viewBox="0 0 24 24"
+              width="15"
+              height="15"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 17v5" />
+              <path
+                d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"
+              />
+            </svg>
+            <svg
+              class="ic-pin-solid"
+              viewBox="0 0 24 24"
+              width="15"
+              height="15"
+              fill="currentColor"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+              hidden
+            >
+              <path d="M12 17v5" />
+              <path
+                d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"
+              />
+            </svg>
+          </span>
+        </button>
         <button class="cap-btn" id="win-min" aria-label="最小化" title="最小化">
-          <svg viewBox="0 0 10 10" width="10" height="10" fill="none" stroke="currentColor"
-            stroke-width="1" aria-hidden="true"><path d="M0 5h10" /></svg>
+          <svg
+            viewBox="0 0 10 10"
+            width="10"
+            height="10"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1"
+            aria-hidden="true"
+          >
+            <path d="M0 5h10" />
+          </svg>
         </button>
         <button class="cap-btn" id="win-max" aria-label="最大化" title="最大化">
-          <svg class="ic-max" viewBox="0 0 10 10" width="10" height="10" fill="none" stroke="currentColor"
-            stroke-width="1" aria-hidden="true"><rect x="0.5" y="0.5" width="9" height="9" rx="1" /></svg>
-          <svg class="ic-restore" viewBox="0 0 10 10" width="10" height="10" fill="none" stroke="currentColor"
-            stroke-width="1" aria-hidden="true" hidden>
+          <svg
+            class="ic-max"
+            viewBox="0 0 10 10"
+            width="10"
+            height="10"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1"
+            aria-hidden="true"
+          >
+            <rect x="0.5" y="0.5" width="9" height="9" rx="1" />
+          </svg>
+          <svg
+            class="ic-restore"
+            viewBox="0 0 10 10"
+            width="10"
+            height="10"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1"
+            aria-hidden="true"
+            hidden
+          >
             <path d="M2.5 2.5v-2h7v7h-2" />
             <rect x="0.5" y="2.5" width="7" height="7" rx="1" />
           </svg>
         </button>
-        <button class="cap-btn cap-close" id="win-close" aria-label="关闭" title="关闭">
-          <svg viewBox="0 0 10 10" width="10" height="10" fill="none" stroke="currentColor"
-            stroke-width="1" aria-hidden="true"><path d="M0.5 0.5l9 9M9.5 0.5l-9 9" /></svg>
+        <button
+          class="cap-btn cap-close"
+          id="win-close"
+          aria-label="关闭"
+          title="关闭"
+        >
+          <svg
+            viewBox="0 0 10 10"
+            width="10"
+            height="10"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1"
+            aria-hidden="true"
+          >
+            <path d="M0.5 0.5l9 9M9.5 0.5l-9 9" />
+          </svg>
         </button>
       </div>
     </div>
@@ -77,19 +243,10 @@
       <button class="tab" id="tab-video">视频格式转换</button>
       <button class="tab" id="tab-audio">音频格式转换</button>
       <button class="tab" id="tab-dl">视频下载</button>
-      <button class="theme-btn" id="theme-toggle" title="切换浅色 / 深色" aria-label="切换浅色或深色">
-        <span class="ic-wrap">
-          <svg class="ic-moon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
-          </svg>
-          <svg class="ic-sun" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
-            <circle cx="12" cy="12" r="4" />
-            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
-          </svg>
-        </span>
-      </button>
+      <button class="tab" id="tab-clock">翻页时钟</button>
+      <button class="tab" id="tab-rename">批量重命名</button>
+      <button class="tab" id="tab-sysinfo">电脑配置</button>
+      <button class="tab" id="tab-shutdown">自动关机</button>
     </div>
 
     <div class="page" id="page-split">
@@ -99,7 +256,7 @@
           <div class="bg-btns" id="src-bg"></div>
         </div>
         <div class="canvas-wrap"><canvas id="src-canvas"></canvas></div>
-        <div class="dim-label" id="split-info">图像尺寸:-  |  总帧数:-</div>
+        <div class="dim-label" id="split-info">图像尺寸:- | 总帧数:-</div>
         <button class="btn" id="split-open">打开图片…(或拖入序列贴图)</button>
         <button class="btn" id="split-clear" disabled>清空图片</button>
         <div class="help-label">
@@ -121,7 +278,14 @@
           <span class="pos-label" id="split-pos">0/0</span>
           <span class="spacer"></span>
           <span class="dim-label">帧率</span>
-          <input type="number" class="fps-input" id="split-fps" min="1" max="240" value="30" />
+          <input
+            type="number"
+            class="fps-input"
+            id="split-fps"
+            min="1"
+            max="240"
+            value="30"
+          />
         </div>
         <div class="form-grid">
           <label>列数</label>
@@ -159,7 +323,9 @@
           <button class="btn" id="merge-add">添加图片…</button>
           <button class="btn" id="merge-clear">清空列表</button>
         </div>
-        <div class="help-label">支持导入:PNG、JPG、BMP、GIF、WEBP、TGA、TIF / TIFF</div>
+        <div class="help-label">
+          支持导入:PNG、JPG、BMP、GIF、WEBP、TGA、TIF / TIFF
+        </div>
       </div>
       <div class="panel" style="flex: 68">
         <div class="panel-head">
@@ -180,7 +346,14 @@
             <span>显示边界</span>
           </label>
           <span class="dim-label">帧率</span>
-          <input type="number" class="fps-input" id="merge-fps" min="1" max="240" value="30" />
+          <input
+            type="number"
+            class="fps-input"
+            id="merge-fps"
+            min="1"
+            max="240"
+            value="30"
+          />
         </div>
         <div class="form-grid">
           <label>列数</label>
@@ -194,9 +367,21 @@
           <span class="dim-label" id="merge-size">0 x 0 px</span>
           <label>输出尺寸</label>
           <div class="size-row">
-            <input type="number" id="merge-out-w" min="1" max="16384" value="1024" />
+            <input
+              type="number"
+              id="merge-out-w"
+              min="1"
+              max="16384"
+              value="1024"
+            />
             <span>×</span>
-            <input type="number" id="merge-out-h" min="1" max="16384" value="1024" />
+            <input
+              type="number"
+              id="merge-out-h"
+              min="1"
+              max="16384"
+              value="1024"
+            />
           </div>
           <label>输出格式</label>
           <select id="merge-fmt">
@@ -225,12 +410,12 @@
           <div class="bg-btns" id="conv-prev-bg"></div>
         </div>
         <div class="canvas-wrap"><canvas id="conv-canvas"></canvas></div>
-        <div class="dim-label" id="conv-info">图像尺寸:-  |  大小:-  |  格式:-</div>
+        <div class="dim-label" id="conv-info">图像尺寸:- | 大小:- | 格式:-</div>
         <button class="btn" id="conv-open">打开图片…(或拖入图片)</button>
         <button class="btn" id="conv-clear" disabled>清空图片</button>
         <div class="help-label">
-          支持导入:PNG、JPEG、BMP、GIF、WEBP、TGA、TIF / TIFF、HDR / RGBE、DDS、OpenEXR、PNM /
-          PPM / PGM / PBM / PAM、HEIC / HEIF<br />
+          支持导入:PNG、JPEG、BMP、GIF、WEBP、TGA、TIF / TIFF、HDR /
+          RGBE、DDS、OpenEXR、PNM / PPM / PGM / PBM / PAM、HEIC / HEIF<br />
           支持导出:PNG、JPEG、TGA(HDR / EXR 等高位深图会量化为 8 位)
         </div>
       </div>
@@ -262,7 +447,9 @@
           <input type="text" id="conv-dir" placeholder="例如 D:\Textures\out" />
           <button class="btn small" id="conv-browse" disabled>浏览…</button>
         </div>
-        <button class="btn" id="conv-export-dir" disabled>导出到指定路径</button>
+        <button class="btn" id="conv-export-dir" disabled>
+          导出到指定路径
+        </button>
         <div class="io-line">
           <div class="status" id="conv-status"></div>
           <div class="io-row" id="conv-io"></div>
@@ -277,7 +464,7 @@
           <div class="bg-btns" id="nrm-src-bg"></div>
         </div>
         <div class="canvas-wrap"><canvas id="nrm-src-canvas"></canvas></div>
-        <div class="dim-label" id="nrm-info">图像尺寸:-  |  大小:-  |  格式:-</div>
+        <div class="dim-label" id="nrm-info">图像尺寸:- | 大小:- | 格式:-</div>
         <button class="btn" id="nrm-open">打开图片…(或拖入图片)</button>
         <button class="btn" id="nrm-clear" disabled>清空图片</button>
         <div class="form-grid">
@@ -287,17 +474,24 @@
             <option>TGA</option>
           </select>
           <label>文件名</label>
-          <input type="text" id="nrm-name" placeholder="留空则用「原名_Normal」" />
+          <input
+            type="text"
+            id="nrm-name"
+            placeholder="留空则用「原名_Normal」"
+          />
         </div>
         <label class="chk">
           <input type="checkbox" id="nrm-save-orig" checked />
           <span>导出到原图所在目录</span>
         </label>
-        <button class="btn primary" id="nrm-export" disabled>导出法线贴图</button>
+        <button class="btn primary" id="nrm-export" disabled>
+          导出法线贴图
+        </button>
         <div class="status" id="nrm-status"></div>
         <div class="help-label">
           支持导入:PNG、JPEG、BMP、WEBP、TGA、DDS<br />
-          高度取自灰度(亮度 / 平均 / 单通道),越界边缘按 clamp 处理,法线图尺寸与原图一致、不透明
+          高度取自灰度(亮度 / 平均 / 单通道),越界边缘按 clamp
+          处理,法线图尺寸与原图一致、不透明
         </div>
       </div>
       <div class="panel" style="flex: 1 1 0; min-width: 0">
@@ -306,7 +500,7 @@
           <div class="bg-btns" id="nrm-out-bg"></div>
         </div>
         <div class="canvas-wrap"><canvas id="nrm-out-canvas"></canvas></div>
-        <div class="dim-label" id="nrm-out-info">法线尺寸:-  |  生成耗时:-</div>
+        <div class="dim-label" id="nrm-out-info">法线尺寸:- | 生成耗时:-</div>
         <div class="form-grid">
           <label>高度来源</label>
           <select id="nrm-source">
@@ -324,13 +518,41 @@
           </select>
           <label>模糊半径</label>
           <div class="dual-row">
-            <input type="range" id="nrm-blur" min="0" max="16" step="1" value="1" />
-            <input type="number" id="nrm-blur-num" min="0" max="16" step="1" value="1" />
+            <input
+              type="range"
+              id="nrm-blur"
+              min="0"
+              max="16"
+              step="1"
+              value="1"
+            />
+            <input
+              type="number"
+              id="nrm-blur-num"
+              min="0"
+              max="16"
+              step="1"
+              value="1"
+            />
           </div>
           <label>强度</label>
           <div class="dual-row">
-            <input type="range" id="nrm-strength" min="0.1" max="8" step="0.1" value="1" />
-            <input type="number" id="nrm-strength-num" min="0.1" max="8" step="0.1" value="1" />
+            <input
+              type="range"
+              id="nrm-strength"
+              min="0.1"
+              max="8"
+              step="0.1"
+              value="1"
+            />
+            <input
+              type="number"
+              id="nrm-strength-num"
+              min="0.1"
+              max="8"
+              step="0.1"
+              value="1"
+            />
           </div>
           <label></label>
           <label class="chk">
@@ -349,7 +571,7 @@
           <div class="bg-btns" id="sml-src-bg"></div>
         </div>
         <div class="canvas-wrap"><canvas id="sml-src-canvas"></canvas></div>
-        <div class="dim-label" id="sml-info">图像尺寸:-  |  大小:-  |  格式:-</div>
+        <div class="dim-label" id="sml-info">图像尺寸:- | 大小:- | 格式:-</div>
         <button class="btn" id="sml-open">打开图片…(或拖入图片)</button>
         <button class="btn" id="sml-clear" disabled>清空图片</button>
         <div class="form-grid">
@@ -359,17 +581,24 @@
             <option>TGA</option>
           </select>
           <label>文件名</label>
-          <input type="text" id="sml-name" placeholder="留空则用「原名_Seamless」" />
+          <input
+            type="text"
+            id="sml-name"
+            placeholder="留空则用「原名_Seamless」"
+          />
         </div>
         <label class="chk">
           <input type="checkbox" id="sml-save-orig" checked />
           <span>导出到原图所在目录</span>
         </label>
-        <button class="btn primary" id="sml-export" disabled>导出无缝贴图</button>
+        <button class="btn primary" id="sml-export" disabled>
+          导出无缝贴图
+        </button>
         <div class="status" id="sml-status"></div>
         <div class="help-label">
           支持导入:PNG、JPEG、BMP、WEBP、TGA、DDS<br />
-          导出尺寸与原图一致,默认文件名加后缀 _Seamless;取消上面的勾选后点导出会弹目录选择框
+          导出尺寸与原图一致,默认文件名加后缀
+          _Seamless;取消上面的勾选后点导出会弹目录选择框
         </div>
       </div>
       <div class="panel" style="flex: 1 1 0; min-width: 0">
@@ -378,7 +607,9 @@
           <div class="bg-btns" id="sml-out-bg"></div>
         </div>
         <div class="canvas-wrap"><canvas id="sml-out-canvas"></canvas></div>
-        <div class="dim-label" id="sml-out-info">结果尺寸:-  |  平铺 2x2  |  融合:-  |  耗时:-</div>
+        <div class="dim-label" id="sml-out-info">
+          结果尺寸:- | 平铺 2x2 | 融合:- | 耗时:-
+        </div>
         <div class="dim-label" id="sml-metric">接缝指标:-</div>
         <div class="form-grid">
           <label>融合方向</label>
@@ -389,8 +620,22 @@
           </select>
           <label>融合宽度</label>
           <div class="dual-row">
-            <input type="range" id="sml-width" min="0" max="50" step="1" value="0" />
-            <input type="number" id="sml-width-num" min="0" max="50" step="1" value="0" />
+            <input
+              type="range"
+              id="sml-width"
+              min="0"
+              max="50"
+              step="1"
+              value="0"
+            />
+            <input
+              type="number"
+              id="sml-width-num"
+              min="0"
+              max="50"
+              step="1"
+              value="0"
+            />
           </div>
           <label>融合尺度</label>
           <select id="sml-levels">
@@ -424,7 +669,14 @@
         </div>
         <div class="canvas-wrap">
           <canvas id="gif-src-canvas"></canvas>
-          <video id="gif-video" class="offscreen-video" crossorigin="anonymous" muted playsinline preload="auto"></video>
+          <video
+            id="gif-video"
+            class="offscreen-video"
+            crossorigin="anonymous"
+            muted
+            playsinline
+            preload="auto"
+          ></video>
         </div>
         <div class="dim-label" id="gif-info">未载入文件</div>
         <div class="tl-row">
@@ -438,8 +690,17 @@
         </div>
         <div class="vid-row" id="gif-vid-row">
           <button class="btn small" id="gif-vid-play" disabled>播放</button>
-          <button class="btn small" id="gif-vid-reset" title="回到选区起点重新播放" disabled>重置</button>
-          <span class="dim-label tl-time" id="gif-vid-time">00:00:00 / 00:00:00</span>
+          <button
+            class="btn small"
+            id="gif-vid-reset"
+            title="回到选区起点重新播放"
+            disabled
+          >
+            重置
+          </button>
+          <span class="dim-label tl-time" id="gif-vid-time"
+            >00:00:00 / 00:00:00</span
+          >
           <span class="spacer"></span>
           <span class="dim-label">区域</span>
           <span class="dim-label" id="gif-sel-info">全画面</span>
@@ -448,13 +709,37 @@
         <div class="form-grid" id="gif-vid-grid">
           <label>GIF 范围</label>
           <div class="dual-row vid-tools">
-            <input type="text" class="time-in" id="gif-t-in" title="开始时间:可输入秒,或 分:秒 / 时:分:秒.厘秒" disabled />
-            <input type="text" class="time-in" id="gif-t-out" title="结束时间:可输入秒,或 分:秒 / 时:分:秒.厘秒" disabled />
-            <button class="btn small on" id="gif-auto" title="关闭后改参数不会自动重新生成 GIF">自动生成GIF</button>
+            <input
+              type="text"
+              class="time-in"
+              id="gif-t-in"
+              title="开始时间:可输入秒,或 分:秒 / 时:分:秒.厘秒"
+              disabled
+            />
+            <input
+              type="text"
+              class="time-in"
+              id="gif-t-out"
+              title="结束时间:可输入秒,或 分:秒 / 时:分:秒.厘秒"
+              disabled
+            />
+            <button
+              class="btn small on"
+              id="gif-auto"
+              title="关闭后改参数不会自动重新生成 GIF"
+            >
+              自动生成GIF
+            </button>
           </div>
         </div>
         <div class="dual-row btn-row">
-          <button class="btn" id="gif-open" title="支持:PNG、JPG、BMP、WEBP、TGA&#10;视频:MP4、WEBM">打开文件…(或拖入文件)</button>
+          <button
+            class="btn"
+            id="gif-open"
+            title="支持:PNG、JPG、BMP、WEBP、TGA&#10;视频:MP4、WEBM"
+          >
+            打开文件…(或拖入文件)
+          </button>
           <button class="btn" id="gif-clear" disabled>清空</button>
         </div>
         <div class="form-grid">
@@ -476,7 +761,7 @@
         <div class="canvas-wrap" id="gif-prev-wrap">
           <canvas id="gif-frame" hidden></canvas>
         </div>
-        <div class="dim-label" id="gif-out-info">GIF:-  |  尺寸:-  |  体积:-</div>
+        <div class="dim-label" id="gif-out-info">GIF:- | 尺寸:- | 体积:-</div>
         <div class="form-grid">
           <label>预览</label>
           <div class="dual-row">
@@ -486,7 +771,15 @@
           </div>
           <label>逐帧</label>
           <div class="dual-row">
-            <input type="range" id="gif-frame-range" min="1" max="1" step="1" value="1" disabled />
+            <input
+              type="range"
+              id="gif-frame-range"
+              min="1"
+              max="1"
+              step="1"
+              value="1"
+              disabled
+            />
             <span class="dim-label" id="gif-frame-label">-</span>
           </div>
           <label>帧区间</label>
@@ -497,14 +790,42 @@
                 <div class="tl-grip" id="gif-fr-b"></div>
               </div>
             </div>
-            <input type="number" id="gif-fr-a-in" min="1" max="1" value="1" disabled />
-            <input type="number" id="gif-fr-b-in" min="1" max="1" value="1" disabled />
+            <input
+              type="number"
+              id="gif-fr-a-in"
+              min="1"
+              max="1"
+              value="1"
+              disabled
+            />
+            <input
+              type="number"
+              id="gif-fr-b-in"
+              min="1"
+              max="1"
+              value="1"
+              disabled
+            />
             <button class="btn small" id="gif-fr-all" disabled>全区间</button>
           </div>
           <label>列 / 行</label>
           <div class="dual-row">
-            <input type="number" id="gif-cols" min="1" max="128" step="1" value="1" />
-            <input type="number" id="gif-rows" min="1" max="128" step="1" value="1" />
+            <input
+              type="number"
+              id="gif-cols"
+              min="1"
+              max="128"
+              step="1"
+              value="1"
+            />
+            <input
+              type="number"
+              id="gif-rows"
+              min="1"
+              max="128"
+              step="1"
+              value="1"
+            />
           </div>
           <label>等比缩放</label>
           <select id="gif-scale">
@@ -515,7 +836,14 @@
           </select>
           <label>帧率</label>
           <div class="dual-row">
-            <input type="range" id="gif-fps" min="1" max="30" step="1" value="15" />
+            <input
+              type="range"
+              id="gif-fps"
+              min="1"
+              max="30"
+              step="1"
+              value="15"
+            />
             <span class="dim-label" id="gif-fps-label">15</span>
           </div>
           <label>循环</label>
@@ -555,7 +883,15 @@
         <div class="form-grid">
           <label>逐帧</label>
           <div class="dual-row">
-            <input type="range" id="gv-frame-range" min="1" max="1" step="1" value="1" disabled />
+            <input
+              type="range"
+              id="gv-frame-range"
+              min="1"
+              max="1"
+              step="1"
+              value="1"
+              disabled
+            />
             <span class="dim-label" id="gv-frame-label">-</span>
           </div>
           <label>帧区间</label>
@@ -566,20 +902,47 @@
                 <div class="tl-grip" id="gv-fr-b"></div>
               </div>
             </div>
-            <input type="number" id="gv-fr-a-in" min="1" max="1" value="1" disabled />
-            <input type="number" id="gv-fr-b-in" min="1" max="1" value="1" disabled />
+            <input
+              type="number"
+              id="gv-fr-a-in"
+              min="1"
+              max="1"
+              value="1"
+              disabled
+            />
+            <input
+              type="number"
+              id="gv-fr-b-in"
+              min="1"
+              max="1"
+              value="1"
+              disabled
+            />
             <button class="btn small" id="gv-fr-all" disabled>全区间</button>
           </div>
         </div>
         <div class="vid-row">
           <button class="btn small" id="gv-play" disabled>播放</button>
           <button class="btn small" id="gv-reset" disabled>重置</button>
-          <button class="btn small step-btn" id="gv-prev" disabled>上一帧</button>
-          <button class="btn small step-btn" id="gv-next" disabled>下一帧</button>
-          <button class="btn small" id="gv-crop" disabled title="在画面上拖拽框选一块,导出的 GIF 只留这一块;拖手柄改大小、框内拖动改位置,右键仍然拖动画面.再点一次取消选区">裁剪区域</button>
+          <button class="btn small step-btn" id="gv-prev" disabled>
+            上一帧
+          </button>
+          <button class="btn small step-btn" id="gv-next" disabled>
+            下一帧
+          </button>
+          <button
+            class="btn small"
+            id="gv-crop"
+            disabled
+            title="在画面上拖拽框选一块,导出的 GIF 只留这一块;拖手柄改大小、框内拖动改位置,右键仍然拖动画面.再点一次取消选区"
+          >
+            裁剪区域
+          </button>
           <span class="spacer"></span>
           <span class="dim-label tl-time" id="gv-fps-now">-</span>
-          <span class="dim-label tl-time" id="gv-time">00:00.00 / 00:00.00</span>
+          <span class="dim-label tl-time" id="gv-time"
+            >00:00.00 / 00:00.00</span
+          >
         </div>
       </div>
       <div class="panel" style="flex: 42">
@@ -591,11 +954,24 @@
         <div class="form-grid">
           <label>速度</label>
           <div class="dual-row">
-            <input type="range" id="gv-speed" min="0.1" max="3" step="0.1" value="1" disabled title="1 就是源文件自己的帧率;0.1 放慢到十分之一,3 加快到 3 倍.按同一个倍率缩放每帧延时,原文件里快慢不一的节奏不会被抹平" />
+            <input
+              type="range"
+              id="gv-speed"
+              min="0.1"
+              max="3"
+              step="0.1"
+              value="1"
+              disabled
+              title="1 就是源文件自己的帧率;0.1 放慢到十分之一,3 加快到 3 倍.按同一个倍率缩放每帧延时,原文件里快慢不一的节奏不会被抹平"
+            />
             <span class="dim-label" id="gv-speed-label">1.0×</span>
           </div>
           <label>抽帧</label>
-          <select id="gv-drop" disabled title="0 不抽帧;1 从第一帧起每 2 帧留 1 帧;2 再走一遍,每 4 帧留 1 帧.抽掉的帧把时长并进后一帧,一圈总时长不变">
+          <select
+            id="gv-drop"
+            disabled
+            title="0 不抽帧;1 从第一帧起每 2 帧留 1 帧;2 再走一遍,每 4 帧留 1 帧.抽掉的帧把时长并进后一帧,一圈总时长不变"
+          >
             <option value="0" selected>0(不抽帧)</option>
             <option value="1">1(每 2 帧留 1)</option>
             <option value="2">2(每 4 帧留 1)</option>
@@ -608,7 +984,12 @@
             <option value="25">25%</option>
           </select>
           <label>文件名</label>
-          <input type="text" id="gv-name" placeholder="留空则用 原名_1.gif" disabled />
+          <input
+            type="text"
+            id="gv-name"
+            placeholder="留空则用 原名_1.gif"
+            disabled
+          />
           <label>导出</label>
           <div class="dim-label" id="gv-out-info">未载入 GIF</div>
         </div>
@@ -617,7 +998,14 @@
           <span>导出到源文件所在目录</span>
         </label>
         <button class="btn primary" id="gv-export" disabled>导出 GIF</button>
-        <button class="btn" id="gv-export-frame" disabled title="导出预览里停住的这一帧(PNG,无损,按上面的等比缩放)">导出当前帧</button>
+        <button
+          class="btn"
+          id="gv-export-frame"
+          disabled
+          title="导出预览里停住的这一帧(PNG,无损,按上面的等比缩放)"
+        >
+          导出当前帧
+        </button>
         <div class="io-row end" id="gv-io"></div>
         <div class="status" id="gv-status"></div>
       </div>
@@ -627,78 +1015,171 @@
       <div class="panel" style="flex: 58">
         <!-- 单个转换模式(默认可见) -->
         <div id="vid-single-wrap">
-        <div class="panel-head">
-          <span class="panel-title">源视频 <span class="dim-label" id="vid-src-name" style="margin-left:6px;"></span></span>
-          <span class="dim-label" id="vid-src-size"></span>
-          <button class="btn small" id="vid-crop" disabled>裁剪区域</button>
-          <button class="btn small" id="vid-hide" disabled>隐藏暂停按钮</button>
-        </div>
-        <div class="canvas-wrap" id="vid-canvas-wrap">
-          <video id="vid-src" class="offscreen-video" muted playsinline preload="auto"></video>
-          <div class="vid-play-overlay" id="vid-play-overlay" hidden>
-            <svg viewBox="0 0 24 24" width="72" height="72" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          <div class="panel-head">
+            <span class="panel-title"
+              >源视频
+              <span
+                class="dim-label"
+                id="vid-src-name"
+                style="margin-left: 6px"
+              ></span
+            ></span>
+            <span class="dim-label" id="vid-src-size"></span>
+            <button class="btn small" id="vid-crop" disabled>裁剪区域</button>
+            <button class="btn small" id="vid-hide" disabled>
+              隐藏暂停按钮
+            </button>
           </div>
-          <!-- 裁剪叠加层 -->
-          <div class="vid-crop-overlay" id="vid-crop-overlay" hidden>
-            <div class="crop-mask crop-mask-t"></div>
-            <div class="crop-mask crop-mask-b"></div>
-            <div class="crop-mask crop-mask-l"></div>
-            <div class="crop-mask crop-mask-r"></div>
-            <div class="vid-crop-box" id="vid-crop-box">
-              <div class="crop-handle nw"></div>
-              <div class="crop-handle n"></div>
-              <div class="crop-handle ne"></div>
-              <div class="crop-handle e"></div>
-              <div class="crop-handle se"></div>
-              <div class="crop-handle s"></div>
-              <div class="crop-handle sw"></div>
-              <div class="crop-handle w"></div>
+          <div class="canvas-wrap" id="vid-canvas-wrap">
+            <video
+              id="vid-src"
+              class="offscreen-video"
+              muted
+              playsinline
+              preload="auto"
+            ></video>
+            <div class="vid-play-overlay" id="vid-play-overlay" hidden>
+              <svg
+                viewBox="0 0 24 24"
+                width="72"
+                height="72"
+                fill="currentColor"
+              >
+                <path d="M8 5v14l11-7z" />
+              </svg>
             </div>
+            <!-- 裁剪叠加层 -->
+            <div class="vid-crop-overlay" id="vid-crop-overlay" hidden>
+              <div class="crop-mask crop-mask-t"></div>
+              <div class="crop-mask crop-mask-b"></div>
+              <div class="crop-mask crop-mask-l"></div>
+              <div class="crop-mask crop-mask-r"></div>
+              <div class="vid-crop-box" id="vid-crop-box">
+                <div class="crop-handle nw"></div>
+                <div class="crop-handle n"></div>
+                <div class="crop-handle ne"></div>
+                <div class="crop-handle e"></div>
+                <div class="crop-handle se"></div>
+                <div class="crop-handle s"></div>
+                <div class="crop-handle sw"></div>
+                <div class="crop-handle w"></div>
+              </div>
+            </div>
+            <button
+              class="vid-fs-btn"
+              id="vid-fullscreen"
+              hidden
+              title="全屏预览源视频,再点一次或 Esc 退出"
+            >
+              <svg
+                class="ic-fs"
+                viewBox="0 0 24 24"
+                width="27"
+                height="27"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"
+                />
+              </svg>
+              <svg
+                class="ic-fs-exit"
+                viewBox="0 0 24 24"
+                width="27"
+                height="27"
+                fill="currentColor"
+                aria-hidden="true"
+                hidden
+              >
+                <path
+                  d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"
+                />
+              </svg>
+            </button>
           </div>
-          <button class="vid-fs-btn" id="vid-fullscreen" hidden title="全屏预览源视频,再点一次或 Esc 退出">
-            <svg class="ic-fs" viewBox="0 0 24 24" width="27" height="27" fill="currentColor" aria-hidden="true"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
-            <svg class="ic-fs-exit" viewBox="0 0 24 24" width="27" height="27" fill="currentColor" aria-hidden="true" hidden><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>
-          </button>
-        </div>
-        <div class="vid-timeline" id="vid-timeline">
-          <div class="vid-row">
-            <button class="btn small" id="vid-play" disabled>播放</button>
-            <button class="btn small step-btn" id="vid-prev" disabled>上一帧</button>
-            <button class="btn small step-btn" id="vid-next" disabled>下一帧</button>
-            <span class="dim-label tl-time" id="vid-time">00:00 / 00:00</span>
-            <span class="spacer"></span>
-            <div class="vid-vol">
-              <button class="btn small icon-btn" id="vid-mute" disabled title="静音">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+          <div class="vid-timeline" id="vid-timeline">
+            <div class="vid-row">
+              <button class="btn small" id="vid-play" disabled>播放</button>
+              <button class="btn small step-btn" id="vid-prev" disabled>
+                上一帧
               </button>
-              <input type="range" id="vid-vol" min="0" max="100" value="0" step="1" disabled />
-              <span class="dim-label" id="vid-vol-label">0</span>
+              <button class="btn small step-btn" id="vid-next" disabled>
+                下一帧
+              </button>
+              <span class="dim-label tl-time" id="vid-time">00:00 / 00:00</span>
+              <span class="spacer"></span>
+              <div class="vid-vol">
+                <button
+                  class="btn small icon-btn"
+                  id="vid-mute"
+                  disabled
+                  title="静音"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    fill="currentColor"
+                  >
+                    <path
+                      d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"
+                    />
+                  </svg>
+                </button>
+                <input
+                  type="range"
+                  id="vid-vol"
+                  min="0"
+                  max="100"
+                  value="0"
+                  step="1"
+                  disabled
+                />
+                <span class="dim-label" id="vid-vol-label">0</span>
+              </div>
+              <button class="btn small" id="vid-reset" disabled>重置</button>
             </div>
-            <button class="btn small" id="vid-reset" disabled>重置</button>
+            <div class="tl vid-seek-tl">
+              <input
+                type="range"
+                id="vid-seek"
+                min="0"
+                max="1000"
+                value="0"
+                step="1"
+              />
+              <div class="tl-grip vid-grip" id="vid-grip-a"></div>
+              <div class="tl-grip vid-grip" id="vid-grip-b"></div>
+            </div>
           </div>
-          <div class="tl vid-seek-tl">
-            <input type="range" id="vid-seek" min="0" max="1000" value="0" step="1" />
-            <div class="tl-grip vid-grip" id="vid-grip-a"></div>
-            <div class="tl-grip vid-grip" id="vid-grip-b"></div>
+          <div class="dim-label info-wrap" id="vid-info">未载入视频</div>
+          <button class="btn" id="vid-open">打开视频…(或拖入文件)</button>
+          <button class="btn" id="vid-clear" disabled>清空</button>
+          <div class="help-label">
+            支持导入:MP4、M4V、MOV、WebM、MKV、AVI、WMV、FLV、TS、MPEG
+            等常见视频格式<br />
+            基于内置 FFmpeg 9,完全离线转换,无需联网
           </div>
         </div>
-        <div class="dim-label info-wrap" id="vid-info">未载入视频</div>
-        <button class="btn" id="vid-open">打开视频…(或拖入文件)</button>
-        <button class="btn" id="vid-clear" disabled>清空</button>
-        <div class="help-label">
-          支持导入:MP4、M4V、MOV、WebM、MKV、AVI、WMV、FLV、TS、MPEG 等常见视频格式<br />
-          基于内置 FFmpeg 9,完全离线转换,无需联网
-        </div>
-        </div><!-- /vid-single-wrap -->
+        <!-- /vid-single-wrap -->
         <!-- 批量转换模式(默认隐藏) -->
         <div id="vid-batch-wrap" hidden>
           <div class="panel-head">
-            <span class="panel-title">待转换列表 <span class="dim-label" id="vid-batch-count"></span></span>
-            <button class="btn tiny" id="vid-batch-clear" title="清空列表">清空</button>
+            <span class="panel-title"
+              >待转换列表 <span class="dim-label" id="vid-batch-count"></span
+            ></span>
+            <button class="btn tiny" id="vid-batch-clear" title="清空列表">
+              清空
+            </button>
           </div>
           <div class="batch-add-row">
-            <button class="btn" id="vid-batch-add" style="flex:1;">+ 添加文件</button>
-            <button class="btn" id="vid-batch-add-folder" style="flex:1;">📁 选择文件夹</button>
+            <button class="btn" id="vid-batch-add" style="flex: 1">
+              + 添加文件
+            </button>
+            <button class="btn" id="vid-batch-add-folder" style="flex: 1">
+              📁 选择文件夹
+            </button>
           </div>
           <div id="vid-batch-list" class="batch-file-list"></div>
           <div class="batch-summary dim-label" id="vid-batch-summary"></div>
@@ -707,7 +1188,13 @@
       <div class="panel" style="flex: 42">
         <div class="panel-head">
           <span class="panel-title">转换设置</span>
-          <button class="btn tiny" id="vid-reset-defaults" title="恢复所有转换设置为默认值">恢复默认</button>
+          <button
+            class="btn tiny"
+            id="vid-reset-defaults"
+            title="恢复所有转换设置为默认值"
+          >
+            恢复默认
+          </button>
         </div>
         <div class="form-grid">
           <label>输出格式</label>
@@ -737,7 +1224,14 @@
           </select>
           <label>质量 (CRF)</label>
           <div class="dual-row">
-            <input type="range" id="vid-crf" min="0" max="51" step="1" value="23" />
+            <input
+              type="range"
+              id="vid-crf"
+              min="0"
+              max="51"
+              step="1"
+              value="23"
+            />
             <span class="dim-label" id="vid-crf-label">23</span>
           </div>
           <label>预设</label>
@@ -766,9 +1260,23 @@
           </div>
           <label>自定义宽×高</label>
           <div class="dual-row">
-            <input type="number" id="vid-w" min="16" max="7680" value="1920" disabled />
+            <input
+              type="number"
+              id="vid-w"
+              min="16"
+              max="7680"
+              value="1920"
+              disabled
+            />
             <span>×</span>
-            <input type="number" id="vid-h" min="16" max="4320" value="1080" disabled />
+            <input
+              type="number"
+              id="vid-h"
+              min="16"
+              max="4320"
+              value="1080"
+              disabled
+            />
           </div>
           <label>帧率</label>
           <select id="vid-fps">
@@ -789,10 +1297,18 @@
                 <option value="manual">手动</option>
               </select>
             </div>
-            <div class="dim-label" id="vid-vbr-hint" style="font-size:11px;margin-top:2px;"></div>
+            <div
+              class="dim-label"
+              id="vid-vbr-hint"
+              style="font-size: 11px; margin-top: 2px"
+            ></div>
           </div>
           <label>音频比特率</label>
-          <input type="text" id="vid-abr" placeholder="留空用默认,例:128k、192k" />
+          <input
+            type="text"
+            id="vid-abr"
+            placeholder="留空用默认,例:128k、192k"
+          />
         </div>
         <label class="chk">
           <input type="checkbox" id="vid-copy" />
@@ -808,15 +1324,21 @@
         </label>
         <button class="btn primary" id="vid-convert" disabled>开始转换</button>
         <div class="progress-wrap">
-          <div class="progress-bar"><div class="progress-fill" id="vid-progress-fill"></div></div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="vid-progress-fill"></div>
+          </div>
           <span class="dim-label" id="vid-progress-text">0%</span>
         </div>
         <div class="status" id="vid-status"></div>
         <div class="dim-label" id="vid-out-size"></div>
         <div class="io-row end" id="vid-io"></div>
         <div class="mode-toggle" id="vid-mode-toggle">
-          <button class="btn on" id="vid-mode-single" type="button">单个转换</button>
-          <button class="btn" id="vid-mode-batch" type="button">批量转换</button>
+          <button class="btn on" id="vid-mode-single" type="button">
+            单个转换
+          </button>
+          <button class="btn" id="vid-mode-batch" type="button">
+            批量转换
+          </button>
         </div>
       </div>
     </div>
@@ -825,30 +1347,60 @@
       <div class="panel" style="flex: 50">
         <!-- 单个转换模式(默认可见) -->
         <div id="aud-single-wrap">
-        <div class="panel-head">
-          <span class="panel-title">源音频 <span class="dim-label" id="aud-src-name" style="margin-left:6px;"></span></span>
-          <span class="dim-label" id="aud-src-size"></span>
+          <div class="panel-head">
+            <span class="panel-title"
+              >源音频
+              <span
+                class="dim-label"
+                id="aud-src-name"
+                style="margin-left: 6px"
+              ></span
+            ></span>
+            <span class="dim-label" id="aud-src-size"></span>
+          </div>
+          <div
+            class="canvas-wrap"
+            id="aud-canvas-wrap"
+            style="
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              align-items: center;
+            "
+          >
+            <audio
+              id="aud-src"
+              controls
+              style="width: 100%; max-width: 480px"
+            ></audio>
+          </div>
+          <div class="dim-label info-wrap" id="aud-info">未载入音频</div>
+          <button class="btn" id="aud-open">打开音频…(或拖入文件)</button>
+          <button class="btn" id="aud-clear" disabled>清空</button>
+          <div class="help-label">
+            支持导入:MP3、WAV、FLAC、AAC、OGG、Opus、M4A、WMA、AIFF
+            等音频格式,也可从视频中提取音轨<br />
+            基于内置 FFmpeg 9,完全离线转换,无需联网
+          </div>
         </div>
-        <div class="canvas-wrap" id="aud-canvas-wrap" style="display:flex;flex-direction:column;justify-content:center;align-items:center;">
-          <audio id="aud-src" controls style="width:100%;max-width:480px;"></audio>
-        </div>
-        <div class="dim-label info-wrap" id="aud-info">未载入音频</div>
-        <button class="btn" id="aud-open">打开音频…(或拖入文件)</button>
-        <button class="btn" id="aud-clear" disabled>清空</button>
-        <div class="help-label">
-          支持导入:MP3、WAV、FLAC、AAC、OGG、Opus、M4A、WMA、AIFF 等音频格式,也可从视频中提取音轨<br />
-          基于内置 FFmpeg 9,完全离线转换,无需联网
-        </div>
-        </div><!-- /aud-single-wrap -->
+        <!-- /aud-single-wrap -->
         <!-- 批量转换模式(默认隐藏) -->
         <div id="aud-batch-wrap" hidden>
           <div class="panel-head">
-            <span class="panel-title">待转换列表 <span class="dim-label" id="aud-batch-count"></span></span>
-            <button class="btn tiny" id="aud-batch-clear" title="清空列表">清空</button>
+            <span class="panel-title"
+              >待转换列表 <span class="dim-label" id="aud-batch-count"></span
+            ></span>
+            <button class="btn tiny" id="aud-batch-clear" title="清空列表">
+              清空
+            </button>
           </div>
           <div class="batch-add-row">
-            <button class="btn" id="aud-batch-add" style="flex:1;">+ 添加文件</button>
-            <button class="btn" id="aud-batch-add-folder" style="flex:1;">📁 选择文件夹</button>
+            <button class="btn" id="aud-batch-add" style="flex: 1">
+              + 添加文件
+            </button>
+            <button class="btn" id="aud-batch-add-folder" style="flex: 1">
+              📁 选择文件夹
+            </button>
           </div>
           <div id="aud-batch-list" class="batch-file-list"></div>
           <div class="batch-summary dim-label" id="aud-batch-summary"></div>
@@ -857,7 +1409,13 @@
       <div class="panel" style="flex: 50">
         <div class="panel-head">
           <span class="panel-title">转换设置</span>
-          <button class="btn tiny" id="aud-reset-defaults" title="恢复所有转换设置为默认值">恢复默认</button>
+          <button
+            class="btn tiny"
+            id="aud-reset-defaults"
+            title="恢复所有转换设置为默认值"
+          >
+            恢复默认
+          </button>
         </div>
         <div class="form-grid">
           <label>输出格式</label>
@@ -906,29 +1464,50 @@
             <option value="2">立体声(Stereo)</option>
           </select>
           <label>起始时间</label>
-          <input type="text" id="aud-start" placeholder="留空从头开始,例:00:01:30" />
+          <input
+            type="text"
+            id="aud-start"
+            placeholder="留空从头开始,例:00:01:30"
+          />
           <label>结束时间</label>
-          <input type="text" id="aud-end" placeholder="留空到结尾,例:00:02:30" />
+          <input
+            type="text"
+            id="aud-end"
+            placeholder="留空到结尾,例:00:02:30"
+          />
           <label>输出文件名</label>
           <input type="text" id="aud-name" placeholder="留空则用 原名_转换" />
           <label>保存位置</label>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;">
+          <div style="display: flex; align-items: center; gap: 8px">
+            <label
+              style="
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                white-space: nowrap;
+              "
+            >
               <input type="checkbox" id="aud-save-orig" checked /> 源文件同目录
             </label>
           </div>
         </div>
         <button class="btn primary" id="aud-convert" disabled>开始转换</button>
         <div class="progress-wrap">
-          <div class="progress-bar"><div class="progress-fill" id="aud-progress-fill"></div></div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="aud-progress-fill"></div>
+          </div>
           <span class="dim-label" id="aud-progress-text">0%</span>
         </div>
         <div class="status" id="aud-status"></div>
         <div class="dim-label" id="aud-out-size"></div>
         <div class="io-row end" id="aud-io"></div>
         <div class="mode-toggle" id="aud-mode-toggle">
-          <button class="btn on" id="aud-mode-single" type="button">单个转换</button>
-          <button class="btn" id="aud-mode-batch" type="button">批量转换</button>
+          <button class="btn on" id="aud-mode-single" type="button">
+            单个转换
+          </button>
+          <button class="btn" id="aud-mode-batch" type="button">
+            批量转换
+          </button>
         </div>
       </div>
     </div>
@@ -940,13 +1519,26 @@
           <button class="btn small" id="dl-clear">清除链接</button>
         </div>
         <div class="size-row">
-          <input type="text" id="dl-url" placeholder="粘贴视频链接(YouTube、Bilibili 等上千个站点)" />
+          <input
+            type="text"
+            id="dl-url"
+            placeholder="粘贴视频链接(YouTube、Bilibili 等上千个站点)"
+          />
           <button class="btn small" id="dl-fetch">解析</button>
         </div>
-        <div class="canvas-wrap" id="dl-thumb-wrap" style="display:flex;align-items:center;justify-content:center;background:#000;">
+        <div
+          class="canvas-wrap"
+          id="dl-thumb-wrap"
+          style="
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+          "
+        >
           <img
             id="dl-thumb"
-            style="max-width:100%;max-height:100%;display:none;"
+            style="max-width: 100%; max-height: 100%; display: none"
             referrerpolicy="no-referrer"
             decoding="async"
           />
@@ -954,17 +1546,33 @@
         </div>
         <div class="dim-label info-wrap" id="dl-info">未解析视频</div>
         <div class="panel-subhead">可用格式(点击选中,右键可直接下载该格式)</div>
-        <div class="dim-label" style="font-size:11px;padding:0 10px 4px;line-height:1.5;white-space:normal;word-break:break-word;">
-          同一分辨率出现多条是不同编码:H.264 兼容性最好,H.265 压缩率高,VP9 开源免费(WebM 常用),AV1 体积通常最小;码率和体积会不一样
+        <div
+          class="dim-label"
+          style="
+            font-size: 11px;
+            padding: 0 10px 4px;
+            line-height: 1.5;
+            white-space: normal;
+            word-break: break-word;
+          "
+        >
+          同一分辨率出现多条是不同编码:H.264 兼容性最好,H.265 压缩率高,VP9
+          开源免费(WebM 常用),AV1 体积通常最小;码率和体积会不一样
         </div>
         <div class="dl-fmt-list" id="dl-fmt-list"></div>
         <!-- 播放列表/合集:yt-dlp 返回 entries 时显示 -->
         <div id="dl-playlist-wrap" hidden>
           <div class="panel-subhead">
             <span>合集视频(<span id="dl-pl-count">0</span> 个)</span>
-            <span class="dim-label" style="margin-left:auto;">
+            <span class="dim-label" style="margin-left: auto">
               <button class="btn tiny" id="dl-pl-select-all">全选</button>
-              <button class="btn tiny" id="dl-pl-select-none" style="margin-left:4px;">全不选</button>
+              <button
+                class="btn tiny"
+                id="dl-pl-select-none"
+                style="margin-left: 4px"
+              >
+                全不选
+              </button>
             </span>
           </div>
           <div class="dl-playlist-list" id="dl-playlist-list"></div>
@@ -973,7 +1581,13 @@
       <div class="panel" style="flex: 45">
         <div class="panel-head">
           <span class="panel-title">下载设置</span>
-          <button class="btn tiny" id="dl-clear-all" title="清空视频信息和下载设置(保存目录保持不变)">清空</button>
+          <button
+            class="btn tiny"
+            id="dl-clear-all"
+            title="清空视频信息和下载设置(保存目录保持不变)"
+          >
+            清空
+          </button>
         </div>
         <div class="form-grid">
           <label>文件名</label>
@@ -984,8 +1598,12 @@
             <select id="dl-codec" title="编码格式"></select>
           </div>
         </div>
-        <div class="dim-label" id="dl-size-line" style="padding:2px 0 2px;">文件大小:-</div>
-        <div class="dim-label" id="dl-fmt-label" style="padding:0 0 6px;">将下载:-</div>
+        <div class="dim-label" id="dl-size-line" style="padding: 2px 0 2px">
+          文件大小:-
+        </div>
+        <div class="dim-label" id="dl-fmt-label" style="padding: 0 0 6px">
+          将下载:-
+        </div>
         <label class="chk">
           <input type="checkbox" id="dl-save-default" checked />
           <span>保存到默认下载目录(下载\图像工具箱)</span>
@@ -1000,7 +1618,9 @@
         </div>
         <button class="btn primary" id="dl-download" disabled>开始下载</button>
         <div class="progress-wrap">
-          <div class="progress-bar"><div class="progress-fill" id="dl-progress-fill"></div></div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="dl-progress-fill"></div>
+          </div>
           <span class="dim-label" id="dl-progress-text">0%</span>
         </div>
         <div class="dim-label" id="dl-progress-meta"></div>
@@ -1009,19 +1629,395 @@
         <div class="dl-update-row">
           <div class="dl-update-wrap">
             <div class="dl-tool-row">
-              <button class="btn small" id="dl-ytdlp-manual" title="打开 GitHub 上 yt-dlp 的发布页,自己下 exe 覆盖到安装目录">手动更新</button>
-              <button class="btn small" id="dl-ytdlp-dir" title="打开本软件里 yt-dlp.exe 所在的文件夹">安装目录</button>
+              <button
+                class="btn small"
+                id="dl-ytdlp-manual"
+                title="打开 GitHub 上 yt-dlp 的发布页,自己下 exe 覆盖到安装目录"
+              >
+                手动更新
+              </button>
+              <button
+                class="btn small"
+                id="dl-ytdlp-dir"
+                title="打开本软件里 yt-dlp.exe 所在的文件夹"
+              >
+                安装目录
+              </button>
             </div>
             <div class="dl-update-btn-anchor">
-              <button class="btn small dl-update-btn" id="dl-ytdlp-update" hidden>
+              <button
+                class="btn small dl-update-btn"
+                id="dl-ytdlp-update"
+                hidden
+              >
                 <span class="update-fill"></span>
                 <span class="update-text">检查更新yt-dlp</span>
               </button>
               <div class="dl-update-toast" id="dl-update-toast"></div>
             </div>
-            <div class="dl-update-hint" id="dl-update-hint">检测 GitHub 最新版并自动更新内置 yt-dlp</div>
+            <div class="dl-update-hint" id="dl-update-hint">
+              检测 GitHub 最新版并自动更新内置 yt-dlp
+            </div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <div class="page hidden" id="page-clock">
+      <div class="panel" style="flex: 1 1 0; min-width: 0">
+        <div class="fc-stage" id="fc-stage" data-style="flat">
+          <!-- 全屏和设置都放在舞台里面：铺满整屏后外面的东西会被盖住，入口不能留在外面 -->
+          <button
+            class="fc-fs"
+            id="fc-full"
+            type="button"
+            title="时钟铺满整屏，Esc 退出"
+          >
+            全屏
+          </button>
+          <span class="fc-meridiem" id="fc-meridiem" hidden>AM</span>
+          <div class="fc-clock" id="fc-clock">
+            <div class="fc-flip" id="fc-flip"></div>
+            <div class="fc-led" id="fc-led"></div>
+          </div>
+          <div class="fc-set-wrap">
+            <button
+              class="fc-fs fc-gear"
+              id="fc-gear"
+              type="button"
+              aria-label="时钟设置"
+              aria-expanded="false"
+              title="设置"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="15"
+                height="15"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="3" />
+                <path
+                  d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+                />
+              </svg>
+            </button>
+            <!-- 设置平时收着：这一页是拿来盯着看的，别把控件压在时钟上 -->
+            <div class="fc-pop" id="fc-pop">
+              <div class="form-grid">
+                <label>风格</label>
+                <div class="seg-row" id="fc-style">
+                  <button class="btn on" type="button" data-style="flat">
+                    扁平化
+                  </button>
+                  <button class="btn" type="button" data-style="3d">
+                    立体感
+                  </button>
+                  <button class="btn" type="button" data-style="led">
+                    数字时钟
+                  </button>
+                </div>
+                <label>小时格式</label>
+                <div class="seg-row" id="fc-fmt">
+                  <button class="btn" type="button" data-fmt="12h">12h</button>
+                  <button class="btn" type="button" data-fmt="24h">24h</button>
+                  <button class="btn on" type="button" data-fmt="024h">
+                    024h
+                  </button>
+                </div>
+                <label>缩放比例</label>
+                <div class="dual-row">
+                  <input
+                    type="range"
+                    id="fc-scale"
+                    min="40"
+                    max="160"
+                    step="5"
+                    value="100"
+                  />
+                  <input
+                    type="number"
+                    id="fc-scale-num"
+                    min="40"
+                    max="160"
+                    step="5"
+                    value="100"
+                  />
+                </div>
+                <label>亮度</label>
+                <div class="dual-row">
+                  <input
+                    type="range"
+                    id="fc-bright"
+                    min="20"
+                    max="100"
+                    step="5"
+                    value="100"
+                  />
+                  <input
+                    type="number"
+                    id="fc-bright-num"
+                    min="20"
+                    max="100"
+                    step="5"
+                    value="100"
+                  />
+                </div>
+                <label id="fc-color-lab">颜色</label>
+                <div class="fc-color" id="fc-color">
+                  <div class="fc-wheel" id="fc-wheel">
+                    <i class="fc-knob" id="fc-knob"></i>
+                  </div>
+                  <div class="fc-color-side">
+                    <span id="fc-color-txt">色相 6 饱和 100</span>
+                    <button class="btn small" type="button" id="fc-color-reset">
+                      复位
+                    </button>
+                  </div>
+                </div>
+                <label>显示</label>
+                <div class="fc-inline">
+                  <label class="chk inline"
+                    ><input type="checkbox" id="fc-bg" checked /><span
+                      >卡片底色</span
+                    ></label
+                  >
+                  <label class="chk inline"
+                    ><input type="checkbox" id="fc-sec" checked /><span
+                      >秒</span
+                    ></label
+                  >
+                </div>
+                <label>正计时</label>
+                <div class="seg-row">
+                  <button class="btn" type="button" id="fc-sw">开始</button>
+                  <button class="btn" type="button" id="fc-sw-reset">
+                    重置
+                  </button>
+                </div>
+                <label>倒计时</label>
+                <div>
+                  <div class="seg-row" id="fc-cd">
+                    <button class="btn" type="button" data-cd="300">
+                      5 分
+                    </button>
+                    <button class="btn" type="button" data-cd="600">
+                      10 分
+                    </button>
+                    <button class="btn" type="button" data-cd="1500">
+                      25 分
+                    </button>
+                    <button class="btn" type="button" id="fc-cd-off">
+                      关闭
+                    </button>
+                  </div>
+                  <div class="fc-custom">
+                    <input
+                      type="number"
+                      id="fc-cd-h"
+                      min="0"
+                      max="23"
+                      step="1"
+                      value="0"
+                    /><span>时</span>
+                    <input
+                      type="number"
+                      id="fc-cd-m"
+                      min="0"
+                      max="59"
+                      step="1"
+                      value="0"
+                    /><span>分</span>
+                    <input
+                      type="number"
+                      id="fc-cd-s"
+                      min="0"
+                      max="59"
+                      step="1"
+                      value="0"
+                    /><span>秒</span>
+                    <button class="btn small" type="button" id="fc-cd-go">
+                      自定义开始
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="fc-note">
+                本页只负责显示，不碰系统电源；倒计时到点只停在
+                00:00:00。要定时关机走「自动关机」页。
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="status" id="fc-status"></div>
+      </div>
+    </div>
+
+    <div class="page hidden" id="page-rename">
+      <div class="panel" style="flex: 1 1 0; min-width: 0">
+        <div class="panel-head">
+          <span class="panel-title">批量重命名</span>
+        </div>
+        <div
+          class="canvas-wrap"
+          style="display: flex; align-items: center; justify-content: center"
+        >
+          <span class="dim-label">这一页还是空壳，功能没接</span>
+        </div>
+        <button class="btn" id="rename-add" disabled title="功能开发中">
+          添加文件…
+        </button>
+        <div class="status" id="rename-status"></div>
+        <div class="help-label">
+          计划支持:一次导入多个文件,按「前缀 + 序号」「查找替换」「按日期 /
+          按原路径」这类规则改名,<br />
+          执行前先列出「原名 →
+          新名」的对照预览,确认后才落盘。冲突、非法字符、改完重名都会先拦下来。
+        </div>
+      </div>
+    </div>
+
+    <div class="page hidden" id="page-sysinfo">
+      <div class="panel" style="flex: 1 1 0; min-width: 0">
+        <div class="panel-head si-head">
+          <span class="panel-title">电脑配置</span>
+          <span class="si-uptime" id="si-uptime">本次开机 -</span>
+          <button
+            class="btn small"
+            id="si-copy"
+            disabled
+            title="把当前显示的配置复制成一段文本"
+          >
+            复制全部
+          </button>
+          <button class="btn small" id="si-refresh" title="重新读取本机配置">
+            刷新
+          </button>
+        </div>
+        <div class="si-list" id="si-list"></div>
+        <div class="dim-label info-wrap" id="si-info">未读取</div>
+        <div class="status" id="si-status"></div>
+        <div class="mode-toggle">
+          <button class="btn on" id="si-mode-basic" type="button">
+            基础配置
+          </button>
+          <button class="btn" id="si-mode-detail" type="button">
+            详细配置
+          </button>
+        </div>
+        <div class="help-label">
+          基础配置读注册表和系统 API,毫秒级出结果;详细配置额外查一次
+          WMI,能补上内存条型号与频率、 磁盘型号与介质、显卡驱动版本、主板 / BIOS
+          / 序列号、网卡地址,代价是每次要等 1~3 秒
+        </div>
+      </div>
+    </div>
+
+    <div class="page hidden" id="page-shutdown">
+      <div class="panel" style="flex: 1 1 0; min-width: 280px">
+        <div class="panel-head">
+          <span class="panel-title">关机计划</span>
+          <button
+            class="btn tiny"
+            id="sd-reset-defaults"
+            title="恢复本页的默认设置"
+          >
+            恢复默认
+          </button>
+        </div>
+        <div class="panel-subhead">执行动作</div>
+        <div class="seg-row" id="sd-action">
+          <button class="btn on" id="sd-act-off" type="button">关机</button>
+          <button class="btn" id="sd-act-reboot" type="button">重启</button>
+        </div>
+        <div class="panel-subhead">触发方式</div>
+        <div class="seg-row" id="sd-trigger">
+          <button class="btn on" id="sd-trig-count" type="button">
+            倒计时
+          </button>
+          <button class="btn" id="sd-trig-clock" type="button">定点时刻</button>
+        </div>
+        <div id="sd-count-box">
+          <div class="form-grid">
+            <label>多少分钟后</label>
+            <input
+              type="number"
+              id="sd-mins"
+              min="1"
+              max="1440"
+              step="1"
+              value="30"
+            />
+          </div>
+          <div class="sd-presets">
+            <button class="btn small" type="button" data-mins="15">
+              15 分
+            </button>
+            <button class="btn small" type="button" data-mins="30">
+              30 分
+            </button>
+            <button class="btn small" type="button" data-mins="60">
+              1 小时
+            </button>
+            <button class="btn small" type="button" data-mins="90">
+              1.5 小时
+            </button>
+            <button class="btn small" type="button" data-mins="120">
+              2 小时
+            </button>
+          </div>
+        </div>
+        <div id="sd-clock-box" hidden>
+          <div class="form-grid">
+            <label>执行时刻</label>
+            <input type="time" id="sd-time" value="23:30" />
+          </div>
+          <div class="dim-label" id="sd-clock-hint"></div>
+        </div>
+        <label class="chk">
+          <input type="checkbox" id="sd-warn-close" checked />
+          <span>最后 60 秒在状态行强提醒</span>
+        </label>
+        <label class="chk">
+          <input type="checkbox" id="sd-block-close" checked />
+          <span>计时中拦住关闭窗口(点了先提示,再点一次才关)</span>
+        </label>
+        <button class="btn primary" id="sd-start">开始计时</button>
+        <button class="btn" id="sd-cancel" disabled>取消计时</button>
+        <div class="help-label">
+          计时只在本软件内进行:软件一退出计划就失效,不会到点关机。<br />
+          到点后留 15
+          秒缓冲,期间可点「中止」撤回;若有程序拒绝关闭,系统的提示会弹给你自己处理
+        </div>
+      </div>
+      <div class="panel" style="flex: 1 1 0; min-width: 280px">
+        <div class="panel-head">
+          <span class="panel-title">倒计时</span>
+          <span class="dim-label" id="sd-state-label">未开始</span>
+        </div>
+        <div class="sd-countdown" id="sd-countdown">
+          <div class="sd-dial">
+            <svg class="sd-ring" viewBox="0 0 200 200" aria-hidden="true">
+              <circle class="sd-ring-track" cx="100" cy="100" r="88" />
+              <circle
+                class="sd-ring-fill"
+                id="sd-ring-fill"
+                cx="100"
+                cy="100"
+                r="88"
+              />
+            </svg>
+            <div class="sd-time" id="sd-remain">--:--</div>
+          </div>
+          <div class="dim-label" id="sd-target">预计执行:-</div>
+        </div>
+        <button class="btn danger" id="sd-abort" hidden>中止关机</button>
+        <div class="dim-label sd-power-line" id="sd-power-line"></div>
+        <div class="status" id="sd-status"></div>
       </div>
     </div>
 

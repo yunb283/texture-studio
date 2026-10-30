@@ -15,6 +15,8 @@ use tauri_plugin_dialog::{DialogExt, FilePath};
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
+mod system;
+
 /// Windows 的 CREATE_NO_WINDOW：启动控制台子进程时不要新建控制台窗口。
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
@@ -30,7 +32,7 @@ static YTDLP_INFO_CANCEL: AtomicBool = AtomicBool::new(false);
 /// release 版是 GUI 子系统、自身没有控制台，Windows 会为每个控制台子进程新建一个
 /// conhost，实测每次多花 0.5~0.7 秒（还会闪一下黑框）；开发版（debug）是控制台程序，
 /// 子进程直接继承父进程的控制台，所以没有这笔开销。加上 CREATE_NO_WINDOW 后两边一致。
-fn command_no_window<P: AsRef<std::ffi::OsStr>>(program: P) -> Command {
+pub(crate) fn command_no_window<P: AsRef<std::ffi::OsStr>>(program: P) -> Command {
     #[allow(unused_mut)]
     let mut cmd = Command::new(program);
     #[cfg(windows)]
@@ -2154,6 +2156,31 @@ fn enable_round_corners(window: &tauri::WebviewWindow) {
     }
 }
 
+/// 整组关掉 WebView2 的浏览器快捷键（F1 帮助、F3 查找、F5 刷新、F7 插入点、
+/// Ctrl+F/P/S/O/N/T/W…）。这类按键里有一部分是浏览器保留键，页面里 preventDefault
+/// 也拦不到，只能在它自己的设置接口上关；文档保证编辑与复制粘贴（Ctrl+C/V/X/A/Z、
+/// 退格删除）不受影响。这一项在 ICoreWebView2Settings3 上，运行库太旧取不到就保持默认。
+#[cfg(windows)]
+fn disable_browser_accelerator_keys(window: &tauri::WebviewWindow) {
+    use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Settings3;
+    use windows_core::Interface;
+    let _ = window.with_webview(|wv| {
+        // 设置项挂在 CoreWebView2 上，控制器只是拿到它的入口
+        let applied = unsafe {
+            wv.controller()
+                .CoreWebView2()
+                .and_then(|core| core.Settings())
+                .and_then(|settings| settings.cast::<ICoreWebView2Settings3>())
+                .and_then(|settings3| settings3.SetAreBrowserAcceleratorKeysEnabled(false))
+        };
+        // 运行库太旧或接口拿不到时是静默失败，调试构建里留一句话，别让人猜
+        #[cfg(debug_assertions)]
+        eprintln!("[webview2] browser accelerator keys off: ok={}", applied.is_ok());
+        #[cfg(not(debug_assertions))]
+        let _ = applied;
+    });
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -2163,6 +2190,7 @@ pub fn run() {
             {
                 if let Some(window) = app.get_webview_window("main") {
                     enable_round_corners(&window);
+                    disable_browser_accelerator_keys(&window);
                 }
             }
             // ffmpeg.exe 有 100MB，第一次调用要现映射映像 + 过安全软件。后台先跑一次
@@ -2193,7 +2221,12 @@ pub fn run() {
             ytdlp_update_ui_visible,
             ytdlp_dir,
             ytdlp_check_update,
-            ytdlp_apply_update
+            ytdlp_apply_update,
+            system::sysinfo_basic,
+            system::sysinfo_detail,
+            system::sysinfo_uptime,
+            system::power_status,
+            system::power_action
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

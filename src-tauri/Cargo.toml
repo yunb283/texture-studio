@@ -1,6 +1,6 @@
 [package]
 name = "tauri-app"
-version = "0.1.0"
+version = "0.1.1"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2024"
@@ -27,6 +27,10 @@ winreg = "0.56"
 zune-heic = "0.5"
 
 [target.'cfg(windows)'.dependencies]
+# 关掉 WebView2 自带的浏览器快捷键要直接摸它的 COM 设置接口（版本跟 tauri 依赖的那份一致）
+webview2-com = "0.39"
+# 只为把 ICoreWebView2Settings 向上转型到带这一项设置的 ICoreWebView2Settings3
+windows-core = "0.62"
 # 作业对象：取消下载时一次性杀掉 yt-dlp 整棵进程树（PyInstaller 会派生真正干活的子进程）
 windows-sys = { version = "0.52", features = [
     "Win32_Foundation",
@@ -34,6 +38,14 @@ windows-sys = { version = "0.52", features = [
     "Win32_System_JobObjects",
     "Win32_System_Threading",
     "Win32_Graphics_Dwm",
+    # 电脑配置页：内存/开机时长、电源状态、显卡、分区
+    "Win32_System_SystemInformation",
+    "Win32_System_Power",
+    "Win32_Graphics_Gdi",
+    "Win32_Storage_FileSystem",
+    "Win32_System_WindowsProgramming",
+    "Win32_System_Time",
+    "Win32_UI_HiDpi",
 ] }
 
 

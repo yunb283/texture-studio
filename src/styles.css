@@ -260,8 +260,46 @@ body {
   position: relative;
   display: flex;
   gap: 4px;
-  padding: 8px 8px 0;
+  /* 下面这 4px 是给悬停上浮和聚焦描边留的：行能横向滚动后会被裁，不留就切掉一半 */
+  padding: 8px 8px 4px;
   flex-wrap: nowrap;
+  /* 页签固定宽度，窗口窄到放不下时靠「左键按住行拖动」来看后面的页签，不再压字 */
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* 滑条收掉，但 overflow-x 得留着：横向滚动本身靠它，拖动只是改了 scrollLeft */
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+/* 放得下时行不需要拖，光标就别一路指着「grab」 */
+.tabs.scrollable {
+  cursor: grab;
+}
+
+/* 拖动中：光标换成「抓着」，悬停那块底色先隐掉，不然跟着一排页签跑看着像错位 */
+.tabs.dragging,
+.tabs.dragging .tab {
+  cursor: grabbing;
+}
+
+.tabs.dragging .tab-hover.on {
+  opacity: 0;
+}
+
+/* 竖向拖换位置中：光标同样指着「抓着」，指示块跟着当前页签瞬移，别补间乱跑 */
+.tabs.reordering,
+.tabs.reordering .tab {
+  cursor: grabbing;
+}
+
+.tabs.reordering .tab-hover.on {
+  opacity: 0;
+}
+
+.tabs.reordering .tab-ind {
+  transition: none;
 }
 
 /* 页签底色交给两块绝对定位的「药丸」来画:一块跟手做悬停,一块标记当前页签。
@@ -291,7 +329,7 @@ body {
 
 /* 当前页签底部那道强调色短线 */
 .tab-ind::after {
-  content: '';
+  content: "";
   position: absolute;
   left: 9px;
   right: 9px;
@@ -302,11 +340,17 @@ body {
 }
 
 .tabs.ready .tab-hover {
-  transition: transform 230ms var(--ease-out), width 230ms var(--ease-out), opacity 150ms ease;
+  transition:
+    transform 230ms var(--ease-out),
+    width 230ms var(--ease-out),
+    opacity 150ms ease;
 }
 
 .tabs.ready .tab-ind {
-  transition: transform 300ms var(--ease-out), width 300ms var(--ease-out), opacity 160ms ease;
+  transition:
+    transform 300ms var(--ease-out),
+    width 300ms var(--ease-out),
+    opacity 160ms ease;
 }
 
 .tab-hover.on,
@@ -317,6 +361,8 @@ body {
 .tab {
   position: relative;
   z-index: 1;
+  /* 宽度跟着文字定死，不参与压缩：挤压只会把「GIF动画预览」折成两行 */
+  flex: 0 0 auto;
   overflow: hidden;
   background: transparent;
   color: var(--text-tab);
@@ -327,7 +373,9 @@ body {
   font-family: inherit;
   font-size: 13px;
   white-space: nowrap;
-  transition: color 160ms ease, transform 200ms var(--ease-out);
+  transition:
+    color 160ms ease,
+    transform 200ms var(--ease-out);
 }
 
 .tab:hover {
@@ -349,6 +397,17 @@ body {
 .tab:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+/* 被抓起来换位置的那一页：行上下都裁着，所以只做描边+微放大，不上浮 */
+.tab.grabbed {
+  z-index: 2;
+  color: var(--text-tab-hover);
+  background: var(--tab-wash);
+  box-shadow:
+    0 0 0 1px var(--accent-tint),
+    0 3px 10px rgba(0, 0, 0, 0.35);
+  transform: scale(1.04);
 }
 
 /* 点击涟漪:从鼠标落点扩散的一个圆,只动 transform / opacity。
@@ -425,7 +484,7 @@ body {
 }
 
 .pin-btn::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 2px;
   border-radius: 50%;
@@ -434,7 +493,10 @@ body {
   transform: scale(0.5);
   pointer-events: none;
   z-index: 0;
-  transition: transform 200ms var(--ease-out), opacity 150ms ease, background-color 220ms ease;
+  transition:
+    transform 200ms var(--ease-out),
+    opacity 150ms ease,
+    background-color 220ms ease;
 }
 
 .pin-btn:hover::before {
@@ -505,7 +567,9 @@ body {
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.12s ease, visibility 0s linear 0.12s;
+  transition:
+    opacity 0.12s ease,
+    visibility 0s linear 0.12s;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
   z-index: 30;
 }
@@ -514,6 +578,90 @@ body {
   opacity: 1;
   visibility: visible;
   transition-delay: 0.35s;
+}
+
+/* ===== 标题栏的「工具列表」:圆钮 + 下方勾选面板 ===== */
+.tlist-wrap {
+  position: relative;
+}
+
+/* 沿用 .pin-btn 那套圆形悬停和 data-tip 提示,只是贴标题站着,不必留 7px 的左右间距 */
+.tlist-btn {
+  width: 26px;
+  height: 26px;
+  margin: 0 0 0 2px;
+}
+
+/* 面板展开时把悬停提示压掉,不然提示框会和面板叠在一起 */
+.tlist-btn[aria-expanded="true"]::after {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.tlist-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  /* 压在页签行(0/1)之上、模态框(100)与右键菜单(1000)之下 */
+  z-index: 90;
+  width: 178px;
+  padding: 6px;
+  background: var(--bg-modal);
+  border: 1px solid var(--border-modal);
+  border-radius: 8px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+}
+
+.tlist-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 4px 6px;
+}
+
+.tlist-title {
+  color: var(--text-title);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.tlist-pop .btn.small {
+  padding: 3px 8px;
+  font-size: 12px;
+}
+
+.tlist-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.tlist-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 5px;
+  color: var(--text-modal);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tlist-item:hover {
+  background: var(--bg-modal-head);
+}
+
+.tlist-item input {
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* 拦住「最后一个页签也要关」这类操作时,理由写在这里 */
+.tlist-note {
+  min-height: 15px;
+  padding: 4px 6px 0;
+  color: var(--muted-b0);
+  font-size: 11px;
 }
 
 /* 最小化 / 最大化 / 关闭:46px 宽、满高,和系统标题栏一致 */
@@ -527,7 +675,9 @@ body {
   background: transparent;
   color: var(--text-titlebar);
   cursor: default;
-  transition: background-color 140ms ease, color 140ms ease;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
 }
 
 .cap-btn:hover {
@@ -539,32 +689,27 @@ body {
   color: #fff;
 }
 
-/* 换肤按钮独占标签栏最右 */
+/* 换肤钮在标题栏置顶钮左边，尺寸、圆形悬停、提示框都由 .pin-btn 那套提供
+   （所以这里不能加 overflow:hidden —— 会把 ::after 画在按钮外的提示框裁掉，
+   涟漪交给内部的 .ripple-clip 裁）；本块只留它自己的差异 */
 .theme-btn {
   position: relative;
-  z-index: 1;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 7px 9px;
-  margin-left: auto;
-  background: var(--bg-tab);
-  color: var(--text-tab);
-  border: 1px solid var(--border-tab);
-  border-radius: 6px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-titlebar);
   cursor: pointer;
-  transition: color 160ms ease, background-color 160ms ease, transform 200ms var(--ease-out);
+  transition:
+    color 160ms ease,
+    transform 200ms var(--ease-out);
 }
 
 .theme-btn:hover {
-  background: var(--bg-tab-hover);
   color: var(--text-tab-hover);
-  transform: translateY(-1px);
 }
 
 .theme-btn:active {
-  transform: translateY(0) scale(0.94);
+  transform: scale(0.94);
   transition-duration: 90ms;
 }
 
@@ -576,6 +721,7 @@ body {
 /* 月亮和太阳叠在一起、由 JS 切 [hidden];这里只负责「旋钮转一圈」的效果 */
 .theme-btn .ic-wrap {
   position: relative;
+  z-index: 1;
   display: flex;
   width: 15px;
   height: 15px;
@@ -710,7 +856,10 @@ canvas.zoomable.panning,
 
 /* GIF 预览的棋盘格和 CanvasView 画的完全一致:48px 一循环、24px 一格,左上角从暗格起 */
 #gif-prev-wrap.bg-checker {
-  background: repeating-conic-gradient(var(--check-a) 0% 25%, var(--check-b) 0% 50%);
+  background: repeating-conic-gradient(
+    var(--check-a) 0% 25%,
+    var(--check-b) 0% 50%
+  );
   background-size: 48px 48px;
 }
 
@@ -974,7 +1123,9 @@ canvas.zoomable.panning,
   font-size: 14px;
   min-height: 38px;
   width: 100%;
-  transition: background-color 160ms ease, transform 160ms var(--ease-out);
+  transition:
+    background-color 160ms ease,
+    transform 160ms var(--ease-out);
 }
 
 .btn.primary:hover {
@@ -993,7 +1144,11 @@ canvas.zoomable.panning,
 /* 导出按钮兼作进度条:--p 控制蓝色填充到哪,抽帧和编码各从 0 填到满.
    放在 .btn.primary:disabled 之后才能盖掉它的底色 */
 .btn.primary.busy {
-  background: linear-gradient(90deg, var(--accent-fill) 0 var(--p, 0%), var(--busy-track) var(--p, 0%) 100%);
+  background: linear-gradient(
+    90deg,
+    var(--accent-fill) 0 var(--p, 0%),
+    var(--busy-track) var(--p, 0%) 100%
+  );
   color: var(--on-accent);
   cursor: default;
 }
@@ -1100,6 +1255,7 @@ input[type="range"]::-webkit-slider-thumb {
 
 input[type="number"],
 input[type="text"],
+input[type="time"],
 select {
   background: var(--bg-input2);
   border: 1px solid var(--border-input2);
@@ -1313,7 +1469,10 @@ select:disabled {
 }
 
 .bg-swatch.checker {
-  background: repeating-conic-gradient(var(--check-a) 0% 25%, var(--check-b) 0% 50%);
+  background: repeating-conic-gradient(
+    var(--check-a) 0% 25%,
+    var(--check-b) 0% 50%
+  );
   background-size: 8px 8px;
 }
 
@@ -1353,7 +1512,10 @@ select:disabled {
   width: 18px;
   height: 18px;
   object-fit: contain;
-  background: repeating-conic-gradient(var(--check-a) 0% 25%, var(--check-b) 0% 50%);
+  background: repeating-conic-gradient(
+    var(--check-a) 0% 25%,
+    var(--check-b) 0% 50%
+  );
   background-size: 6px 6px;
   border-radius: 2px;
 }
@@ -1429,8 +1591,12 @@ select:disabled {
   transition: none;
 }
 @keyframes merge-stripes {
-  from { background-position: 0 0; }
-  to { background-position: 40px 0; }
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 40px 0;
+  }
 }
 
 /* 视频转换页的 video 可见(复用 offscreen-video 的位置,但显示在 canvas-wrap 内) */
@@ -1465,14 +1631,16 @@ select:disabled {
   --seek-pct: 0%;
   --grip-a: 0%;
   --grip-b: 100%;
-  background: linear-gradient(to right,
+  background: linear-gradient(
+    to right,
     var(--bg-track) 0%,
     var(--bg-track) var(--grip-a),
     var(--cyan) var(--grip-a),
     var(--cyan) var(--seek-pct),
     var(--bg-track) var(--seek-pct),
     var(--bg-track) var(--grip-b),
-    var(--bg-track) 100%);
+    var(--bg-track) 100%
+  );
   border-radius: 3px;
   outline: none;
   cursor: pointer;
@@ -1520,7 +1688,9 @@ select:disabled {
   border-radius: 50%;
   padding: 15px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
-  transition: transform 0.15s ease, background 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease;
 }
 
 /* 源视频右下角的全屏图标：载入视频后由 JS 取消 hidden，平时隐着，鼠标进预览框才淡入 */
@@ -1542,7 +1712,9 @@ select:disabled {
   cursor: pointer;
   opacity: 0;
   pointer-events: none; /* 淡出期间别让人误点到一个看不见的按钮上 */
-  transition: opacity 0.25s ease, background 0.15s ease;
+  transition:
+    opacity 0.25s ease,
+    background 0.15s ease;
 }
 
 #vid-canvas-wrap:hover .vid-fs-btn {
@@ -1633,14 +1805,50 @@ select:disabled {
   z-index: 5;
 }
 
-.crop-handle.nw { top: -5px; left: -5px; cursor: nwse-resize; }
-.crop-handle.n { top: -5px; left: 50%; margin-left: -5px; cursor: ns-resize; }
-.crop-handle.ne { top: -5px; right: -5px; cursor: nesw-resize; }
-.crop-handle.e { top: 50%; right: -5px; margin-top: -5px; cursor: ew-resize; }
-.crop-handle.se { bottom: -5px; right: -5px; cursor: nwse-resize; }
-.crop-handle.s { bottom: -5px; left: 50%; margin-left: -5px; cursor: ns-resize; }
-.crop-handle.sw { bottom: -5px; left: -5px; cursor: nesw-resize; }
-.crop-handle.w { top: 50%; left: -5px; margin-top: -5px; cursor: ew-resize; }
+.crop-handle.nw {
+  top: -5px;
+  left: -5px;
+  cursor: nwse-resize;
+}
+.crop-handle.n {
+  top: -5px;
+  left: 50%;
+  margin-left: -5px;
+  cursor: ns-resize;
+}
+.crop-handle.ne {
+  top: -5px;
+  right: -5px;
+  cursor: nesw-resize;
+}
+.crop-handle.e {
+  top: 50%;
+  right: -5px;
+  margin-top: -5px;
+  cursor: ew-resize;
+}
+.crop-handle.se {
+  bottom: -5px;
+  right: -5px;
+  cursor: nwse-resize;
+}
+.crop-handle.s {
+  bottom: -5px;
+  left: 50%;
+  margin-left: -5px;
+  cursor: ns-resize;
+}
+.crop-handle.sw {
+  bottom: -5px;
+  left: -5px;
+  cursor: nesw-resize;
+}
+.crop-handle.w {
+  top: 50%;
+  left: -5px;
+  margin-top: -5px;
+  cursor: ew-resize;
+}
 
 /* 音量控制 */
 .vid-vol {
@@ -1965,7 +2173,7 @@ select:disabled {
 }
 
 .dl-update-btn.checking::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: -2px;
   border-radius: 6px;
@@ -2008,7 +2216,9 @@ select:disabled {
   border-radius: 4px;
   opacity: 0;
   transform: translateY(4px);
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
   pointer-events: none;
   z-index: 30;
 }
@@ -2019,8 +2229,10 @@ select:disabled {
 }
 
 /* 批量模式包裹层:必须继承 panel 的 flex 列布局,否则内容会塌成一团 */
-#vid-single-wrap, #vid-batch-wrap,
-#aud-single-wrap, #aud-batch-wrap {
+#vid-single-wrap,
+#vid-batch-wrap,
+#aud-single-wrap,
+#aud-batch-wrap {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -2119,8 +2331,13 @@ select:disabled {
 }
 
 @keyframes pulse-glow {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.65; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.65;
+  }
 }
 
 .batch-mini-bar {
@@ -2198,6 +2415,707 @@ select:disabled {
   vertical-align: middle;
 }
 
+/* ===== 电脑配置页 ===== */
+/* 一页全是只读信息，用一整块可滚动的分组列表；行用两列网格，标签列定宽才能对齐 */
+.si-list {
+  flex: 1;
+  min-height: 120px;
+  overflow-y: auto;
+  border: 1px solid var(--bg-track);
+  border-radius: 6px;
+  /* 一大块只读文字，底色用比面板略深一档的表面色就够了，
+     别用接近纯黑的 --bg-dark3：黑底配亮字对比过强，看久了刺眼 */
+  background: var(--bg-surface2);
+}
+
+/* 「本次开机」钉在这一栏的正中间：绝对定位才不会被左标题、右按钮的宽度带偏 */
+.si-head {
+  position: relative;
+}
+
+.si-uptime {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: var(--muted-8a);
+  white-space: nowrap;
+}
+
+.si-group {
+  padding: 8px 10px;
+}
+
+.si-group + .si-group {
+  border-top: 1px solid var(--border-modal-head);
+}
+
+.si-group-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted-8a);
+  margin-bottom: 4px;
+}
+
+.si-row {
+  display: grid;
+  grid-template-columns: 124px 1fr;
+  gap: 10px;
+  font-size: 12.5px;
+  line-height: 1.75;
+}
+
+.si-k {
+  color: var(--muted-a6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.si-v {
+  color: var(--text-main);
+  word-break: break-word;
+  /* 配置串是要被人抄走的东西，得能选中 */
+  user-select: text;
+}
+
+.si-empty {
+  padding: 18px 12px;
+  color: var(--muted-6a);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* ===== 自动关机页 ===== */
+/* 一组互斥选择用两个等宽按钮，和「单个/批量」那对形状一致 */
+.seg-row {
+  display: flex;
+  gap: 8px;
+}
+
+.seg-row .btn {
+  flex: 1;
+  padding: 7px 0;
+  font-size: 12px;
+  border-radius: 6px;
+}
+
+.sd-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.sd-countdown {
+  flex: 1;
+  min-height: 230px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* 环里只放数字：「预计执行」那行比环的内径还宽，压进去一定会横穿描边，所以排在环外 */
+.sd-dial {
+  position: relative;
+  flex: 0 0 auto;
+  width: 200px;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 环形进度压在数字后面：整圈走 dashoffset，不碰宽高，主线程代价只有一个属性 */
+.sd-ring {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 200px;
+  height: 200px;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.sd-ring circle {
+  fill: none;
+  stroke-width: 5;
+}
+
+.sd-ring-track {
+  stroke: var(--bg-progress-track);
+}
+
+.sd-ring-fill {
+  stroke: var(--cyan);
+  stroke-linecap: round;
+  stroke-dasharray: 552.92;
+  stroke-dashoffset: 552.92;
+  /* 前端每 250ms 推一次 dashoffset，过渡时长跟着取 250ms linear，接得上就是匀速 */
+  transition:
+    stroke-dashoffset 250ms linear,
+    stroke 200ms ease;
+}
+
+.sd-countdown.running .sd-ring-fill {
+  stroke: var(--accent);
+}
+
+/* 最后 60 秒整块转橙，数字也跟着变色，扫一眼就知道快到点了 */
+.sd-countdown.urgent .sd-ring-fill {
+  stroke: var(--orange-text);
+}
+
+.sd-countdown.urgent .sd-time {
+  color: var(--orange-text);
+}
+
+.sd-time {
+  font-size: 42px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-title);
+  letter-spacing: 1px;
+}
+
+/* 不可逆操作的按钮：平时中性灰，只在真要按下时才给红色底 */
+.btn.danger {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+}
+
+.btn.danger:hover {
+  background: #f0554a;
+  border-color: #f0554a;
+}
+
+.sd-power-line {
+  flex: 0 0 auto;
+  white-space: normal;
+  text-align: center;
+}
+
+/* ===== 翻页时钟页 ===== */
+/* 舞台固定黑底：这一页是摆在桌面上看的，不跟浅色皮肤走 */
+.fc-stage {
+  --scale: 100;
+  --bright: 100;
+  --ch: calc(118px * var(--scale) / 100);
+  --cw: calc(var(--ch) * 0.7);
+  --led: calc(var(--ch) * 0.62);
+  --dur: 200ms;
+  --led-h: 6;
+  --led-s: 100%;
+  --led-c: hsl(var(--led-h), var(--led-s), 62%);
+  --led-glow: hsla(var(--led-h), var(--led-s), 62%, 0.85);
+  position: relative;
+  flex: 1 1 0;
+  min-height: 130px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 10px;
+  background: #000;
+  border: 1px solid var(--border-panel);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* 全屏：铺满视口，卡高改用视口单位，缩放滑条让位给屏幕大小 */
+.fc-stage.max {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  border: 0;
+  border-radius: 0;
+  --ch: min(26vh, 58vw);
+}
+
+.fc-clock {
+  filter: brightness(calc(var(--bright) * 1%));
+}
+
+.fc-fs {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 5;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 12px;
+  color: #cfcfcf;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid #2e2e2e;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.fc-fs:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.fc-meridiem {
+  position: absolute;
+  top: 10px;
+  left: 14px;
+  font-size: 13px;
+  letter-spacing: 2px;
+  color: #8b8b8b;
+}
+
+/* 右下角齿轮 + 设置浮窗：齿轮和浮窗一起待在舞台里，全屏时也够得着 */
+.fc-set-wrap {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.fc-gear {
+  top: auto;
+  right: auto;
+  position: static;
+  display: flex;
+  padding: 5px 6px;
+}
+
+.fc-gear svg {
+  display: block;
+}
+
+.fc-gear[aria-expanded="true"] {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+/* 舞台本身裁边是为了全屏，但浮窗打开时窗口矮于浮窗就会被切掉上半截：这时候放开裁剪 */
+.fc-stage.set-open {
+  overflow: visible;
+}
+
+/* 收起时缩回右下角并淡掉，不是直接消失：给「弹回」一个落点 */
+.fc-pop {
+  width: 320px;
+  max-height: min(72vh, 620px);
+  overflow-y: auto;
+  padding: 10px;
+  background: var(--bg-modal);
+  border: 1px solid var(--border-modal);
+  border-radius: 8px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transform: scale(0.6);
+  transform-origin: right bottom;
+  pointer-events: none;
+  transition:
+    transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 130ms ease;
+}
+
+.fc-pop.on {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+/* 第二列要能压到 0：默认 1fr = minmax(auto,1fr)，倒计时那行的自定义输入会把列撑破浮窗 */
+.fc-pop .form-grid {
+  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.fc-pop .fc-custom {
+  flex-wrap: wrap;
+}
+
+.fc-pop .seg-row .btn {
+  padding: 5px 0;
+  font-size: 12px;
+}
+
+.fc-pop .chk {
+  font-size: 12px;
+}
+
+.fc-note {
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-panel);
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted-8a);
+}
+
+/* 色轮：角度=色相，半径=饱和度 */
+.fc-color {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fc-wheel {
+  position: relative;
+  flex: 0 0 66px;
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  cursor: crosshair;
+  touch-action: none;
+  background:
+    radial-gradient(circle at 50% 50%, #fff 0%, rgba(255, 255, 255, 0) 72%),
+    conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
+}
+
+.fc-knob {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55);
+  background: var(--led-c);
+  pointer-events: none;
+}
+
+.fc-color-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted-8a);
+}
+
+.fc-flip,
+.fc-led {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(var(--ch) * 0.06);
+}
+
+.fc-grp {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.fc-cells {
+  display: flex;
+  gap: calc(var(--ch) * 0.05);
+}
+
+.fc-lbl {
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: #6f6f6f;
+}
+
+.fc-colon {
+  align-self: flex-start;
+  height: var(--ch);
+  display: flex;
+  align-items: center;
+  font-size: calc(var(--ch) * 0.42);
+  color: #4d4d4d;
+}
+
+/* 翻页卡：上下两半各裁一张完整数字，换数字时再叠两层做翻转 */
+.fc-card {
+  position: relative;
+  width: var(--cw);
+  height: var(--ch);
+}
+
+.fc-h {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 50%;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  backface-visibility: hidden;
+}
+
+.fc-h i {
+  display: block;
+  height: var(--ch);
+  line-height: var(--ch);
+  font-style: normal;
+  font-size: calc(var(--ch) * 0.7);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-top {
+  top: 0;
+}
+
+.fc-bot {
+  bottom: 0;
+}
+
+.fc-bot i {
+  transform: translateY(-50%);
+}
+
+.fc-ft,
+.fc-fb {
+  display: none;
+  z-index: 3;
+}
+
+.fc-card.fl .fc-ft,
+.fc-card.fl .fc-fb {
+  display: flex;
+}
+
+.fc-ft {
+  top: 0;
+  transform-origin: center bottom;
+  animation: fcTop var(--dur) cubic-bezier(0.45, 0, 1, 1) both;
+}
+
+.fc-fb {
+  bottom: 0;
+  transform-origin: center top;
+  animation: fcBot var(--dur) cubic-bezier(0, 0.55, 0.55, 1) both;
+  animation-delay: calc(var(--dur) / 2);
+}
+
+@keyframes fcTop {
+  from {
+    transform: rotateX(0);
+  }
+  to {
+    transform: rotateX(-90deg);
+  }
+}
+
+@keyframes fcBot {
+  from {
+    transform: rotateX(90deg);
+  }
+  to {
+    transform: rotateX(0);
+  }
+}
+
+/* 扁平：纯色块 + 一条缝，不做透视，翻起来是「压扁」而不是「立起来」 */
+.fc-stage[data-style="flat"] .fc-h {
+  background: #1d1d1d;
+}
+
+.fc-stage[data-style="flat"] .fc-top,
+.fc-stage[data-style="flat"] .fc-ft {
+  border-bottom: 1px solid #000;
+}
+
+.fc-stage[data-style="flat"] .fc-bot,
+.fc-stage[data-style="flat"] .fc-fb {
+  border-top: 1px solid #000;
+}
+
+/* 立体：渐变卡面 + 高光 + 投影 + 透视 */
+.fc-stage[data-style="3d"] .fc-card {
+  perspective: 520px;
+  border-radius: 10px;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.6);
+}
+
+.fc-stage[data-style="3d"] .fc-top,
+.fc-stage[data-style="3d"] .fc-ft {
+  background: linear-gradient(#3d3d3d, #262626);
+  border-radius: 10px 10px 2px 2px;
+}
+
+.fc-stage[data-style="3d"] .fc-bot,
+.fc-stage[data-style="3d"] .fc-fb {
+  background: linear-gradient(#242424, #141414);
+  border-radius: 2px 2px 10px 10px;
+}
+
+.fc-stage[data-style="3d"] .fc-card::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(50% - 1px);
+  height: 2px;
+  background: #050505;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.fc-stage[data-style="3d"] .fc-ft::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(rgba(255, 255, 255, 0.09), transparent 60%);
+}
+
+/* 取消「卡片底色」这一档：只留数字，别留底 */
+.fc-stage.nobg .fc-h {
+  background: transparent !important;
+  border: 0 !important;
+}
+
+.fc-stage.nobg .fc-card {
+  box-shadow: none !important;
+}
+
+.fc-stage.nobg .fc-card::after {
+  display: none;
+}
+
+/* 数字时钟：七段数码管，没有翻页，冒号跟着秒闪 */
+.fc-led {
+  display: none;
+}
+
+.fc-stage[data-style="led"] .fc-flip {
+  display: none;
+}
+
+.fc-stage[data-style="led"] .fc-led {
+  display: flex;
+  gap: calc(var(--led) * 0.06);
+}
+
+.fc-stage[data-style="led"] .fc-cells {
+  gap: calc(var(--led) * 0.16);
+}
+
+.fc-stage[data-style="led"] .fc-colon {
+  height: calc(var(--led) * 1.8);
+  font-size: calc(var(--led) * 0.5);
+  color: var(--led-c);
+  text-shadow: 0 0 10px var(--led-glow);
+  animation: fcBlink 1s steps(1) infinite;
+}
+
+.fc-stage.still .fc-led .fc-colon {
+  animation: none;
+}
+
+@keyframes fcBlink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0.15;
+  }
+}
+
+.fc-seg {
+  position: relative;
+  width: var(--led);
+  height: calc(var(--led) * 1.8);
+}
+
+.fc-seg b {
+  position: absolute;
+  display: block;
+  background: var(--led-c);
+  border-radius: 2px;
+  opacity: 0.06;
+  transition: opacity 90ms linear;
+}
+
+.fc-seg b.on {
+  opacity: 1;
+  box-shadow: 0 0 calc(var(--led) * 0.18) var(--led-glow);
+}
+
+.fc-stage.nobg .fc-seg b {
+  box-shadow: none;
+}
+
+.fc-seg b[data-s="a"] {
+  left: 10%;
+  top: 0;
+  width: 80%;
+  height: 8%;
+}
+
+.fc-seg b[data-s="d"] {
+  left: 10%;
+  bottom: 0;
+  width: 80%;
+  height: 8%;
+}
+
+.fc-seg b[data-s="g"] {
+  left: 10%;
+  top: 46%;
+  width: 80%;
+  height: 8%;
+}
+
+.fc-seg b[data-s="f"] {
+  left: 2%;
+  top: 6%;
+  width: 8%;
+  height: 40%;
+}
+
+.fc-seg b[data-s="b"] {
+  right: 2%;
+  top: 6%;
+  width: 8%;
+  height: 40%;
+}
+
+.fc-seg b[data-s="e"] {
+  left: 2%;
+  bottom: 6%;
+  width: 8%;
+  height: 40%;
+}
+
+.fc-seg b[data-s="c"] {
+  right: 2%;
+  bottom: 6%;
+  width: 8%;
+  height: 40%;
+}
+
+.fc-inline {
+  display: flex;
+  gap: 16px;
+}
+
+.fc-custom {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.fc-custom input {
+  flex: 0 0 46px;
+  width: 46px;
+  padding: 5px 6px;
+  text-align: center;
+}
+
+.fc-custom span {
+  margin-right: 4px;
+  font-size: 12px;
+  color: var(--muted-8a);
+}
+
 /* 系统开了「减弱动态效果」就别硬塞动画:
    页签指示块仍会瞬移到目标位置,只是不再滑过去 */
 @media (prefers-reduced-motion: reduce) {
@@ -2213,6 +3131,11 @@ select:disabled {
   .pin-btn.pop .pin-ic,
   .theme-btn.spin .ic-wrap,
   .ripple {
+    animation: none;
+  }
+
+  /* 翻页动画留着：它一停，翻牌层会盖住新数字，时钟就显示错了。只收掉冒号闪 */
+  .fc-stage[data-style="led"] .fc-colon {
     animation: none;
   }
 }

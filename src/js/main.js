@@ -10,6 +10,9 @@ import { initGifView } from './gif-view-page.js';
 import { initVideoConvert } from './video-convert-page.js';
 import { initAudioConvert } from './audio-convert-page.js';
 import { initVideoDownload } from './video-download-page.js';
+import { initSysInfo } from './sysinfo-page.js';
+import { initShutdown } from './shutdown-page.js';
+import { initFlipClock } from './clock-page.js';
 import {
   onGlobalDrop,
   isSupportedName,
@@ -100,6 +103,10 @@ const tabGifView = document.getElementById('tab-gifview');
 const tabVideo = document.getElementById('tab-video');
 const tabAudio = document.getElementById('tab-audio');
 const tabDl = document.getElementById('tab-dl');
+const tabClock = document.getElementById('tab-clock');
+const tabRename = document.getElementById('tab-rename');
+const tabSysInfo = document.getElementById('tab-sysinfo');
+const tabShutdown = document.getElementById('tab-shutdown');
 const pageSplit = document.getElementById('page-split');
 const pageMerge = document.getElementById('page-merge');
 const pageConvert = document.getElementById('page-convert');
@@ -110,6 +117,10 @@ const pageGifView = document.getElementById('page-gifview');
 const pageVideo = document.getElementById('page-video');
 const pageAudio = document.getElementById('page-audio');
 const pageDl = document.getElementById('page-dl');
+const pageClock = document.getElementById('page-clock');
+const pageRename = document.getElementById('page-rename');
+const pageSysInfo = document.getElementById('page-sysinfo');
+const pageShutdown = document.getElementById('page-shutdown');
 
 const srcView = new CanvasView(document.getElementById('src-canvas'), {
   clickable: true,
@@ -207,6 +218,9 @@ const gvApi = initGifView({ view: gvView });
 const videoApi = initVideoConvert();
 const audioApi = initAudioConvert();
 const dlApi = initVideoDownload();
+initSysInfo();
+const shutdownApi = initShutdown();
+initFlipClock();
 
 // 两行封顶的那几行（各页状态行、GIF 页信息行）只显示两行，超出省略号；
 // 完整文字挂到 title 上，鼠标悬停看全文
@@ -229,6 +243,10 @@ const tabs = [
   ['video', tabVideo, pageVideo, []],
   ['audio', tabAudio, pageAudio, []],
   ['dl', tabDl, pageDl, []],
+  ['clock', tabClock, pageClock, []],
+  ['rename', tabRename, pageRename, []],
+  ['sysinfo', tabSysInfo, pageSysInfo, []],
+  ['shutdown', tabShutdown, pageShutdown, []],
 ];
 
 // 页签行的两块「药丸」:.tab-ind 标当前页签,.tab-hover 跟手做悬停底色
@@ -242,9 +260,14 @@ function syncTabIndicator() {
   if (!el) return;
   placePill(tabInd, el);
   tabInd.classList.add('on');
+  // 只有真的一排放不下，才把光标提示成「可以拖着走」；宽窗口下别乱指
+  tabsRow.classList.toggle('scrollable', tabsRow.scrollWidth - tabsRow.clientWidth >= 1);
 }
 
 function showTab(which) {
+  // 跳到被工具列表收起来的页签（比如关窗被拦下后跳自动关机），先把它放回来，
+  // 否则切过去只有一页内容、行上却找不到对应的页签
+  unhideTab(which);
   let active = tabs[0];
   for (const t of tabs) {
     const on = t[0] === which;
@@ -252,6 +275,8 @@ function showTab(which) {
     t[2].classList.toggle('hidden', !on);
     if (on) active = t;
   }
+  // 窄窗口下页签一排放不下，被程序切过去的那一页（比如关窗拦截跳到自动关机）可能在可视范围外
+  active[1].scrollIntoView({ block: 'nearest', inline: 'nearest' });
   syncTabIndicator();
   requestAnimationFrame(() => active[3].forEach((v) => v.redraw()));
 }
@@ -266,6 +291,10 @@ tabGifView.addEventListener('click', () => showTab('gifview'));
 tabVideo.addEventListener('click', () => showTab('video'));
 tabAudio.addEventListener('click', () => showTab('audio'));
 tabDl.addEventListener('click', () => showTab('dl'));
+tabClock.addEventListener('click', () => showTab('clock'));
+tabRename.addEventListener('click', () => showTab('rename'));
+tabSysInfo.addEventListener('click', () => showTab('sysinfo'));
+tabShutdown.addEventListener('click', () => showTab('shutdown'));
 
 // 页签微交互:悬停时半透明块跟手、点击出涟漪、按下回弹(回弹在 CSS 的 :active 里)
 for (const [, tabEl] of tabs) {
@@ -281,6 +310,257 @@ for (const [, tabEl] of tabs) {
   tabEl.addEventListener('click', (ev) => ripple(tabEl, ev));
 }
 tabsRow.addEventListener('mouseleave', () => tabHover.classList.remove('on'));
+
+// 滚轮落到页签行时当横向滑动用（行的纵向溢出被 overflow-y:hidden 关掉了）
+tabsRow.addEventListener(
+  'wheel',
+  (e) => {
+    if (e.ctrlKey || !e.deltaY) return;
+    tabsRow.scrollLeft += e.deltaY;
+  },
+  { passive: true }
+);
+
+// 左键按住页签行：横向拖 = 滚动看后面的页签，竖向拖 = 把这一页抓起来换位置。
+// 一次按下只认一个手势：先动到哪个方向（超过 DRAG_BREAK）就定下来，中途不再改主意。
+// 这里不用 setPointerCapture：capture 一旦设在这行上，浏览器会把 click 也派发到这行，
+// 页签就再也收不到点击（窄窗口下等于点不动页签）；改成拖动期间临时挂到 window 上监听
+const ORDER_KEY = 'tabOrder';
+const DRAG_BREAK = 6;
+let drag = null;
+
+function readTabOrder() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(ORDER_KEY) || '[]');
+    // 只认现在还在的页签名：以后加新工具，它排到最后，不会因为旧记录找不到而错位
+    return Array.isArray(arr) ? arr.filter((n) => tabs.some((t) => t[0] === n)) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveTabOrder() {
+  try {
+    localStorage.setItem(ORDER_KEY, JSON.stringify(tabs.map((t) => t[0])));
+  } catch (e) {
+    // 写不进去就算了，顺序丢一次不影响功能
+  }
+}
+
+// 数组跟着 DOM 重排：工具列表、启动落点、showTab 都按这个顺序说话
+function sortTabsByDom() {
+  tabs.sort((a, b) => (a[1].compareDocumentPosition(b[1]) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+}
+
+function applyTabOrder() {
+  const saved = readTabOrder();
+  const seq = saved.map((n) => tabs.find((t) => t[0] === n));
+  for (const t of tabs) if (!saved.includes(t[0])) seq.push(t);
+  for (const t of seq) tabsRow.appendChild(t[1]);
+  sortTabsByDom();
+}
+
+function reorderUnder(x) {
+  const grabbed = drag.tab;
+  let ref = null;
+  for (const s of tabsRow.querySelectorAll('.tab')) {
+    if (s === grabbed || s.hidden) continue;
+    const b = s.getBoundingClientRect();
+    if (x < b.left + b.width / 2) {
+      ref = s;
+      break;
+    }
+  }
+  if (ref) {
+    if (grabbed.nextElementSibling !== ref) tabsRow.insertBefore(grabbed, ref);
+  } else if (grabbed !== tabsRow.lastElementChild) tabsRow.appendChild(grabbed);
+  syncTabIndicator();
+}
+
+// 抓着一页拖到行的两端时，行自己往那边挪一点：不然窄窗口下永远拖不到最前面
+function autoScrollAt(x) {
+  const b = tabsRow.getBoundingClientRect();
+  const edge = 34;
+  if (x < b.left + edge) tabsRow.scrollLeft -= 12;
+  else if (x > b.right - edge) tabsRow.scrollLeft += 12;
+}
+
+function onTabDragMove(e) {
+  if (!drag) return;
+  // 手已经离开窗口、按键在别处松掉这一轮时，e.buttons 会是 0：当作松手收尾，别把 grabbing 卡住
+  if (e.buttons === 0) return endTabDrag();
+  const dx = e.clientX - drag.x;
+  const dy = e.clientY - drag.y;
+  if (!drag.kind) {
+    if (drag.tab && Math.abs(dy) >= DRAG_BREAK && Math.abs(dy) > Math.abs(dx)) drag.kind = 'reorder';
+    else if (drag.canScroll && Math.abs(dx) >= DRAG_BREAK) drag.kind = 'scroll';
+    else return;
+    drag.moved = true;
+    tabsRow.classList.add(drag.kind === 'reorder' ? 'reordering' : 'dragging');
+    if (drag.kind === 'reorder') drag.tab.classList.add('grabbed');
+  }
+  if (drag.kind === 'scroll') {
+    tabsRow.scrollLeft = drag.left - dx;
+    return;
+  }
+  reorderUnder(e.clientX);
+  autoScrollAt(e.clientX);
+}
+
+function endTabDrag() {
+  drag && window.removeEventListener('pointermove', onTabDragMove);
+  window.removeEventListener('pointerup', endTabDrag);
+  window.removeEventListener('pointercancel', endTabDrag);
+  tabsRow.classList.remove('dragging');
+  if (drag && drag.kind === 'reorder') {
+    tabsRow.classList.remove('reordering');
+    drag.tab.classList.remove('grabbed');
+    sortTabsByDom();
+    saveTabOrder();
+    syncTabIndicator();
+  }
+}
+
+tabsRow.addEventListener('pointerdown', (e) => {
+  // 每按下一次都重新记一轮：上一轮的 moved 标记不能一直管着后面的点击
+  drag = null;
+  if (e.button !== 0) return;
+  drag = {
+    x: e.clientX,
+    y: e.clientY,
+    left: tabsRow.scrollLeft,
+    tab: e.target instanceof Element ? e.target.closest('.tab') : null,
+    canScroll: tabsRow.scrollWidth - tabsRow.clientWidth >= 1,
+    kind: null,
+    moved: false,
+  };
+  window.addEventListener('pointermove', onTabDragMove);
+  window.addEventListener('pointerup', endTabDrag);
+  window.addEventListener('pointercancel', endTabDrag);
+});
+// 松手补发的那次 click 会被浏览器当成「点了某个页签」，拖过就别让它冒到页签上
+tabsRow.addEventListener(
+  'click',
+  (e) => {
+    if (!drag || !drag.moved) return;
+    e.stopPropagation();
+    e.preventDefault();
+  },
+  true
+);
+
+applyTabOrder();
+
+// ===== 工具列表：手动隐藏 / 显示页签 =====
+// 只在页签行上做显示与否，持久化到本地；各页自己的功能、状态都不碰
+const tlBtn = document.getElementById('tool-list');
+const tlPop = document.getElementById('tool-list-pop');
+const tlList = document.getElementById('tlist-list');
+const tlNote = document.getElementById('tlist-note');
+const tlShowAll = document.getElementById('tlist-show-all');
+const TL_KEY = 'hiddenTabs';
+const hiddenTabs = new Set(readHiddenTabs());
+
+function readHiddenTabs() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(TL_KEY) || '[]');
+    // 只认现在还在的页签名：以后改名或删工具，旧记录自然失效
+    return Array.isArray(arr) ? arr.filter((n) => tabs.some((t) => t[0] === n)) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveHiddenTabs() {
+  try {
+    localStorage.setItem(TL_KEY, JSON.stringify([...hiddenTabs]));
+  } catch (e) {
+    // 隐私模式之类写不进去就算了，别拦住页签切换
+  }
+}
+
+function setTlNote(msg) {
+  tlNote.textContent = msg || '';
+}
+
+function applyHiddenTabs() {
+  for (const [name, tabEl] of tabs) tabEl.hidden = hiddenTabs.has(name);
+  const active = tabsRow.querySelector('.tab.active');
+  if (active && active.hidden) {
+    const next = tabs.find((t) => !t[1].hidden);
+    showTab(next[0]);
+    setTlNote(`当前页已隐藏，切到「${next[1].textContent}」`);
+  } else {
+    syncTabIndicator();
+  }
+}
+
+function unhideTab(name) {
+  if (!hiddenTabs.has(name)) return;
+  hiddenTabs.delete(name);
+  saveHiddenTabs();
+  applyHiddenTabs();
+}
+
+// 面板每次展开都照当前状态重建，省掉「勾了一个要回头同步另一处」的簿记
+function buildTlList() {
+  tlList.innerHTML = '';
+  for (const [name, tabEl] of tabs) {
+    const row = document.createElement('label');
+    row.className = 'tlist-item';
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = !hiddenTabs.has(name);
+    box.addEventListener('change', () => {
+      if (!box.checked && tabs.length - hiddenTabs.size <= 1) {
+        // 全关掉等于把应用关成空白页：拦下来说明原因，不替他改别的页签
+        box.checked = true;
+        setTlNote('至少要留一个显示的页签');
+        return;
+      }
+      setTlNote('');
+      if (box.checked) hiddenTabs.delete(name);
+      else hiddenTabs.add(name);
+      saveHiddenTabs();
+      applyHiddenTabs();
+    });
+    const label = document.createElement('span');
+    label.textContent = tabEl.textContent;
+    row.append(box, label);
+    tlList.appendChild(row);
+  }
+}
+
+function openTl(open) {
+  tlPop.hidden = !open;
+  tlBtn.classList.toggle('on', open);
+  tlBtn.setAttribute('aria-expanded', String(open));
+  if (open) {
+    buildTlList();
+    setTlNote('');
+  }
+}
+
+tlBtn.addEventListener('click', () => openTl(tlPop.hidden));
+tlShowAll.addEventListener('click', () => {
+  hiddenTabs.clear();
+  saveHiddenTabs();
+  setTlNote('');
+  buildTlList();
+  applyHiddenTabs();
+});
+// 点面板外的任何地方都收起它；Esc 同理
+document.addEventListener('pointerdown', (e) => {
+  if (tlPop.hidden) return;
+  const t = e.target;
+  if (t instanceof Element && t.closest('.tlist-wrap')) return;
+  openTl(false);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !tlPop.hidden) openTl(false);
+});
+
+applyHiddenTabs();
 
 // 窗口尺寸变了、字体加载完了都重新量一次位置
 addEventListener('resize', syncTabIndicator);
@@ -323,7 +603,18 @@ if (!currentWindow) {
 
   winMin.addEventListener('click', () => currentWindow.minimize());
   winMax.addEventListener('click', () => currentWindow.toggleMaximize());
-  winClose.addEventListener('click', () => currentWindow.close());
+  // 自动关机计时中关掉窗口就等于计划作废（计时只在软件内守）。第一次点先拦下来，
+  // 切到那一页把原因写在状态行，再点一次才真关 —— 免得手滑把排好的关机弄没了
+  let closeBlockedAt = 0;
+  winClose.addEventListener('click', () => {
+    if (shutdownApi.blocksClose() && Date.now() - closeBlockedAt > 5000) {
+      closeBlockedAt = Date.now();
+      showTab('shutdown');
+      shutdownApi.reportCloseBlocked();
+      return;
+    }
+    currentWindow.close();
+  });
 
   // 最大化 / 还原后换图标，拖动窗口改变尺寸时也会触发
   const syncMaxIcon = async () => {
@@ -352,7 +643,7 @@ function swapThemeIcon(light) {
 function applyTheme(theme, syncIcon = true) {
   const light = theme === 'light';
   document.documentElement.classList.toggle('light', light);
-  themeBtn.title = light ? '当前浅色，点击切换深色' : '当前深色，点击切换浅色';
+  themeBtn.dataset.tip = light ? '当前浅色，点击切换深色' : '当前深色，点击切换浅色';
   themeBtn.setAttribute('aria-pressed', String(light));
   // 让系统的非客户区(边框、原生对话框)也跟着换,避免浅色窗口配深色系统框
   if (currentWindow) currentWindow.setTheme(light ? 'light' : 'dark').catch(() => {});
@@ -421,4 +712,28 @@ onGlobalDrop((entries) => {
 // 文本框里的右键粘贴一起没了，粘贴走 Ctrl+V
 document.addEventListener('contextmenu', (e) => e.preventDefault());
 
-showTab('split');
+// 回车不再二次触发当前聚焦的按钮/页签：用鼠标点过「打开图片…」之后再敲回车，
+// 原来会把那个按钮再按一次。输入框里的回车是各页自己的功能（解析链接、收时间框），照旧放行。
+// 浏览器快捷键（F1/F3/F5/F7、Ctrl+F/P/S/O…）在 Rust 侧整组关掉，这里只补页面这层：
+// Ctrl+滚轮缩放（zoomHotkeysEnabled 之外的兜底）
+document.addEventListener(
+  'keydown',
+  (e) => {
+    if (e.key !== 'Enter') return;
+    const t = e.target;
+    const tag = t && t.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+    e.preventDefault();
+  },
+  true
+);
+addEventListener(
+  'wheel',
+  (e) => {
+    if (e.ctrlKey) e.preventDefault();
+  },
+  { passive: false }
+);
+
+// 启动落在第一个没被工具列表收起来的页签上：被收掉的页签不该在重启时又被拉回这一行
+showTab(tabs.find((t) => !hiddenTabs.has(t[0]))[0]);
